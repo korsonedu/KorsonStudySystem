@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import SharePoster from './SharePoster.vue'
+import SimplePoster from './SimplePoster.vue'
 // Teleport 是 Vue 3 内置组件，不需要显式导入
 
 const props = defineProps<{
@@ -106,11 +106,9 @@ const showPoster = () => {
 
     <!-- 使用v-if而不是v-show来避免闪烁问题 -->
     <Teleport to="body">
-      <SharePoster
+      <SimplePoster
         v-if="showPosterModal"
         :showModal="true"
-        :title="props.title"
-        :subtitle="props.text"
         @close="showPosterModal = false"
         @generated="handlePosterGenerated"
       />

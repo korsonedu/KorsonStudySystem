@@ -10,6 +10,7 @@ const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
+const invitationCode = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
 const loading = ref(false)
@@ -21,8 +22,8 @@ const register = async () => {
     loading.value = true
 
     // 表单验证
-    if (!username.value || !password.value || !email.value) {
-      errorMessage.value = '用户名、邮箱和密码不能为空'
+    if (!username.value || !password.value || !email.value || !invitationCode.value) {
+      errorMessage.value = '用户名、邮箱、密码和邀请码不能为空'
       loading.value = false
       return
     }
@@ -41,11 +42,19 @@ const register = async () => {
       return
     }
 
+    // 验证邀请码
+    if (invitationCode.value !== 'korsonacademy') {
+      errorMessage.value = '邀请码不正确'
+      loading.value = false
+      return
+    }
+
     // 创建用户对象
     const userData = {
       username: username.value,
       email: email.value || undefined, // 如果为空字符串则设为undefined
-      password: password.value
+      password: password.value,
+      invitation_code: invitationCode.value
     }
 
     // 使用用户服务发送注册请求
@@ -53,12 +62,13 @@ const register = async () => {
 
     if (success) {
       // 注册成功，显示成功消息
-      successMessage.value = '注册成功！请查看您的邮箱，点击验证链接完成注册。'
+      successMessage.value = '注册成功！正在跳转到登录页面...'
       // 清空表单
       username.value = ''
       email.value = ''
       password.value = ''
       confirmPassword.value = ''
+      invitationCode.value = ''
 
       // 3秒后自动跳转到登录页
       setTimeout(() => {
@@ -115,7 +125,6 @@ const goToLogin = () => {
           :disabled="loading"
           required
         >
-        <small class="form-text">我们将向您发送验证邮件，请确保邮箱有效</small>
       </div>
 
       <div class="form-group">
@@ -138,6 +147,18 @@ const goToLogin = () => {
           placeholder="请再次输入密码"
           @keyup.enter="register"
           :disabled="loading"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="invitation-code">邀请码</label>
+        <input
+          type="text"
+          id="invitation-code"
+          v-model="invitationCode"
+          placeholder="请输入邀请码（仅支持邀请注册）"
+          :disabled="loading"
+          required
         >
       </div>
 
@@ -165,7 +186,7 @@ const goToLogin = () => {
   border-radius: 15px;
   box-shadow: 0 10px 20px rgba(0,0,0,0.1);
   width: 100%;
-  max-width: 400px;
+  max-width: 600px;
 }
 
 h2 {

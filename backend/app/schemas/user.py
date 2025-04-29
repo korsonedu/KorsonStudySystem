@@ -9,8 +9,13 @@ class UserBase(BaseModel):
     is_superuser: Optional[bool] = False
 
 class UserCreate(UserBase):
+    username: str
+    email: str
     password: str
-    email: str  # 注册时邮箱为必填项
+    invitation_code: str
+
+    class Config:
+        from_attributes = True
 
 class UserUpdate(UserBase):
     username: Optional[str] = None

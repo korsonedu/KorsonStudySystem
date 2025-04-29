@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import html2canvas from 'html2canvas';
 import { POSTER_SIZE, POSTER_IMAGES, POSTER_TEXT, POSTER_COLORS, POSTER_FONTS } from '../config/poster';
 import apiService from '../services/apiService';
 import { API_CONFIG } from '../config';
+
+// 海报配置
+const POSTER_CONFIG = {
+  width: 750,
+  height: 1334,
+  padding: 40,
+  borderRadius: 20,
+  backgroundColor: '#ffffff'
+};
 
 // 组件属性
 const props = defineProps<{
@@ -22,7 +31,7 @@ const emit = defineEmits<{
 const posterRef = ref<HTMLElement | null>(null);
 const isGenerating = ref(false);
 const generatedImageUrl = ref('');
-const error = ref('');
+const error = ref<string | null>(null);
 
 // 用户数据
 const userData = ref({
@@ -198,301 +207,98 @@ const loadUserData = async () => {
       taskTypeDistribution: []
     };
 
-    // 首先获取当前用户信息，确保我们有正确的用户昵称
+    // 获取当前用户信息
     try {
       console.log('获取当前用户信息...');
       const currentUserResponse = await apiService.get(API_CONFIG.ENDPOINTS.AUTH.CURRENT_USER);
-      if (currentUserResponse && currentUserResponse.data) {
+      if (currentUserResponse?.data) {
         userData.value.username = currentUserResponse.data.username || '';
-        userData.value.nickname = currentUserResponse.data.username || '学习达人'; // 使用用户名作为昵称
+        userData.value.nickname = currentUserResponse.data.nickname || currentUserResponse.data.username || '学习达人';
+        userData.value.registrationDate = currentUserResponse.data.created_at || new Date().toISOString();
         console.log('成功获取当前用户信息:', currentUserResponse.data);
-      } else {
-        console.warn('获取当前用户信息返回空数据');
       }
     } catch (err) {
       console.error('获取当前用户信息失败:', err);
     }
 
-    // 获取用户信息（包括注册日期和昵称）
+    // 获取用户统计数据
     try {
-      console.log('获取用户统计信息...');
-      const userInfoResponse = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.USER_INFO);
-      if (userInfoResponse && userInfoResponse.data) {
-        userData.value.registrationDate = userInfoResponse.data.created_at || '';
-        userData.value.username = userInfoResponse.data.username || userData.value.username || '';
-        // 优先使用后端返回的nickname，如果没有则使用username
-        userData.value.nickname = userInfoResponse.data.nickname || userInfoResponse.data.username || userData.value.nickname || '学习达人';
-        console.log('成功获取用户统计信息:', userInfoResponse.data);
-      } else {
-        console.warn('获取用户统计信息返回空数据');
+      console.log('获取用户统计数据...');
+      const [totalStats, dailyStats] = await Promise.all([
+        apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.TOTAL),
+        apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.DAILY)
+      ]);
+
+      if (totalStats?.data) {
+        userData.value.totalTasks = totalStats.data.totalTasks || 0;
+        userData.value.completedTasks = totalStats.data.completedTasks || 0;
+        userData.value.totalDuration = totalStats.data.totalMinutes || 0;
+        userData.value.streak = totalStats.data.streak || 0;
+        console.log('成功获取总统计数据:', totalStats.data);
+      }
+
+      if (dailyStats?.data) {
+        userData.value.dailyTasks = dailyStats.data.totalTasks || 0;
+        userData.value.dailyCompletedTasks = dailyStats.data.completedTasks || 0;
+        userData.value.dailyMinutes = dailyStats.data.totalMinutes || 0;
+        userData.value.timeDistribution = dailyStats.data.timeDistribution || [];
+        console.log('成功获取每日统计数据:', dailyStats.data);
       }
     } catch (err) {
-      console.error('获取用户统计信息失败:', err);
+      console.error('获取统计数据失败:', err);
     }
 
-    // 获取总计统计数据
+    // 获取今日任务列表
     try {
-      console.log('获取总计统计数据...');
-      const statsResponse = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.TOTAL);
-      if (statsResponse && statsResponse.data) {
-        // 从总计统计中获取数据
-        userData.value.totalDuration = statsResponse.data.totalHours * 60 || 0;
-        userData.value.dailyMinutes = statsResponse.data.dailyMinutes || 0;
-        console.log('成功获取总计统计数据:', statsResponse.data);
-      } else {
-        console.warn('获取总计统计数据返回空数据');
-      }
-    } catch (err) {
-      console.error('获取总计统计数据失败:', err);
-    }
-
-    // 获取用户任务统计
-    try {
-      console.log('获取用户任务统计...');
-      const userStatsResponse = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.USER_STATS);
-      if (userStatsResponse && userStatsResponse.data) {
-        userData.value.totalTasks = userStatsResponse.data.total_tasks || 0;
-        userData.value.completedTasks = userStatsResponse.data.completed_tasks || 0;
-        userData.value.streak = userStatsResponse.data.streak || 0;
-
-        // 获取今日任务数据
-        userData.value.dailyTasks = userStatsResponse.data.daily_tasks || 0;
-        userData.value.dailyCompletedTasks = userStatsResponse.data.daily_completed_tasks || 0;
-
-        console.log('成功获取用户任务统计:', userStatsResponse.data);
-      } else {
-        console.warn('获取用户任务统计返回空数据');
-      }
-    } catch (err) {
-      console.error('获取用户任务统计失败:', err);
-    }
-
-    // 获取时间分布数据（用于专注力波形图）
-    try {
-      console.log('获取时间分布数据...');
-      const timeDistResponse = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.TIME_DISTRIBUTION);
-      if (timeDistResponse && timeDistResponse.data && Array.isArray(timeDistResponse.data)) {
-        // 确保数据格式正确
-        const validData = timeDistResponse.data.filter(item =>
-          typeof item === 'object' &&
-          item !== null &&
-          'hour' in item &&
-          'duration' in item
-        );
-
-        if (validData.length > 0) {
-          userData.value.timeDistribution = validData;
-          console.log('成功加载时间分布数据:', validData);
-        } else {
-          console.warn('时间分布数据格式正确但内容无效');
-          userData.value.timeDistribution = [];
+      console.log('获取今日任务列表...');
+      const tasksResponse = await apiService.get(API_CONFIG.ENDPOINTS.TASKS.BASE, {
+        params: {
+          date: new Date().toISOString().split('T')[0]
         }
-      } else {
-        console.warn('时间分布数据格式不正确:', timeDistResponse?.data);
-        userData.value.timeDistribution = [];
+      });
+
+      if (tasksResponse?.data) {
+        userData.value.dailyTasksList = tasksResponse.data.map((task: any) => ({
+          name: task.name,
+          completed: task.completed,
+          type: task.type || 'default',
+          duration: task.duration || 0
+        }));
+
+        // 计算任务类型分布
+        const typeCount: Record<string, number> = {};
+        userData.value.dailyTasksList.forEach((task: any) => {
+          typeCount[task.type] = (typeCount[task.type] || 0) + 1;
+        });
+
+        const total = userData.value.dailyTasksList.length;
+        userData.value.taskTypeDistribution = Object.entries(typeCount).map(([type, count]) => ({
+          name: type,
+          percentage: Math.round((count / total) * 100),
+          color: getTaskTypeColor(type)
+        }));
+
+        console.log('成功获取任务列表:', userData.value.dailyTasksList);
       }
     } catch (err) {
-      console.error('获取时间分布数据失败:', err);
-      userData.value.timeDistribution = [];
+      console.error('获取任务列表失败:', err);
     }
 
-    // 获取任务分类分布数据（从daily统计获取）
-    try {
-      console.log('获取每日任务分类数据...');
-      const dailyResponse = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.DAILY);
-
-      // 检查响应数据
-      if (!dailyResponse || !dailyResponse.data) {
-        console.warn('每日统计响应为空');
-        return;
-      }
-
-      console.log('每日统计原始数据:', dailyResponse.data);
-
-      // 处理内容数据
-      if (dailyResponse.data.content && Array.isArray(dailyResponse.data.content)) {
-        const contentData = dailyResponse.data.content;
-        console.log('获取到内容数据:', contentData);
-
-        if (contentData.length > 0) {
-          // 过滤掉无效数据
-          const validContentData = contentData.filter(item =>
-            typeof item === 'object' &&
-            item !== null &&
-            'name' in item &&
-            'duration' in item &&
-            item.duration > 0
-          );
-
-          if (validContentData.length === 0) {
-            console.warn('过滤后的内容数据为空');
-            return;
-          }
-
-          console.log('有效内容数据:', validContentData);
-
-          // 计算总时长
-          const total = validContentData.reduce((sum, item) => sum + (item.duration || 0), 0);
-          console.log('总时长:', total);
-
-          if (total > 0) {
-            const result = [];
-            const colors = ['#74b9ff', '#55efc4', '#a29bfe', '#ffeaa7', '#fab1a0'];
-
-            validContentData.forEach((item, index) => {
-              const duration = item.duration || 0;
-              const percentage = Math.round((duration / total) * 100);
-              if (percentage > 0) {
-                result.push({
-                  name: item.name || '其他',
-                  percentage,
-                  color: colors[index % colors.length]
-                });
-              }
-            });
-
-            // 更新任务类型分布数据
-            if (result.length > 0) {
-              userData.value.taskTypeDistribution = result;
-              console.log('成功加载内容分布数据:', result);
-
-              // 同时更新任务列表
-              userData.value.dailyTasksList = validContentData.map(item => ({
-                name: item.name || '未命名任务',
-                completed: true,
-                type: item.name || '其他',
-                duration: item.duration || 0
-              }));
-              console.log('成功更新任务列表:', userData.value.dailyTasksList);
-            } else {
-              console.warn('内容分布数据为空');
-            }
-          } else {
-            console.warn('总时长为0，无法计算百分比');
-          }
-        } else {
-          console.warn('内容数据为空');
-        }
-      } else {
-        // 尝试处理hourly数据
-        if (dailyResponse.data.hourly && Array.isArray(dailyResponse.data.hourly)) {
-          console.log('尝试从hourly数据获取信息:', dailyResponse.data.hourly);
-
-          // 使用hourly数据更新时间分布
-          const hourlyData = dailyResponse.data.hourly;
-          if (hourlyData.length > 0) {
-            const timeDistData = hourlyData.map(item => ({
-              hour: parseInt(item.time) || 0,
-              duration: item.duration || 0
-            })).filter(item => !isNaN(item.hour) && item.hour >= 0 && item.hour < 24);
-
-            if (timeDistData.length > 0) {
-              userData.value.timeDistribution = timeDistData;
-              console.log('从hourly数据更新时间分布:', timeDistData);
-            }
-          }
-        } else {
-          console.warn('每日统计数据格式不正确:', dailyResponse.data);
-        }
-      }
-    } catch (err) {
-      console.error('获取任务分类分布失败:', err);
-      // 不使用默认数据，保持空数组
-      userData.value.taskTypeDistribution = [];
-    }
-
-    // 注意：每日统计数据已经在上面获取过了，这里不需要重复获取
-    // 如果需要使用 hourly 数据，可以在上面的 dailyResponse 处理中添加相关逻辑
-
-    // 如果从daily统计中没有获取到任务列表，则尝试从计划数据获取
+    // 如果没有数据，使用默认数据
     if (userData.value.dailyTasksList.length === 0) {
-      try {
-        console.log('从计划数据获取任务列表...');
-        const plansResponse = await apiService.get(API_CONFIG.ENDPOINTS.PLANS.BASE);
-
-        if (plansResponse && plansResponse.data && Array.isArray(plansResponse.data)) {
-          console.log('获取到计划数据:', plansResponse.data.length, '条');
-
-          // 检查计划数据格式
-          const validPlans = plansResponse.data.filter((plan: any) =>
-            typeof plan === 'object' &&
-            plan !== null &&
-            (plan.createdAt || plan.created_at)
-          );
-
-          if (validPlans.length === 0) {
-            console.warn('没有有效的计划数据');
-            return;
-          }
-
-          console.log('有效计划数据:', validPlans.length, '条');
-
-          // 过滤出今天的计划
-          const today = new Date();
-          const todayString = today.toDateString();
-
-          const todayPlans = validPlans.filter((plan: any) => {
-            // 检查计划是否为今天创建的
-            const planDate = new Date(plan.createdAt || plan.created_at);
-            const isToday = planDate.toDateString() === todayString;
-
-            if (isToday) {
-              console.log('找到今日计划:', plan);
-            }
-
-            return isToday;
-          });
-
-          console.log('今日计划数量:', todayPlans.length);
-
-          // 只有在没有从daily统计获取到任务列表时，才使用计划数据
-          if (userData.value.dailyTasksList.length === 0 && todayPlans.length > 0) {
-            // 将计划转换为任务格式
-            userData.value.dailyTasksList = todayPlans.map((plan: any) => ({
-              name: plan.text || plan.title || '未命名计划',
-              completed: plan.completed || false,
-              type: '学习',
-              duration: 0
-            }));
-
-            console.log('从计划数据设置今日任务列表:', userData.value.dailyTasksList);
-
-            // 更新今日计划数量
-            userData.value.dailyTasks = todayPlans.length;
-            userData.value.dailyCompletedTasks = todayPlans.filter((plan: any) => plan.completed).length;
-
-            console.log('更新今日计划统计:', {
-              dailyTasks: userData.value.dailyTasks,
-              dailyCompletedTasks: userData.value.dailyCompletedTasks
-            });
-          }
-        } else {
-          console.warn('计划数据格式不正确或为空');
-        }
-      } catch (err) {
-        console.error('获取计划数据失败:', err);
-      }
-    }
-
-    // 如果没有任何任务数据，创建一些默认数据以便海报能够正常显示
-    if (userData.value.dailyTasksList.length === 0) {
-      console.log('没有任何任务数据，使用默认数据');
-
-      // 创建默认任务分布数据
-      userData.value.taskTypeDistribution = [
-        { name: '学习', percentage: 60, color: '#74b9ff' },
-        { name: '工作', percentage: 30, color: '#55efc4' },
-        { name: '其他', percentage: 10, color: '#a29bfe' }
-      ];
-
-      // 创建默认任务列表
       userData.value.dailyTasksList = [
-        { name: '学习任务', completed: true, type: '学习', duration: 60 },
-        { name: '工作任务', completed: false, type: '工作', duration: 30 },
-        { name: '其他任务', completed: false, type: '其他', duration: 10 }
+        { name: '学习任务', completed: true, type: 'study', duration: 30 },
+        { name: '复习任务', completed: false, type: 'review', duration: 20 },
+        { name: '练习任务', completed: false, type: 'practice', duration: 15 }
       ];
-
-      console.log('设置默认任务数据完成');
+      
+      userData.value.taskTypeDistribution = [
+        { name: 'study', percentage: 60, color: '#3498db' },
+        { name: 'review', percentage: 30, color: '#2ecc71' },
+        { name: 'practice', percentage: 10, color: '#9b59b6' }
+      ];
+      
+      console.log('使用默认任务数据');
     }
 
   } catch (err) {
@@ -501,36 +307,82 @@ const loadUserData = async () => {
   }
 };
 
+// 辅助函数：获取任务类型对应的颜色
+const getTaskTypeColor = (type: string): string => {
+  const colorMap: Record<string, string> = {
+    study: '#3498db',
+    review: '#2ecc71',
+    practice: '#9b59b6',
+    default: '#95a5a6'
+  };
+  return colorMap[type] || colorMap.default;
+};
+
 // 生成并显示海报
-const generateAndShowPoster = async () => {
-  if (!posterRef.value) return;
-
-  isGenerating.value = true;
-  error.value = '';
-
+const generatePoster = async () => {
   try {
-    // 使用html2canvas将DOM元素转换为canvas
-    const canvas = await html2canvas(posterRef.value, {
-      scale: 2, // 提高分辨率
+    console.log('开始生成海报...', new Date().toLocaleTimeString());
+    isGenerating.value = true;
+    error.value = null;
+
+    // 确保数据已加载
+    if (!userData.value.nickname) {
+      await loadUserData();
+    }
+
+    // 等待DOM更新
+    await nextTick();
+
+    // 获取海报容器元素
+    const posterElement = document.getElementById('poster-container');
+    if (!posterElement) {
+      throw new Error('找不到海报容器元素');
+    }
+
+    // 配置html2canvas选项
+    const options = {
+      scale: 2, // 提高清晰度
       useCORS: true, // 允许加载跨域图片
-      allowTaint: true,
-      backgroundColor: 'transparent' // 透明背景，保留设计效果
-    });
+      backgroundColor: '#ffffff',
+      logging: true,
+      width: POSTER_CONFIG.width,
+      height: POSTER_CONFIG.height,
+      windowWidth: POSTER_CONFIG.width,
+      windowHeight: POSTER_CONFIG.height,
+      onclone: (clonedDoc: Document) => {
+        // 在克隆的文档中应用样式
+        const clonedElement = clonedDoc.getElementById('poster-container');
+        if (clonedElement) {
+          clonedElement.style.width = `${POSTER_CONFIG.width}px`;
+          clonedElement.style.height = `${POSTER_CONFIG.height}px`;
+          clonedElement.style.transform = 'none';
+          clonedElement.style.position = 'absolute';
+          clonedElement.style.left = '0';
+          clonedElement.style.top = '0';
+        }
+      }
+    };
 
-    // 将canvas转换为图片URL
-    generatedImageUrl.value = canvas.toDataURL('image/png');
+    console.log('开始渲染海报...');
+    const canvas = await html2canvas(posterElement, options);
+    console.log('海报渲染完成');
 
-    // 触发生成完成事件
-    emit('generated', generatedImageUrl.value);
+    // 转换为图片
+    const image = canvas.toDataURL('image/png', 1.0);
+    console.log('海报转换为图片完成');
 
-    // 添加生成成功的视觉反馈
-    setTimeout(() => {
-      // 可以添加一些动画或提示
-      console.log('海报生成成功，可以下载或分享');
-    }, 500);
+    // 创建下载链接
+    const link = document.createElement('a');
+    link.download = `学习记录_${userData.value.nickname}_${new Date().toLocaleDateString()}.png`;
+    link.href = image;
+    link.click();
+
+    console.log('海报生成完成');
+    return image;
   } catch (err) {
     console.error('生成海报失败:', err);
     error.value = '生成海报失败，请稍后再试';
+    throw err;
   } finally {
     isGenerating.value = false;
   }
@@ -619,7 +471,7 @@ const autoGeneratePoster = async () => {
     dailyTasksList: userData.value.dailyTasksList?.length || 0
   });
 
-  generateAndShowPoster();
+  generatePoster();
 };
 
 // 监听showModal变化，当打开时重新加载数据
@@ -849,7 +701,7 @@ watch(() => props.showModal, (newVal) => {
           <button
             v-if="!generatedImageUrl"
             class="generate-btn"
-            @click="generateAndShowPoster"
+            @click="generatePoster"
             :disabled="isGenerating"
           >
             {{ isGenerating ? '生成中...' : '生成海报' }}

@@ -10,7 +10,7 @@ import Statistics from './views/Statistics.vue'
 import Achievements from './views/Achievements.vue'
 import Login from './views/Login.vue'
 import Register from './views/Register.vue'
-import ApiTest from './views/ApiTest.vue'
+import VerifyEmail from './views/VerifyEmail.vue'
 
 // 定义路由
 const routes: RouteRecordRaw[] = [
@@ -38,9 +38,8 @@ const routes: RouteRecordRaw[] = [
     component: Register
   },
   {
-    path: '/api-test',
-    component: ApiTest,
-    meta: { requiresAuth: true }
+    path: '/verify-email',
+    component: VerifyEmail
   }
 ]
 

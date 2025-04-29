@@ -7,6 +7,30 @@ import { ref, computed } from 'vue';
 import apiService from './apiService';
 import { STORAGE_CONFIG, API_CONFIG } from '../config';
 
+interface UserProfile {
+  username: string;
+  email?: string;
+  created_at: string;
+}
+
+interface TaskStats {
+  totalTasks: number;
+  totalTime: number;
+  streakDays: number;
+  tasksList: Array<{
+    name: string;
+    duration: number;
+    completed: boolean;
+    start: string;
+    end: string;
+  }>;
+  taskDistribution: Array<{
+    type: string;
+    count: number;
+    total: number;
+  }>;
+}
+
 // 用户状态
 const currentUser = ref<any>(null);
 const isLoading = ref(false);
@@ -36,7 +60,7 @@ export const userService = {
    * 注册
    * @param userData 用户数据
    */
-  async register(userData: { username: string, password: string, email?: string }) {
+  async register(userData: { username: string, password: string, email?: string, invitation_code?: string }) {
     isLoading.value = true;
     error.value = '';
 
@@ -52,7 +76,8 @@ export const userService = {
 
       if (response && response.data) {
         console.log('Registration successful:', response.data);
-        return true;
+        currentUser.value = response.data;
+        return response.data;
       } else {
         throw new Error('Invalid response from server');
       }
@@ -64,7 +89,7 @@ export const userService = {
       } else {
         error.value = err.message || '注册失败，请检查网络连接';
       }
-      return false;
+      throw err;
     } finally {
       isLoading.value = false;
     }
@@ -115,7 +140,7 @@ export const userService = {
         throw new Error('Invalid response from server');
       }
 
-      return true;
+      return response.data;
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.response && err.response.data) {
@@ -123,7 +148,7 @@ export const userService = {
       } else {
         error.value = err.message || '登录失败，请检查网络连接';
       }
-      return false;
+      throw err;
     } finally {
       isLoading.value = false;
     }
@@ -202,6 +227,48 @@ export const userService = {
     }
 
     return !!currentUser.value;
+  },
+
+  async getProfile(): Promise<UserProfile> {
+    isLoading.value = true;
+    error.value = '';
+    try {
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.USER_INFO);
+      return response.data;
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || '获取用户信息失败';
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  },
+
+  async getTasks() {
+    isLoading.value = true;
+    error.value = '';
+    try {
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.TASKS.BASE);
+      return response.data;
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || '获取任务列表失败';
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  },
+
+  async getDailyStats(): Promise<TaskStats> {
+    isLoading.value = true;
+    error.value = '';
+    try {
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.USER_STATS);
+      return response.data;
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || '获取统计数据失败';
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
   }
 };
 

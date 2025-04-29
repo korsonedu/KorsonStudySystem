@@ -2,21 +2,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-import os
+from .config import DATABASE_URL, DATABASE_POOL_SIZE, DATABASE_MAX_OVERFLOW
 
-# 加载 .env 文件
-load_dotenv()
-
-# 获取 DATABASE_URL
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-# 检查 DATABASE_URL 是否正确加载
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL is not set in the .env file")
-
-# 创建数据库引擎
-engine = create_engine(DATABASE_URL)
+# 创建数据库引擎，添加连接池配置
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=DATABASE_POOL_SIZE,
+    max_overflow=DATABASE_MAX_OVERFLOW
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

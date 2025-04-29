@@ -7,11 +7,19 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_password_hash, verify_password, create_access_token
 import secrets
+from app.services.email import EmailService
 
 router = APIRouter()
 
 @router.post("/register", response_model=UserResponse)
 def register(user: UserCreate, request: Request, db: Session = Depends(get_db)):
+    # 验证邀请码
+    if user.invitation_code != "korsonacademy":
+        raise HTTPException(
+            status_code=400,
+            detail="邀请码不正确"
+        )
+
     # 检查用户名是否已存在
     db_user = db.query(User).filter(User.username == user.username).first()
     if db_user:
@@ -42,7 +50,6 @@ def register(user: UserCreate, request: Request, db: Session = Depends(get_db)):
     base_url = str(request.base_url).rstrip('/')
 
     # 发送验证邮件
-    from app.services.email import EmailService
     EmailService.send_verification_email(
         to_email=user.email,
         username=user.username,
@@ -58,12 +65,9 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
 
-    # 检查邮箱是否已验证
-    if user.email and not user.email_verified:
-        raise HTTPException(
-            status_code=400,
-            detail="Email not verified. Please check your email for verification link."
-        )
+    # 检查用户邮箱是否已验证
+    if not user.email_verified:
+        raise HTTPException(status_code=403, detail="Email not verified. Please verify your email before logging in.")
 
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -87,6 +91,29 @@ def verify_email(verification: EmailVerification, db: Session = Depends(get_db))
 
     return user
 
+@router.get("/verify-email", include_in_schema=False)
+def verify_email_redirect(token: str, request: Request):
+    """
+    处理GET请求的验证链接，重定向到前端验证页面
+    """
+    # 从请求中提取协议和主机部分
+    import re
+    base_url = str(request.base_url).rstrip('/')
+    protocol_host_match = re.match(r'(https?://[^:/]+)(:\d+)?', base_url)
+
+    if protocol_host_match:
+        protocol_host = protocol_host_match.group(1)
+        # 假设前端运行在5173端口
+        frontend_url = f"{protocol_host}:5173"
+    else:
+        # 如果无法解析，则使用默认的前端URL
+        frontend_url = "http://localhost:5173"
+
+    # 重定向到前端验证页面
+    from fastapi.responses import RedirectResponse
+    redirect_url = f"{frontend_url}/verify-email?token={token}"
+    return RedirectResponse(url=redirect_url)
+
 @router.post("/resend-verification", response_model=dict)
 def resend_verification(email: str, request: Request, db: Session = Depends(get_db)):
     # 查找具有该邮箱的用户
@@ -107,7 +134,6 @@ def resend_verification(email: str, request: Request, db: Session = Depends(get_
     base_url = str(request.base_url).rstrip('/')
 
     # 发送验证邮件
-    from app.services.email import EmailService
     EmailService.send_verification_email(
         to_email=user.email,
         username=user.username,
