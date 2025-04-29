@@ -1,54 +1,47 @@
 <template>
+  <nav>
+    <router-link to="/">Home</router-link> |
+    <router-link to="/about">About</router-link>
+  </nav>
+  <router-view/>
   <div id="app">
-    <header>
-      <h1>学习工具</h1>
-      <nav>
-        <router-link to="/">首页</router-link>
-        <router-link to="/statistics">统计数据</router-link>
-      </nav>
-    </header>
-    <main>
-      <router-view />
-    </main>
-    <footer>
-      <p>© 2025 学习工具</p>
-    </footer>
+    <router-view/>
+    <achievement-notifier />
+    <export-button v-if="$route.path === '/'" />
   </div>
 </template>
 
-<script>
-export default {
-  name: 'App',
-};
-</script>
-
-<style>
-/* 全局样式 */
-body {
-  font-family: Arial, sans-serif;
-  margin: 0;
-  padding: 0;
-}
-
-header {
-  background-color: #4CAF50;
-  color: white;
-  padding: 10px 20px;
-}
-
-header nav a {
-  color: white;
-  margin-right: 15px;
-  text-decoration: none;
-}
-
-main {
-  padding: 20px;
-}
-
-footer {
+<style lang="scss">
+#app {
+  font-family: Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-align: center;
-  padding: 10px;
-  background-color: #f1f1f1;
+  color: #2c3e50;
+}
+
+nav {
+  padding: 30px;
+
+  a {
+    font-weight: bold;
+    color: #2c3e50;
+
+    &.router-link-exact-active {
+      color: #42b983;
+    }
+  }
 }
 </style>
+
+<script>
+import AchievementNotifier from '@/components/AchievementNotifier.vue'
+import ExportButton from '@/components/ExportButton.vue'
+
+export default {
+  components: {
+    AchievementNotifier,
+    ExportButton
+  }
+}
+</script>

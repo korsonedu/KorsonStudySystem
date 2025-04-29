@@ -1,23 +1,18 @@
 <template>
-  <div class="home-view">
-    <h2>欢迎使用学习工具</h2>
-    <p>这是一个帮助您管理学习和统计数据的工具。</p>
+  <div class="home">
+    <img alt="Vue logo" src="../assets/logo.png">
+    <HelloWorld msg="Welcome to Your Vue.js App"/>
   </div>
 </template>
 
 <script>
+// @ is an alias to /src
+import HelloWorld from '@/components/HelloWorld.vue'
+
 export default {
   name: 'HomeView',
-};
+  components: {
+    HelloWorld
+  }
+}
 </script>
-
-<style scoped>
-.home-view {
-  text-align: center;
-}
-
-.home-view h2 {
-  font-size: 28px;
-  margin-bottom: 20px;
-}
-</style>

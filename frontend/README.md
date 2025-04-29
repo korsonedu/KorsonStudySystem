@@ -1,4 +1,4 @@
-# newstudytool
+# frontend
 
 ## Project setup
 ```
