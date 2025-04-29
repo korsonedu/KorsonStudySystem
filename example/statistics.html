@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习数据分析中心</title>
+    <link rel="stylesheet" href="stats.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-heatmap@1.2.1/dist/chartjs-chart-heatmap.min.js"></script>
+</head>
+<body>
+    <div class="stats-container">
+        <header class="stats-header">
+            <h1>学习数据分析中心 📊</h1>
+            <button class="back-btn" onclick="location.href='index.html'">← 返回看板</button>
+        </header>
+
+        <div class="controls">
+            <div class="time-filters">
+                <button class="filter-btn active" data-range="day">今日</button>
+                <button class="filter-btn" data-range="week">本周</button>
+                <button class="filter-btn" data-range="month">本月</button>
+            </div>
+        </div>
+
+        <section class="metrics-grid">
+            <div class="metric-card">
+                <h3>🎯 学习次数</h3>
+                <p id="totalSessions">0</p>
+            </div>
+            <div class="metric-card">
+                <h3>⏱️ 总时长</h3>
+                <p id="totalHours">0 小时</p>
+            </div>
+            <div class="metric-card">
+                <h3>📈 日均时长</h3>
+                <p id="dailyAverage">0 分钟</p>
+            </div>
+            <div class="metric-card">
+                <h3>⏰ 最佳时段</h3>
+                <p id="peakTime">--:--</p>
+            </div>
+            <div class="metric-card">
+                <h3>📝 计划完成率</h3>
+                <p id="planCompletionRate">0%</p>
+            </div>
+        </section>
+
+        <section class="charts-section">
+            <div class="chart-box">
+                <canvas id="timeChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <canvas id="durationChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <canvas id="timeSlotChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <canvas id="heatmapChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </section>
+    </div>
+
+    <script src="statistics.js"></script>
+</body>
+</html>

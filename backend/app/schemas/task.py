@@ -1,12 +1,13 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from typing import Optional
 
 class TaskBase(BaseModel):
     name: str
     duration: int
-    start: datetime
-    end: datetime
+    start: str
+    end: str
+    completed: bool = False
 
 class TaskCreate(TaskBase):
     pass
@@ -14,15 +15,13 @@ class TaskCreate(TaskBase):
 class TaskUpdate(TaskBase):
     name: Optional[str] = None
     duration: Optional[int] = None
-    start: Optional[datetime] = None
-    end: Optional[datetime] = None
+    start: Optional[str] = None
+    end: Optional[str] = None
+    completed: Optional[bool] = None
 
-class TaskInDB(TaskBase):
+class TaskResponse(TaskBase):
     id: int
     user_id: int
 
     class Config:
-        orm_mode = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat() if v else None
-        }
+        from_attributes = True

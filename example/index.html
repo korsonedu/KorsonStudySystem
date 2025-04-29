@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习看板 🎯</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="plans.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>学习看板 📋</h1>
+            <nav>
+                <button class="nav-btn" onclick="location.href='statistics.html'">📊 统计</button>
+                <button class="nav-btn" onclick="location.href='achievements.html'">🏅 成就</button>
+                <button class="nav-btn" id="shareBtn">📤 分享</button>
+                <button class="nav-btn" id="exportBtn">📄 导出</button>
+            </nav>
+        </header>
+
+        <div class="main-content">
+            <main class="pomodoro-main">
+                <div class="pomodoro-card">
+                    <div class="time-setter">
+                        <input type="text" id="taskName" placeholder="输入学习任务 📖">
+                        <input type="number" id="taskTime" min="1" value="25" placeholder="分钟 ⏳">
+                    </div>
+                    <div class="timer-display">
+                        <span id="timer">25:00</span>
+                    </div>
+                    <div class="controls">
+                        <button id="startPauseBtn">▶️ 开始</button>
+                        <button id="completeBtn">✅ 结束</button>
+                        <button id="resetBtn">🔄 重置</button>
+                    </div>
+                </div>
+
+                <div class="task-list">
+                    <h2>任务记录 📝</h2>
+                    <ul id="taskRecords"></ul>
+                    <div class="summary">
+                        <p>今日学习时长: <span id="dailyTotal">0</span> 分钟</p>
+                        <p>总学习时长: <span id="totalTime">0</span> 小时</p>
+                    </div>
+                </div>
+            </main>
+
+            <aside class="plan-sidebar">
+                <div class="plan-control">
+                    <input type="text" id="planInput" placeholder="添加今日计划">
+                    <button onclick="addPlan()">➕</button>
+                </div>
+                <ul id="planList"></ul>
+            </aside>
+        </div>
+    </div>
+
+    <script src="kanban.js"></script>
+    <script src="plans.js"></script>
+</body>
+</html>

@@ -13,10 +13,10 @@ class AchievementUpdate(AchievementBase):
     type: Optional[str] = None
     level: Optional[int] = None
 
-class AchievementInDB(AchievementBase):
+class AchievementResponse(AchievementBase):
     id: int
     user_id: int
     unlocked_at: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True

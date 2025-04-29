@@ -13,7 +13,7 @@ class PlanUpdate(PlanBase):
     completed: Optional[bool] = None
     started: Optional[bool] = None
 
-class PlanInDB(PlanBase):
+class PlanResponse(PlanBase):
     id: int
     user_id: int
     completed: bool
@@ -23,4 +23,4 @@ class PlanInDB(PlanBase):
     end_time: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

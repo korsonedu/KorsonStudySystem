@@ -9,10 +9,13 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=True)
     password = Column(String)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
+    email_verified = Column(Boolean, default=False, nullable=False)
+    verification_token = Column(String, nullable=True)
 
     # 建立关系
     tasks = relationship("Task", back_populates="user")
