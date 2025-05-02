@@ -1,7 +1,26 @@
-fastapi
-uvicorn
-psycopg2-binary
-sqlalchemy
-alembic
-python-dotenv
-pydantic
+# Web框架和服务器
+fastapi>=0.95.0
+uvicorn>=0.22.0
+python-multipart>=0.0.6
+
+# 数据库
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.6
+alembic>=1.10.4
+
+# 认证和安全
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.1
+
+# 环境和配置
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pytz>=2025.2  # 时区支持
+
+# 邮件
+aiosmtplib>=2.0.1
+
+# 工具
+requests>=2.28.2
+python-dateutil>=2.8.2

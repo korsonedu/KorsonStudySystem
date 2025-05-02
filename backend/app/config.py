@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+import pytz
 
 # 加载环境变量
 env_path = Path(__file__).parent.parent / '.env'
@@ -15,9 +16,19 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 
 # 数据库配置
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://dbuser:gyc050216@localhost:5432/learning_tracker")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://dbuser:gyc050216@localhost:5432/KorsonStudySystem")
 DATABASE_POOL_SIZE = int(os.getenv("DATABASE_POOL_SIZE", "5"))
 DATABASE_MAX_OVERFLOW = int(os.getenv("DATABASE_MAX_OVERFLOW", "10"))
+
+# 表前缀配置
+# 不同系统的表使用不同的前缀，用户等表公用
+TABLE_PREFIX = {
+    "COMMON": "common_",  # 公共表前缀（用户、权限等）
+    "STUDY": "study_",    # 学习追踪系统表前缀
+    "COURSE": "course_",  # 课程系统表前缀
+    "RANK": "rank_",      # 排行榜系统表前缀
+    "QUIZ": "quiz_"       # 题库系统表前缀
+}
 
 # 安全配置
 SECRET_KEY = os.getenv("SECRET_KEY", "korsonacademy_secret_key_2024")
@@ -42,6 +53,9 @@ MAIL_SSL = os.getenv("MAIL_SSL", "False").lower() in ("true", "1", "t")
 
 # 日志配置
 LOG_LEVEL = os.getenv("LOG_LEVEL", "info").upper()
+
+# 时区配置
+TIMEZONE = os.getenv("TIMEZONE", "Asia/Shanghai")  # 默认使用中国时区
 
 # 应用配置
 APP_NAME = "Kesheng Smart Finance Learning Tracker"

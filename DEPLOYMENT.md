@@ -131,7 +131,7 @@ npm run build
 server {
     listen 80;
     server_name yourdomain.com;
-    
+
     # 重定向到HTTPS
     return 301 https://$host$request_uri;
 }
@@ -139,17 +139,17 @@ server {
 server {
     listen 443 ssl;
     server_name yourdomain.com;
-    
+
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
-    
+
     # 前端静态文件
     location / {
         root /path/to/newstudytool/frontend/dist;
         index index.html;
         try_files $uri $uri/ /index.html;
     }
-    
+
     # 后端API代理
     location /api {
         proxy_pass http://localhost:8000;
@@ -162,6 +162,54 @@ server {
 ```
 
 ## 数据库配置
+
+### 多应用共享数据库架构
+
+本项目采用了多个webapp共享同一个数据库的架构设计：
+
+1. **数据库名称**: `KorsonStudySystem`
+2. **表前缀设计**:
+   - 公共表: `common_*` (用户、权限等)
+   - 学习追踪系统: `study_*`
+   - 课程系统: `course_*`
+   - 排行榜系统: `rank_*`
+   - 题库系统: `quiz_*`
+
+这种设计允许多个应用共享用户认证和基础数据，同时保持各自功能模块的独立性。
+
+### 数据库创建
+
+首次部署时，需要创建数据库并授予权限：
+
+```bash
+cd backend
+source venv/bin/activate
+python scripts/create_db.py
+```
+
+这将创建`KorsonStudySystem`数据库并授予必要的权限。
+
+### 数据库迁移
+
+如果您从旧版本升级，需要运行数据库迁移脚本：
+
+```bash
+cd backend
+source venv/bin/activate
+python scripts/migrate_db.py
+```
+
+这将把旧数据库中的数据迁移到新的表结构中。
+
+### 数据库初始化
+
+如果是全新安装，数据库表会在应用首次启动时自动创建。如果需要手动创建表结构，可以运行：
+
+```bash
+cd backend
+source venv/bin/activate
+python -c "from app.database import Base, engine; from app.modules.common.models import *; from app.modules.study.models import *; Base.metadata.create_all(bind=engine)"
+```
 
 ### PostgreSQL优化
 
@@ -191,8 +239,8 @@ cat > backup.sh << 'EOF'
 #!/bin/bash
 BACKUP_DIR="/path/to/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-pg_dump -U postgres studytool > "$BACKUP_DIR/studytool_$TIMESTAMP.sql"
-find "$BACKUP_DIR" -name "studytool_*.sql" -mtime +7 -delete
+pg_dump -U postgres KorsonStudySystem > "$BACKUP_DIR/KorsonStudySystem_$TIMESTAMP.sql"
+find "$BACKUP_DIR" -name "KorsonStudySystem_*.sql" -mtime +7 -delete
 EOF
 
 # 添加执行权限

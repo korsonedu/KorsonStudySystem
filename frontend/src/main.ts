@@ -2,15 +2,15 @@ import { createApp } from 'vue'
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import './style.css'
 import App from './App.vue'
-import { userService } from './services/userService'
+import { authService } from './shared/services/authService'
 
 // Import pages
-import Home from './views/Home.vue'
-import Statistics from './views/Statistics.vue'
-import Achievements from './views/Achievements.vue'
-import Login from './views/Login.vue'
-import Register from './views/Register.vue'
-import VerifyEmail from './views/VerifyEmail.vue'
+import Home from './apps/study/views/Home.vue'
+import Statistics from './apps/study/views/Statistics.vue'
+import Achievements from './apps/study/views/Achievements.vue'
+import Login from './shared/views/Login.vue'
+import Register from './shared/views/Register.vue'
+import VerifyEmail from './shared/views/VerifyEmail.vue'
 
 // 定义路由
 const routes: RouteRecordRaw[] = [
@@ -51,8 +51,8 @@ const router = createRouter({
 
 // 路由守卫，检查用户是否已登录
 router.beforeEach((to, from, next) => {
-  // 使用用户服务检查登录状态
-  const isAuthenticated = userService.checkAuth()
+  // 使用认证服务检查登录状态
+  const isAuthenticated = authService.checkAuth()
 
   // 如果需要认证但用户未登录，重定向到登录页
   if (to.meta.requiresAuth && !isAuthenticated) {
