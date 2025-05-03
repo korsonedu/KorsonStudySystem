@@ -76,8 +76,10 @@ export const userService = {
                 password: credentials.password
             };
             console.log('Logging in with username:', credentials.username);
+            
             // 使用apiService发送表单请求
             const response = await apiService.postForm(API_CONFIG.ENDPOINTS.AUTH.LOGIN, formData);
+            
             if (response && response.data) {
                 // 保存令牌到本地存储
                 const token = response.data.access_token || response.data.token;
@@ -213,10 +215,16 @@ export const userService = {
         isLoading.value = true;
         error.value = '';
         try {
-            const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.USER_STATS);
+            // 使用正确的端点
+            const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.USER_INFO);
+            console.log('获取统计数据:', response.data);
             return response.data;
         }
         catch (err) {
+            console.error('获取统计数据失败:', err);
+            if (err.response) {
+                console.error('服务器响应:', err.response.data);
+            }
             error.value = err.response?.data?.detail || '获取统计数据失败';
             throw err;
         }

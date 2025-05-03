@@ -14,12 +14,12 @@ export const EMAIL_TEMPLATES = {
     // 注册确认邮件
     REGISTRATION: {
         // 邮件主题
-        SUBJECT: '欢迎注册科晟智慧金融学习平台',
+        SUBJECT: '欢迎注册科晟智慧KORSON ACADEMY金融学习平台',
         // 邮件内容模板
         BODY: (username, confirmationLink) => `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="color: #3498db;">欢迎加入科晟智慧金融学习平台</h2>
+          <h2 style="color: #3498db;">欢迎加入科晟智慧</h2>
         </div>
         
         <p>亲爱的 <strong>${username}</strong>，</p>

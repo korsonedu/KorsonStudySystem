@@ -1,21 +1,20 @@
 /**
  * 计划服务
- * 直接使用后端API存储计划数据
+ * 处理计划的创建、获取、更新、删除等操作
  */
-
-import apiService from './apiService';
-import { API_CONFIG } from '../config';
+import { apiService } from '../../../shared/services/apiService';
+import { API_CONFIG } from '../../../config';
 
 // 计划类型定义
 export interface Plan {
-  id?: number | string;
-  text: string; // 后端使用text字段而不是title
+  id?: number;
+  text: string;
   completed?: boolean;
   started?: boolean;
-  createdAt?: string; // 创建时间，用于排序和过滤
-  // 保留这些字段以兼容前端代码
-  title?: string;
-  description?: string;
+  created_at?: string;
+  start_time?: string;
+  end_time?: string;
+  user_id?: number;
 }
 
 /**
@@ -25,94 +24,101 @@ export class PlanService {
   /**
    * 获取所有计划
    */
-  async getAllPlans(): Promise<Plan[]> {
+  async getPlans(): Promise<Plan[]> {
     try {
-      console.log('Calling getPlans API...');
       const response = await apiService.get(API_CONFIG.ENDPOINTS.PLANS.BASE);
-      if (response && response.data) {
-        const plans = Array.isArray(response.data) ? response.data : [response.data];
-        console.log('Successfully fetched plans from API:', plans.length);
-        return plans;
-      }
-      return [];
+      return response.data || [];
     } catch (error) {
-      console.error('Error getting all plans:', error);
-      throw error;
+      console.error('获取计划失败:', error);
+      return [];
     }
   }
 
   /**
-   * 添加新计划
+   * 创建计划
+   * @param plan 计划数据
    */
-  async addPlan(plan: Plan): Promise<Plan> {
+  async createPlan(plan: Plan): Promise<Plan | null> {
     try {
-      // 确保使用正确的字段名
-      const planData = {
-        text: plan.text || plan.title || '',
-        completed: plan.completed || false,
-        started: plan.started || false,
-        createdAt: plan.createdAt || new Date().toISOString() // 确保有创建时间字段
-      };
-
-      console.log('Creating plan with API:', planData);
-      const response = await apiService.post(API_CONFIG.ENDPOINTS.PLANS.BASE, planData);
-      if (response && response.data) {
-        console.log('Plan saved to API successfully:', response.data);
-        return response.data;
-      }
-      throw new Error('Failed to create plan: No data returned from API');
+      const response = await apiService.post(API_CONFIG.ENDPOINTS.PLANS.BASE, plan);
+      return response.data;
     } catch (error) {
-      console.error('Error adding plan:', error);
-      throw error;
+      console.error('创建计划失败:', error);
+      return null;
     }
   }
 
   /**
    * 更新计划
+   * @param planId 计划ID
+   * @param plan 计划数据
    */
-  async updatePlan(planId: number | string, planData: Partial<Plan>): Promise<Plan> {
+  async updatePlan(planId: number, plan: Partial<Plan>): Promise<Plan | null> {
     try {
-      // 确保使用正确的字段名
-      const apiPlanData = {
-        text: planData.text || planData.title || undefined,
-        completed: planData.completed,
-        started: planData.started
-      };
-
-      // 移除未定义的字段
-      Object.keys(apiPlanData).forEach(key => {
-        if (apiPlanData[key as keyof typeof apiPlanData] === undefined) {
-          delete apiPlanData[key as keyof typeof apiPlanData];
-        }
-      });
-
-      const response = await apiService.put(API_CONFIG.ENDPOINTS.PLANS.DETAIL(planId), apiPlanData);
-      if (response && response.data) {
-        console.log('Plan updated in API successfully:', response.data);
-        return response.data;
-      }
-      throw new Error('Failed to update plan: No data returned from API');
+      const response = await apiService.put(`${API_CONFIG.ENDPOINTS.PLANS.BASE}/${planId}`, plan);
+      return response.data;
     } catch (error) {
-      console.error('Error updating plan:', error);
-      throw error;
+      console.error('更新计划失败:', error);
+      return null;
     }
   }
 
   /**
    * 删除计划
+   * @param planId 计划ID
    */
-  async deletePlan(planId: number | string): Promise<void> {
+  async deletePlan(planId: number): Promise<boolean> {
     try {
-      await apiService.delete(API_CONFIG.ENDPOINTS.PLANS.DETAIL(planId));
-      console.log('Plan deleted from API successfully');
+      await apiService.delete(`${API_CONFIG.ENDPOINTS.PLANS.BASE}/${planId}`);
+      return true;
     } catch (error) {
-      console.error('Error deleting plan:', error);
-      throw error;
+      console.error('删除计划失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 开始计划
+   * @param planId 计划ID
+   */
+  async startPlan(planId: number): Promise<Plan | null> {
+    try {
+      const response = await apiService.post(`${API_CONFIG.ENDPOINTS.PLANS.BASE}/${planId}/start`);
+      return response.data;
+    } catch (error) {
+      console.error('开始计划失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 完成计划
+   * @param planId 计划ID
+   */
+  async completePlan(planId: number): Promise<Plan | null> {
+    try {
+      const response = await apiService.post(`${API_CONFIG.ENDPOINTS.PLANS.BASE}/${planId}/complete`);
+      return response.data;
+    } catch (error) {
+      console.error('完成计划失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 获取单个计划
+   * @param planId 计划ID
+   */
+  async getPlan(planId: number): Promise<Plan | null> {
+    try {
+      const response = await apiService.get(`${API_CONFIG.ENDPOINTS.PLANS.BASE}/${planId}`);
+      return response.data;
+    } catch (error) {
+      console.error('获取计划详情失败:', error);
+      return null;
     }
   }
 }
 
-// 创建默认实例
+// 导出计划服务实例
 export const planService = new PlanService();
-
-export default planService;

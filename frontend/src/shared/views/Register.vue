@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiService } from '../services/apiService'
-import { userService } from '../services/userService'
-import { API_CONFIG } from '../../config'
-import axios from 'axios'
+import { authService } from '../services/authService'
 
 const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
-const invitationCode = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
 const loading = ref(false)
@@ -19,19 +15,12 @@ const router = useRouter()
 const register = async () => {
   try {
     errorMessage.value = ''
+    successMessage.value = ''
     loading.value = true
 
     // 表单验证
-    if (!username.value || !password.value || !email.value || !invitationCode.value) {
-      errorMessage.value = '用户名、邮箱、密码和邀请码不能为空'
-      loading.value = false
-      return
-    }
-
-    // 验证邮箱格式
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email.value)) {
-      errorMessage.value = '请输入有效的邮箱地址'
+    if (!username.value || !password.value) {
+      errorMessage.value = '用户名和密码不能为空'
       loading.value = false
       return
     }
@@ -42,23 +31,15 @@ const register = async () => {
       return
     }
 
-    // 验证邀请码
-    if (invitationCode.value !== 'korsonacademy') {
-      errorMessage.value = '邀请码不正确'
-      loading.value = false
-      return
-    }
-
     // 创建用户对象
     const userData = {
       username: username.value,
       email: email.value || undefined, // 如果为空字符串则设为undefined
-      password: password.value,
-      invitation_code: invitationCode.value
+      password: password.value
     }
 
-    // 使用用户服务发送注册请求
-    const success = await userService.register(userData)
+    // 使用认证服务发送注册请求
+    const success = await authService.register(userData)
 
     if (success) {
       // 注册成功，显示成功消息
@@ -76,7 +57,7 @@ const register = async () => {
       }, 3000)
     } else {
       // 注册失败，显示错误信息
-      errorMessage.value = userService.error.value
+      errorMessage.value = authService.error.value || '注册失败，请稍后再试'
     }
   } catch (error: any) {
     console.error('注册失败:', error)

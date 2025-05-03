@@ -1,19 +1,41 @@
 /**
- * 用户状态管理服务
- * 提供响应式的用户状态管理，确保登录状态变化时自动更新界面
+ * 认证服务
+ * 处理用户登录、注册、登出等认证相关功能
+ * 提供响应式的用户状态管理
  */
 import { ref, computed } from 'vue';
 import { apiService } from './apiService';
 import { STORAGE_CONFIG, API_CONFIG } from '../../config';
 
 // 用户类型定义
-interface User {
+export interface User {
   id?: number;
   username: string;
   email?: string;
   is_active?: boolean;
   is_superuser?: boolean;
   [key: string]: any;
+}
+
+// 登录请求参数
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+// 注册请求参数
+export interface RegisterRequest {
+  username: string;
+  email?: string;
+  password: string;
+  invitation_code?: string;
+}
+
+// 登录响应
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
 }
 
 // 用户状态
@@ -29,9 +51,9 @@ if (token && username) {
 }
 
 /**
- * 用户服务
+ * 认证服务
  */
-export const userService = {
+export const authService = {
   // 响应式状态
   currentUser,
   isLoading,
@@ -41,10 +63,11 @@ export const userService = {
   isLoggedIn: computed(() => !!currentUser.value),
   
   /**
-   * 注册
+   * 用户注册
    * @param userData 用户数据
+   * @returns 是否注册成功
    */
-  async register(userData: any) {
+  async register(userData: RegisterRequest): Promise<boolean> {
     isLoading.value = true;
     error.value = '';
     
@@ -65,25 +88,29 @@ export const userService = {
   },
   
   /**
-   * 登录
-   * @param username 用户名
-   * @param password 密码
+   * 用户登录
+   * @param credentials 登录凭证
+   * @returns 是否登录成功
    */
-  async login(username: string, password: string) {
+  async login(credentials: LoginRequest): Promise<boolean> {
     isLoading.value = true;
     error.value = '';
     
     try {
       const formData = new FormData();
-      formData.append('username', username);
-      formData.append('password', password);
+      formData.append('username', credentials.username);
+      formData.append('password', credentials.password);
       
-      const response = await apiService.post(API_CONFIG.ENDPOINTS.AUTH.LOGIN, formData);
+      const response = await apiService.post(API_CONFIG.ENDPOINTS.AUTH.LOGIN, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       
       if (response && response.data) {
         // 保存令牌和用户信息
         localStorage.setItem(STORAGE_CONFIG.TOKEN_KEY, response.data.access_token);
-        localStorage.setItem(STORAGE_CONFIG.USERNAME_KEY, username);
+        localStorage.setItem(STORAGE_CONFIG.USERNAME_KEY, credentials.username);
         
         // 更新用户状态
         currentUser.value = response.data.user;
@@ -102,26 +129,29 @@ export const userService = {
   },
   
   /**
-   * 登出
+   * 用户登出
    */
-  async logout() {
+  async logout(): Promise<void> {
+    isLoading.value = true;
+    
     try {
-      // 调用登出API
+      // 尝试调用登出API
       await apiService.post(API_CONFIG.ENDPOINTS.AUTH.LOGOUT);
     } catch (err) {
-      console.error('登出失败:', err);
+      console.error('登出请求失败:', err);
     } finally {
-      // 无论API调用成功与否，都清除本地存储和状态
+      // 无论API请求是否成功，都清除本地存储和状态
       localStorage.removeItem(STORAGE_CONFIG.TOKEN_KEY);
       localStorage.removeItem(STORAGE_CONFIG.USERNAME_KEY);
       currentUser.value = null;
+      isLoading.value = false;
     }
   },
   
   /**
    * 获取当前用户信息
    */
-  async getCurrentUser() {
+  async getCurrentUser(): Promise<User | null> {
     if (!localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY)) {
       return null;
     }
@@ -149,7 +179,7 @@ export const userService = {
   /**
    * 检查是否已登录
    */
-  checkAuth() {
+  checkAuth(): boolean {
     const token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
     const username = localStorage.getItem(STORAGE_CONFIG.USERNAME_KEY);
 
@@ -164,7 +194,10 @@ export const userService = {
     return !!currentUser.value;
   },
 
-  async getProfile() {
+  /**
+   * 获取用户个人资料
+   */
+  async getProfile(): Promise<any> {
     isLoading.value = true;
     error.value = '';
 
@@ -179,35 +212,42 @@ export const userService = {
     }
   },
 
-  async getTasks() {
+  /**
+   * 获取用户任务列表
+   */
+  async getTasks(): Promise<any[]> {
     isLoading.value = true;
     error.value = '';
 
     try {
       const response = await apiService.get(API_CONFIG.ENDPOINTS.TASKS.BASE);
-      return response.data;
+      return response.data || [];
     } catch (err: any) {
       error.value = err.response?.data?.detail || '获取任务列表失败';
-      throw err;
+      return [];
     } finally {
       isLoading.value = false;
     }
   },
 
-  async getDailyStats() {
+  /**
+   * 获取用户统计数据
+   */
+  async getDailyStats(): Promise<any> {
     isLoading.value = true;
     error.value = '';
 
     try {
-      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.USER_STATS);
-      return response.data;
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.DAILY);
+      return response.data || {};
     } catch (err: any) {
       error.value = err.response?.data?.detail || '获取统计数据失败';
-      throw err;
+      return {};
     } finally {
       isLoading.value = false;
     }
   }
 };
 
-export default userService;
+// 默认导出认证服务
+export default authService;

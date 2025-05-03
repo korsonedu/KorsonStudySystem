@@ -50,13 +50,12 @@ def create_plan(plan: PlanCreate, db: Session = Depends(get_db), current_user: U
 def update_plan(plan_id: int, plan: PlanUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     db_plan = db.query(Plan).filter(Plan.id == plan_id, Plan.user_id == current_user.id).first()
     if not db_plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
-    if plan.text is not None:
-        db_plan.text = plan.text
-    if plan.completed is not None:
-        db_plan.completed = plan.completed
-    if plan.started is not None:
-        db_plan.started = plan.started
+        raise HTTPException(status_code=404, detail="计划未找到")
+    
+    plan_data = plan.model_dump(exclude_unset=True)
+    for key, value in plan_data.items():
+        setattr(db_plan, key, value)
+        
     db.commit()
     db.refresh(db_plan)
 
@@ -75,9 +74,10 @@ def update_plan(plan_id: int, plan: PlanUpdate, db: Session = Depends(get_db), c
 def start_plan(plan_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     db_plan = db.query(Plan).filter(Plan.id == plan_id, Plan.user_id == current_user.id).first()
     if not db_plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
+        raise HTTPException(status_code=404, detail="计划未找到")
     if db_plan.started:
-        raise HTTPException(status_code=400, detail="Plan already started")
+        raise HTTPException(status_code=400, detail="计划已经开始")
+        
     db_plan.started = True
     db_plan.start_time = datetime.now(timezone.utc)
     db.commit()
@@ -98,32 +98,33 @@ def start_plan(plan_id: int, db: Session = Depends(get_db), current_user: User =
 def complete_plan(plan_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     db_plan = db.query(Plan).filter(Plan.id == plan_id, Plan.user_id == current_user.id).first()
     if not db_plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
+        raise HTTPException(status_code=404, detail="计划未找到")
     if not db_plan.started:
-        raise HTTPException(status_code=400, detail="Plan not started")
+        raise HTTPException(status_code=400, detail="计划尚未开始")
+        
     db_plan.completed = True
     db_plan.end_time = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_plan)
+    
+    # 转换日期时间为字符串
+    if db_plan.created_at:
+        db_plan.created_at = db_plan.created_at.isoformat()
+    if db_plan.start_time:
+        db_plan.start_time = db_plan.start_time.isoformat()
+    if db_plan.end_time:
+        db_plan.end_time = db_plan.end_time.isoformat()
+        
+    return db_plan
 
 # 删除计划
 @router.delete("/{plan_id}")
 def delete_plan(plan_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
-    try:
-        # 查找计划
-        db_plan = db.query(Plan).filter(Plan.id == plan_id, Plan.user_id == current_user.id).first()
-        if not db_plan:
-            raise HTTPException(status_code=404, detail="Plan not found")
+    db_plan = db.query(Plan).filter(Plan.id == plan_id, Plan.user_id == current_user.id).first()
+    if not db_plan:
+        raise HTTPException(status_code=404, detail="计划未找到")
 
-        # 删除计划
-        db.delete(db_plan)
-        db.commit()
+    db.delete(db_plan)
+    db.commit()
 
-        return {"message": "Plan deleted successfully"}
-    except Exception as e:
-        # 回滚事务
-        db.rollback()
-        # 记录错误
-        print(f"Error in delete_plan for user {current_user.username}: {str(e)}")
-        # 重新抛出异常
-        raise HTTPException(status_code=500, detail=f"Failed to delete plan: {str(e)}")
+    return {"message": "计划删除成功"}

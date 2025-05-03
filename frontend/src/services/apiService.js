@@ -4,21 +4,13 @@
  */
 import axios from 'axios';
 import { API_CONFIG, STORAGE_CONFIG, SERVER_CONFIG, ENV_CONFIG } from '../config';
+// 调试模式（设为true以启用详细日志）
+const DEBUG_MODE = true;
 // 根据环境选择基础URL
 const getBaseUrl = () => {
-    // 开发环境下，使用完整的后端URL
-    if (ENV_CONFIG.IS_DEV) {
-        console.log('Development mode: Using backend URL:', SERVER_CONFIG.BACKEND.URL);
-        return SERVER_CONFIG.BACKEND.URL;
-    }
-    // 生产环境下，根据配置决定使用相对路径还是完整URL
-    if (API_CONFIG.BASE_URL) {
-        console.log('Production mode: Using configured API base URL:', API_CONFIG.BASE_URL);
-        return API_CONFIG.BASE_URL;
-    }
-    // 如果没有配置BASE_URL，则使用相对路径
-    console.log('Production mode: Using relative URL');
-    return '';
+    // 始终使用完整的后端URL
+    console.log('Using backend URL:', SERVER_CONFIG.BACKEND.URL);
+    return SERVER_CONFIG.BACKEND.URL || 'http://localhost:8000';
 };
 // 创建axios实例
 const apiClient = axios.create({
@@ -42,15 +34,19 @@ apiClient.interceptors.request.use((config) => {
     const token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+    } else {
+        console.warn(`请求 ${config.url} 没有认证令牌`);
     }
     // 添加请求ID，便于跟踪和调试
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
     config.headers['X-Request-ID'] = requestId;
-    // 记录请求信息（仅在开发环境）
-    if (ENV_CONFIG.IS_DEV) {
-        console.log(`[${requestId}] Request:`, {
+    // 记录请求信息
+    if (DEBUG_MODE || ENV_CONFIG.IS_DEV) {
+        console.log(`[${requestId}] 请求:`, {
             method: config.method?.toUpperCase(),
             url: config.url,
+            baseURL: config.baseURL,
+            fullURL: config.baseURL + config.url,
             headers: config.headers,
             data: config.data
         });
@@ -64,8 +60,8 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use((response) => {
     // 获取请求ID
     const requestId = response.config.headers?.['X-Request-ID'] || 'unknown';
-    // 成功响应处理（仅在开发环境记录详细信息）
-    if (ENV_CONFIG.IS_DEV) {
+    // 成功响应处理
+    if (DEBUG_MODE || ENV_CONFIG.IS_DEV) {
         console.log(`[${requestId}] API响应成功:`, {
             url: response.config.url,
             status: response.status,
@@ -84,16 +80,23 @@ apiClient.interceptors.response.use((response) => {
             // 清除本地存储的认证信息
             localStorage.removeItem(STORAGE_CONFIG.TOKEN_KEY);
             localStorage.removeItem(STORAGE_CONFIG.USERNAME_KEY);
+            
             // 如果不是登录页面，重定向到登录页
             if (window.location.pathname !== '/login') {
+                console.warn(`[${requestId}] 认证失败 (401)，重定向到登录页面`);
                 window.location.href = '/login';
             }
         }
+        
         // 记录错误详情
         console.error(`[${requestId}] API响应错误:`, {
             status,
+            statusText: error.response.statusText,
             data: error.response.data,
-            url: error.config?.url
+            url: error.config?.url,
+            method: error.config?.method,
+            headers: error.config?.headers,
+            requestData: error.config?.data
         });
     }
     else if (error.request) {
@@ -101,7 +104,8 @@ apiClient.interceptors.response.use((response) => {
         console.error(`[${requestId}] API请求未收到响应:`, {
             url: error.config?.url,
             method: error.config?.method?.toUpperCase(),
-            message: error.message
+            message: error.message,
+            request: error.request
         });
         // 对于CORS错误，尝试提供更有用的信息
         if (error.message === 'Network Error') {
@@ -127,6 +131,7 @@ export const apiService = {
      */
     async get(url, config) {
         try {
+            console.log(`正在发送GET请求: ${url}`);
             return await apiClient.get(url, config);
         }
         catch (error) {

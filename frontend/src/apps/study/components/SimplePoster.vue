@@ -2,8 +2,8 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import html2canvas from 'html2canvas';
 import apiService from '../services/apiService';
-import { API_CONFIG } from '../config/api';
-import { userService } from '../services/userService';
+import { API_CONFIG, POSTER_CONFIG } from '../config';
+import { authService } from '../../../shared/services/authService';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'vue-chartjs';
 
@@ -135,7 +135,7 @@ watch(() => userData.value.taskDistribution, () => {
 const loadUserData = async () => {
   try {
     // 检查用户是否已登录
-    if (!userService.isLoggedIn.value) {
+    if (!authService.isLoggedIn.value) {
       error.value = '请先登录后再生成海报';
       return;
     }
@@ -145,17 +145,17 @@ const loadUserData = async () => {
     error.value = '';
 
     console.log('开始加载用户数据...');
-    
+
     // 获取用户信息
-    const profile = await userService.getProfile();
+    const profile = await authService.getProfile();
     console.log('用户信息:', profile);
-    
+
     // 获取任务列表
-    const tasks = await userService.getTasks();
+    const tasks = await authService.getTasks();
     console.log('任务列表:', tasks);
-    
+
     // 获取统计数据
-    const stats = await userService.getDailyStats();
+    const stats = await authService.getDailyStats();
     console.log('统计数据:', stats);
 
     // 筛选今日任务
@@ -270,10 +270,10 @@ const chartOptions = {
 // 生成海报
 const generatePoster = async () => {
   if (!posterRef.value) return;
-  
+
   isGenerating.value = true;
   error.value = '';
-  
+
   try {
     const canvas = await html2canvas(posterRef.value, {
       scale: 2,
@@ -294,7 +294,7 @@ const generatePoster = async () => {
         }
       }
     });
-    
+
     generatedImageUrl.value = canvas.toDataURL('image/png');
     emit('generated', generatedImageUrl.value);
     console.log('海报生成成功');
@@ -309,7 +309,7 @@ const generatePoster = async () => {
 // 下载海报
 const downloadPoster = () => {
   if (!generatedImageUrl.value) return;
-  
+
   const link = document.createElement('a');
   link.href = generatedImageUrl.value;
   link.download = `学习海报-${formattedDate.value}.png`;
@@ -362,6 +362,11 @@ const quotes = [
   { text: "经济全球化需要更加包容的治理。", author: "克里斯蒂娜·拉加德" },
 ];
 
+// 海报配置
+const posterSize = POSTER_CONFIG.SIZE;
+const posterImages = POSTER_CONFIG.IMAGES;
+const posterText = POSTER_CONFIG.TEXT;
+
 // 随机获取一条名言
 const randomQuote = computed(() => {
   const index = Math.floor(Math.random() * quotes.length);
@@ -376,9 +381,9 @@ const randomQuote = computed(() => {
         <h2>学习海报</h2>
         <button class="close-btn" @click="closeModal">×</button>
       </div>
-      
+
       <div v-if="error" class="error-message">{{ error }}</div>
-      
+
       <div class="poster-content">
         <!-- 海报预览 -->
         <div v-if="!generatedImageUrl" class="poster-preview">
@@ -386,17 +391,17 @@ const randomQuote = computed(() => {
             <!-- 顶部信息 -->
             <div class="poster-top">
               <div class="poster-logo">
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23cccccc'/%3E%3C/svg%3E" alt="科晟智慧金融" />
-                <span>科晟智慧金融</span>
+                <img :src="posterImages.LOGO.URL" :width="posterImages.LOGO.WIDTH / 5" :height="posterImages.LOGO.HEIGHT / 5" :alt="posterText.INSTITUTION_NAME" />
+                <span>{{ posterText.INSTITUTION_NAME }}</span>
               </div>
               <div class="poster-date">{{ formattedDate }}</div>
             </div>
-            
+
             <!-- 用户信息 -->
             <div class="poster-user">
-              <h1>{{ userData.username }}&nbsp;&nbsp;的学习报告</h1>
+              <h1>{{ userData.username }}&nbsp;&nbsp;{{ posterText.TITLE }}</h1>
             </div>
-            
+
             <!-- 统计数据 -->
             <div class="poster-stats">
               <div class="stat-item">
@@ -416,7 +421,7 @@ const randomQuote = computed(() => {
                 <div class="stat-label">完成率</div>
               </div>
             </div>
-            
+
             <!-- 任务列表 -->
             <div class="poster-tasks">
               <h2>今日任务</h2>
@@ -433,51 +438,38 @@ const randomQuote = computed(() => {
                 </div>
               </div>
             </div>
-            
+
             <!-- 添加名人名言部分 -->
             <div class="quote-section">
               <p class="quote-text">"{{ randomQuote.text }}"</p>
               <p class="quote-author">—— {{ randomQuote.author }}</p>
             </div>
-            
+
             <!-- 底部信息 -->
             <div class="poster-footer">
               <div class="footer-content">
                 <div class="company-info">
-                  <h3 class="company-name">科晟智慧 KORSON ACADEMY</h3>
+                  <h3 class="company-name">{{ posterText.INSTITUTION_NAME }}</h3>
                 </div>
                 <div class="slogan">
-                  <div class="slogan-item">
-                    <span class="slogan-cn">探索</span>
-                    <span class="slogan-en">EXPLORE</span>
-                  </div>
-                  <div class="slogan-divider">·</div>
-                  <div class="slogan-item">
-                    <span class="slogan-cn">学习</span>
-                    <span class="slogan-en">LEARN</span>
-                  </div>
-                  <div class="slogan-divider">·</div>
-                  <div class="slogan-item">
-                    <span class="slogan-cn">创造</span>
-                    <span class="slogan-en">CREATE</span>
-                  </div>
+                  <p>{{ posterText.SUBTITLE }}</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        
+
         <!-- 生成的海报图片 -->
         <div v-else class="generated-poster">
           <img :src="generatedImageUrl" alt="Generated Poster" />
         </div>
-        
+
         <!-- 操作按钮 -->
         <div class="poster-actions">
           <button v-if="!generatedImageUrl" class="generate-btn" @click="generatePoster" :disabled="isGenerating">
             {{ isGenerating ? '生成中...' : '生成海报' }}
           </button>
-          
+
           <div v-else class="download-options">
             <button class="download-btn" @click="downloadPoster">
               <span>💾</span> 保存到设备
@@ -577,7 +569,7 @@ const randomQuote = computed(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
+  background:
     linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
     linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.1) 75%),

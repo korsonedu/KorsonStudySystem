@@ -242,7 +242,7 @@ export const taskService = {
     error.value = '';
 
     try {
-      const response = await apiService.get(`${API_CONFIG.ENDPOINTS.STATISTICS.TOTAL}`);
+      const response = await apiService.get(`${API_CONFIG.ENDPOINTS.STATISTICS.BASE}`);
       console.log('Total stats raw response:', response.data);
 
       // 处理不同格式的响应

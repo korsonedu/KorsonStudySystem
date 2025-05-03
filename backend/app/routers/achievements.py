@@ -79,6 +79,15 @@ def get_user_stats(user_id: int, db: Session) -> Dict[str, Any]:
     # 获取用户的所有计划
     plans = db.query(Plan).filter(Plan.user_id == user_id).all()
 
+    # 获取用户已解锁的成就
+    achievements = db.query(Achievement).filter(Achievement.user_id == user_id).all()
+
+    # 计算已解锁的成就类型数量（每种成就只计算一次）
+    unlocked_achievement_types = set()
+    for achievement in achievements:
+        achievement_type = achievement.type.split('_')[1] if '_' in achievement.type else achievement.type
+        unlocked_achievement_types.add(achievement_type)
+
     # 初始化统计数据
     stats = {
         "total_tasks": len(tasks),
@@ -90,7 +99,8 @@ def get_user_stats(user_id: int, db: Session) -> Dict[str, Any]:
         "completed_plans": len([plan for plan in plans if plan.completed]),
         "long_tasks": len([task for task in tasks if task.duration and task.duration >= 25]),
         "weekend_tasks": 0,
-        "max_daily_tasks": 0
+        "max_daily_tasks": 0,
+        "unlocked_achievements": len(unlocked_achievement_types)
     }
 
     # 计算夜间任务数量（晚上10点后）

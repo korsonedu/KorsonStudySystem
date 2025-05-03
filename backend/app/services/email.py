@@ -4,8 +4,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from ..config import (
     MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD,
-    MAIL_FROM, MAIL_TLS, MAIL_SSL
+    MAIL_FROM, MAIL_TLS, MAIL_SSL, SECRET_KEY, ALGORITHM
 )
+from datetime import datetime, timedelta
+from jose import jwt
 
 # 邮件发送者名称
 EMAIL_FROM_NAME = "科晟智慧金融"
@@ -146,3 +148,47 @@ class EmailService:
         """获取当前年份"""
         from datetime import datetime
         return str(datetime.now().year)
+
+
+def send_verification_email(user_email: str, username: str, user_id: int) -> bool:
+    """
+    创建验证令牌并发送邮箱验证邮件
+    
+    Args:
+        user_email: 用户邮箱
+        username: 用户名
+        user_id: 用户ID
+    
+    Returns:
+        bool: 是否发送成功
+    """
+    try:
+        # 创建验证令牌 (有效期7天)
+        expires = datetime.utcnow() + timedelta(days=7)
+        jwt_payload = {
+            "sub": str(user_id),
+            "exp": expires.timestamp(),
+            "type": "email_verification"
+        }
+        verification_token = jwt.encode(jwt_payload, SECRET_KEY, algorithm=ALGORITHM)
+        
+        # 获取基础URL (这里使用本地开发环境URL)
+        base_url = "http://localhost:8000"
+        
+        # 调用EmailService发送验证邮件
+        success = EmailService.send_verification_email(
+            to_email=user_email,
+            username=username,
+            verification_token=verification_token,
+            base_url=base_url
+        )
+        
+        if success:
+            print(f"验证邮件已发送至: {user_email}")
+        else:
+            print(f"验证邮件发送失败: {user_email}")
+            
+        return success
+    except Exception as e:
+        print(f"创建验证邮件时出错: {str(e)}")
+        return False

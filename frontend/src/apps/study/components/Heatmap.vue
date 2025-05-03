@@ -1,115 +1,172 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps<{
   data: Array<{
     date: string,
-    value: number
+    duration?: number,
+    count?: number,
+    value?: number
   }>,
   registrationDate?: string // 用户注册日期，可选参数
 }>()
 
-/*  */
-// 计算热力图数据
+// 获取标准化的日期字符串 YYYY-MM-DD
+function getFormattedDate(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+// 热力图数据计算
 const heatmapData = computed(() => {
-  // 获取当前日期
-  const today = new Date()
-
-  // 从后端获取的用户注册日期
-  const userRegistrationDate = props.registrationDate
-    ? new Date(props.registrationDate)
-    : new Date(today.getFullYear() - 1, 0, 1) // 如果没有提供注册日期，默认使用去年1月1日
-
-  // 使用用户注册日期作为起始日期
-  const startDate = userRegistrationDate
-
-  // 结束日期为用户注册日期次年的3月31日
-  const registrationYear = userRegistrationDate.getFullYear()
-  const endDate = new Date(registrationYear + 1, 2, 31) // 注册年份的次年3月31日
-
-  // 计算起始日期是星期几 (0 = 周日, 1 = 周一, ..., 6 = 周六)
-  const firstDayOfWeek = startDate.getDay()
-
-  // 调整起始日期，使其从所在周的周日开始
-  const adjustedStartDate = new Date(startDate)
-  adjustedStartDate.setDate(startDate.getDate() - firstDayOfWeek)
-
-  // 创建日期映射
-  const dateMap = new Map()
-  props.data.forEach(item => {
-    dateMap.set(item.date, item.value)
-  })
-
-  // 生成网格数据
-  const grid = []
-
-  // 计算从起始日期到结束日期的总天数
-  const totalDays = Math.ceil((endDate.getTime() - adjustedStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
-
-  // 填充所有日期，从调整后的起始日期到结束日期
-  for (let i = 0; i < totalDays; i++) {
-    const currentDate = new Date(adjustedStartDate)
-    currentDate.setDate(adjustedStartDate.getDate() + i)
-
-    // 如果超过了结束日期，就停止
-    if (currentDate > endDate) {
-      break
+  // 创建今天的日期对象和日期字符串
+  const today = new Date();
+  const todayStr = getFormattedDate(today);
+  
+  // 使用用户注册日期作为开始日期，没有则默认为一年前
+  let startDate: Date;
+  if (props.registrationDate && props.registrationDate.trim()) {
+    startDate = new Date(props.registrationDate);
+    // 确保日期有效
+    if (isNaN(startDate.getTime())) {
+      // 默认为一年前
+      startDate = new Date(today);
     }
-
-    const dateStr = currentDate.toISOString().split('T')[0]
-    const value = dateMap.get(dateStr) || 0
-    const month = currentDate.getMonth()
-    const year = currentDate.getFullYear()
-
-    // 只有在日期范围内的日期才显示值，范围外的显示为空白但保持网格结构
-    const isInRange = (currentDate >= startDate && currentDate <= endDate)
-
-    grid.push({
-      date: dateStr,
-      value: isInRange ? value : null,
-      month: isInRange ? month : null,
-      year
-    })
+  } else {
+    // 默认为一年前
+    startDate = new Date(today);
+  }
+  
+  // 设置结束日期为当前日期
+  const currentYear = today.getFullYear();
+  const endDate = new Date(currentYear, 11, 31); // 11表示12月（0-11）
+  
+  // 调整开始日期到所在周的周日
+  const firstDayOfWeek = startDate.getDay(); // 0=周日, 1=周一, ...
+  const adjustedStartDate = new Date(startDate);
+  adjustedStartDate.setDate(adjustedStartDate.getDate() - firstDayOfWeek);
+  
+  // 创建日期到值的映射
+  const dateMap = new Map<string, number>();
+  
+  // 处理传入的数据
+  if (Array.isArray(props.data)) {
+    props.data.forEach(item => {
+      if (item && item.date) {
+        // 标准化日期格式
+        let dateStr = item.date;
+        if (dateStr.includes('T')) {
+          dateStr = dateStr.split('T')[0];
+        }
+        
+        // 提取并确保值是数字
+        let value = 0;
+        if (typeof item.duration === 'number') {
+          value = item.duration;
+        } else if (typeof item.value === 'number') {
+          value = item.value;
+        } else if (typeof item.count === 'number') {
+          value = item.count;
+        } else {
+          // 尝试转换为数字
+          value = Number(item.duration || item.value || item.count || 0);
+          if (isNaN(value)) value = 0;
+        }
+        
+        // 添加到日期映射
+        dateMap.set(dateStr, value);
+      }
+    });
   }
 
-  return grid
+  // 生成网格数据
+  const grid = [];
+  
+  // 计算总天数
+  const totalDays = Math.ceil(
+    (endDate.getTime() - adjustedStartDate.getTime()) / (1000 * 60 * 60 * 24)
+  ) + 1;
+  
+  // 填充每一天的数据
+  for (let i = 0; i < totalDays; i++) {
+    const currentDate = new Date(adjustedStartDate);
+    currentDate.setDate(adjustedStartDate.getDate() + i);
+    
+    // 如果超过了结束日期，停止
+    if (currentDate > endDate) {
+      break;
+    }
+    
+    const dateStr = getFormattedDate(currentDate);
+    const isInRange = currentDate >= startDate && currentDate <= today;
+    const isToday = dateStr === todayStr;
+    
+    // 从映射中获取值，如果没有则为0
+    const value = dateMap.get(dateStr) || 0;
+    
+    grid.push({
+      date: dateStr,
+      value: isInRange ? value : null, // 只有在范围内的日期才显示值
+      month: currentDate.getMonth(),
+      year: currentDate.getFullYear(),
+      isToday: isToday
+    });
+  }
+
+  return grid;
 })
 
-
-// 计算颜色强度
-const getColor = (value: number) => {
-  if (value === null) return 'transparent'
-  if (value === 0) return '#ebedf0'
-
-  // 使用更现代的蓝色渐变色调
-  if (value < 30) return '#9be9ff'
-  if (value < 60) return '#4fc3f7'
-  if (value < 90) return '#2196f3'
-  if (value < 120) return '#1976d2'
-  return '#0d47a1'
+// 根据值获取对应的颜色
+function getColor(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return 'transparent'; // 范围外的日期显示为透明
+  }
+  
+  // 确保是数字类型
+  const numValue = Number(value);
+  
+  // 检查无效值
+  if (isNaN(numValue)) {
+    return '#ebedf0'; // 默认灰色
+  }
+  
+  // 0值显示为灰色
+  if (numValue === 0) {
+    return '#9be9ff';
+  }
+  
+  // 根据值的大小返回不同深浅的蓝色
+  if (numValue < 60) return '#9be9ff';
+  if (numValue < 120) return '#4fc3f7';
+  if (numValue < 150) return '#2196f3';
+  if (numValue < 300) return '#1976d2';
+  return '#0d47a1'; // 120以上使用最深的蓝色
 }
 
-// 格式化日期显示，使用中国时区
-const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return ''
-
-  // 创建一个新的Date对象
-  const date = new Date(dateStr)
-
-  // 获取UTC时间
-  const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000)
-
-  // 调整为中国时区（UTC+8）
-  const chinaDate = new Date(utcDate.getTime() + 8 * 60 * 60000)
-
-  return `${chinaDate.getFullYear()}年${chinaDate.getMonth() + 1}月${chinaDate.getDate()}日`
+// 格式化日期为中文格式
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '';
+  
+  try {
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  } catch (e) {
+    return '';
+  }
 }
-
-// 不再需要月份标签计算
 </script>
 
 <template>
   <div class="heatmap-container">
+    <!-- 今日数据展示 -->
+    <div class="today-data">
+      <div class="data-item">
+        <div class="data-label">今日学习</div>
+        <div class="data-value">
+          {{ heatmapData.find(day => day.isToday)?.value || 0 }} 分钟
+        </div>
+      </div>
+    </div>
+    
     <div class="heatmap-scroll">
       <!-- 热力图网格 -->
       <div class="heatmap-grid">
@@ -117,8 +174,9 @@ const formatDate = (dateStr: string | null) => {
           v-for="(day, index) in heatmapData"
           :key="index"
           class="heatmap-cell"
+          :class="{ 'today-cell': day.isToday }"
           :style="{ backgroundColor: getColor(day.value) }"
-          :title="day.date ? `${formatDate(day.date)}: ${day.value}分钟` : ''"
+          :title="day.date ? `${formatDate(day.date)}: ${day.value || 0}分钟` : ''"
         ></div>
       </div>
     </div>
@@ -148,35 +206,38 @@ const formatDate = (dateStr: string | null) => {
   overflow: hidden;
 }
 
-.heatmap-container::before {
-  content: '';
-  position: absolute;
-  top: -50px;
-  right: -50px;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(33, 150, 243, 0.05), transparent 70%);
-  border-radius: 50%;
-  z-index: 0;
+.today-data {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: rgba(33, 150, 243, 0.05);
+  border-radius: 8px;
 }
 
-.heatmap-container::after {
-  content: '';
-  position: absolute;
-  bottom: -30px;
-  left: -30px;
-  width: 150px;
-  height: 150px;
-  background: radial-gradient(circle, rgba(3, 169, 244, 0.05), transparent 70%);
-  border-radius: 50%;
-  z-index: 0;
+.data-item {
+  text-align: center;
+}
+
+.data-label {
+  font-size: 14px;
+  color: #5c6bc0;
+  margin-bottom: 5px;
+}
+
+.data-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: #1976d2;
 }
 
 .heatmap-scroll {
   position: relative;
   z-index: 1;
   width: 100%;
-  overflow: visible;
+  overflow-x: auto; /* 添加水平滚动 */
+  overflow-y: hidden;
+  padding-bottom: 10px; /* 为滚动条留出空间 */
 }
 
 .heatmap-grid {
@@ -195,9 +256,9 @@ const formatDate = (dateStr: string | null) => {
     "thu"
     "fri"
     "sat";
-  max-width: 100%;
+  min-width: min-content; /* 确保网格不会被压缩 */
   margin: 0 auto; /* 居中显示 */
-  overflow: hidden; /* 防止格子溢出 */
+  width: fit-content; /* 确保网格宽度适应内容 */
 }
 
 .heatmap-cell {
@@ -206,12 +267,26 @@ const formatDate = (dateStr: string | null) => {
   border-radius: 3px;
   transition: all 0.3s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05); /* 添加边框使单元格更明显 */
 }
 
 .heatmap-cell:hover {
   transform: scale(1.3);
   z-index: 2;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.1); /* 悬停时边框更明显 */
+}
+
+/* 今天的单元格样式 */
+.today-cell {
+  border: 2px solid #ff5722 !important; /* 使用醒目的橙色边框 */
+  box-shadow: 0 0 5px rgba(255, 87, 34, 0.5) !important; /* 添加发光效果 */
+  z-index: 1; /* 确保今天的单元格在其他单元格之上 */
+}
+
+.today-cell:hover {
+  transform: scale(1.4); /* 悬停时放大更多 */
+  box-shadow: 0 0 8px rgba(255, 87, 34, 0.7) !important; /* 悬停时发光效果更强 */
 }
 
 .legend {

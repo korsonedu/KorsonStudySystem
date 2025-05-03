@@ -33,10 +33,10 @@ app = FastAPI(
 # 配置 CORS 中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 允许所有来源，简化开发环境的跨域问题
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=CORS_ORIGINS,  # 使用配置中的CORS_ORIGINS
+    allow_credentials=CORS_ALLOW_CREDENTIALS,
+    allow_methods=CORS_ALLOW_METHODS,
+    allow_headers=CORS_ALLOW_HEADERS,
     expose_headers=["*"]
 )
 
@@ -55,14 +55,14 @@ def health_check():
 # 注册路由
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 
-# 注册任务路由 - 只使用 /api/study/tasks 路径
+# 注册任务路由
 app.include_router(tasks.router, prefix="/api/study/tasks", tags=["tasks"])
 
-# 注册计划路由 - 只使用 /api/study/plans 路径
+# 注册计划路由
 app.include_router(plans.router, prefix="/api/study/plans", tags=["plans"])
 
-# 注册成就路由 - 只使用 /api/study/achievements 路径
+# 注册成就路由
 app.include_router(achievements.router, prefix="/api/study/achievements", tags=["achievements"])
 
-# 注册统计路由 - 只使用 /api/study/statistics 路径
+# 注册统计路由
 app.include_router(statistics.router, prefix="/api/study/statistics", tags=["statistics"])

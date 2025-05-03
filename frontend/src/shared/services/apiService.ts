@@ -2,26 +2,18 @@
  * API服务
  * 提供统一的API调用方法，处理错误和认证
  */
-import axios from 'axios';
+import axios, { AxiosRequestHeaders, AxiosResponse } from 'axios';
 import { API_CONFIG, STORAGE_CONFIG, SERVER_CONFIG, ENV_CONFIG } from '../../config';
 
 // 根据环境选择基础URL
 const getBaseUrl = () => {
   // 开发环境下，使用完整的后端URL
   if (ENV_CONFIG.IS_DEV) {
-    console.log('Development mode: Using backend URL:', SERVER_CONFIG.BACKEND.URL);
     return SERVER_CONFIG.BACKEND.URL;
   }
 
   // 生产环境下，根据配置决定使用相对路径还是完整URL
-  if (API_CONFIG.BASE_URL) {
-    console.log('Production mode: Using configured API base URL:', API_CONFIG.BASE_URL);
-    return API_CONFIG.BASE_URL;
-  }
-
-  // 如果没有配置BASE_URL，则使用相对路径
-  console.log('Production mode: Using relative URL');
-  return '';
+  return API_CONFIG.BASE_URL || '';
 };
 
 // 创建axios实例
@@ -32,19 +24,14 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  withCredentials: API_CONFIG.REQUEST.WITH_CREDENTIALS // 使用配置中的值
+  withCredentials: API_CONFIG.REQUEST.WITH_CREDENTIALS
 });
-
-// 输出当前使用的基础URL
-console.log(`API using baseURL: ${getBaseUrl()}`);
 
 // 请求拦截器 - 添加认证token
 apiClient.interceptors.request.use(
   (config) => {
     // 确保headers对象存在
-    if (!config.headers) {
-      config.headers = {};
-    }
+    config.headers = config.headers || {} as AxiosRequestHeaders;
 
     // 添加认证token
     const token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
@@ -61,7 +48,6 @@ apiClient.interceptors.request.use(
       console.log(`[${requestId}] Request:`, {
         method: config.method?.toUpperCase(),
         url: config.url,
-        headers: config.headers,
         data: config.data
       });
     }
@@ -74,7 +60,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-// 响应拦截器 - 统一错误处理
+// 响应拦截器 - 处理身份验证错误
 apiClient.interceptors.response.use(
   (response) => {
     // 获取请求ID
@@ -149,9 +135,9 @@ export const apiService = {
    * @param config 请求配置
    * @returns Promise<AxiosResponse>
    */
-  async get(url: string, config?: any) {
+  async get<T = any>(url: string, config?: any): Promise<AxiosResponse<T>> {
     try {
-      return await apiClient.get(url, config);
+      return await apiClient.get<T>(url, config);
     } catch (error) {
       console.error(`GET ${url} 失败:`, error);
       throw error;
@@ -165,9 +151,9 @@ export const apiService = {
    * @param config 请求配置
    * @returns Promise<AxiosResponse>
    */
-  async post(url: string, data?: any, config?: any) {
+  async post<T = any>(url: string, data?: any, config?: any): Promise<AxiosResponse<T>> {
     try {
-      return await apiClient.post(url, data, config);
+      return await apiClient.post<T>(url, data, config);
     } catch (error) {
       console.error(`POST ${url} 失败:`, error);
       throw error;
@@ -181,9 +167,9 @@ export const apiService = {
    * @param config 请求配置
    * @returns Promise<AxiosResponse>
    */
-  async put(url: string, data?: any, config?: any) {
+  async put<T = any>(url: string, data?: any, config?: any): Promise<AxiosResponse<T>> {
     try {
-      return await apiClient.put(url, data, config);
+      return await apiClient.put<T>(url, data, config);
     } catch (error) {
       console.error(`PUT ${url} 失败:`, error);
       throw error;
@@ -196,9 +182,9 @@ export const apiService = {
    * @param config 请求配置
    * @returns Promise<AxiosResponse>
    */
-  async delete(url: string, config?: any) {
+  async delete<T = any>(url: string, config?: any): Promise<AxiosResponse<T>> {
     try {
-      return await apiClient.delete(url, config);
+      return await apiClient.delete<T>(url, config);
     } catch (error) {
       console.error(`DELETE ${url} 失败:`, error);
       throw error;
@@ -206,41 +192,41 @@ export const apiService = {
   },
 
   /**
-   * 发送表单数据（用于登录等需要x-www-form-urlencoded的请求）
+   * 发送表单数据的POST请求
    * @param url 请求URL
    * @param data 表单数据
+   * @param config 请求配置
    * @returns Promise<AxiosResponse>
    */
-  async postForm(url: string, data: Record<string, any>) {
+  async postForm<T = any>(url: string, data: Record<string, any>, config?: any): Promise<AxiosResponse<T>> {
     try {
       // 创建表单数据
       const formData = new FormData();
+
+      // 将对象转换为FormData
       Object.entries(data).forEach(([key, value]) => {
-        formData.append(key, String(value));
-      });
-
-      // 使用URLSearchParams（更兼容Safari）
-      const params = new URLSearchParams();
-      Object.entries(data).forEach(([key, value]) => {
-        params.append(key, String(value));
-      });
-
-      // 打印请求信息（调试用）
-      console.log('Sending form data to:', url);
-      console.log('Form data:', Object.fromEntries(params.entries()));
-
-      // 使用axios发送请求
-      return await apiClient.post(url, params.toString(), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json'
+        if (value !== undefined && value !== null) {
+          formData.append(key, String(value));
         }
       });
+
+      // 合并配置
+      const formConfig = {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        ...config
+      };
+
+      // 修正URL格式
+      const cleanUrl = url.replace(/\/\//g, '/').replace(/\/$/, '');
+      return await apiClient.post<T>(cleanUrl, formData, formConfig);
     } catch (error) {
-      console.error(`POST Form ${url} 失败:`, error);
+      console.error(`POST FORM ${url} 失败:`, error);
       throw error;
     }
   }
 };
 
+// 默认导出API服务
 export default apiService;

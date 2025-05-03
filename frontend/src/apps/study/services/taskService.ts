@@ -1,20 +1,13 @@
 /**
  * 任务服务
- * 直接使用后端API存储任务数据
+ * 处理任务的创建、获取、更新、删除等操作
  */
+import { apiService } from '../../../shared/services/apiService';
+import { TaskStorage, Task } from './taskStorage';
+import { API_CONFIG } from '../../../config';
 
-import apiService from './apiService';
-import { API_CONFIG } from '../config';
-
-// 任务类型定义
-export interface Task {
-  id?: number;
-  name: string;
-  duration: number;
-  start: string;
-  end: string;
-  completed: boolean;
-}
+// 任务存储
+const taskStorage = new TaskStorage();
 
 /**
  * 任务服务类
@@ -23,133 +16,118 @@ export class TaskService {
   /**
    * 获取所有任务
    */
-  async getAllTasks(): Promise<Task[]> {
+  async getTasks(): Promise<Task[]> {
     try {
-      console.log('Calling getTasks API...');
       const response = await apiService.get(API_CONFIG.ENDPOINTS.TASKS.BASE);
-      if (response && response.data) {
-        const tasks = Array.isArray(response.data) ? response.data : [response.data];
-        console.log('Successfully fetched tasks from API:', tasks.length);
-
-        // 按开始时间排序（最新的在前面）
-        return tasks.sort((a, b) =>
-          new Date(b.start).getTime() - new Date(a.start).getTime()
-        );
-      }
-      return [];
+      return response.data || [];
     } catch (error) {
-      console.error('Error getting all tasks:', error);
-      throw error;
+      console.error('获取任务失败:', error);
+      return taskStorage.getTasks(); // 从本地获取备份
     }
   }
 
   /**
-   * 添加新任务
+   * 获取今日任务
    */
-  async addTask(task: Task): Promise<Task> {
+  async getTodayTasks(): Promise<Task[]> {
     try {
-      console.log('Creating task with API:', task);
-      const response = await apiService.post(API_CONFIG.ENDPOINTS.TASKS.BASE, task);
-      if (response && response.data) {
-        console.log('Task saved to API successfully:', response.data);
-        return response.data;
-      }
-      throw new Error('Failed to create task: No data returned from API');
+      const response = await apiService.get(`${API_CONFIG.ENDPOINTS.TASKS.BASE}/today`);
+      return response.data || [];
     } catch (error) {
-      console.error('Error adding task:', error);
-      throw error;
+      console.error('获取今日任务失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 创建任务
+   * @param task 任务数据
+   */
+  async createTask(task: Task): Promise<Task | null> {
+    try {
+      const response = await apiService.post(API_CONFIG.ENDPOINTS.TASKS.BASE, task);
+      return response.data;
+    } catch (error) {
+      console.error('创建任务失败:', error);
+      // 本地备份
+      return taskStorage.saveTask(task);
+    }
+  }
+
+  /**
+   * 更新任务
+   * @param taskId 任务ID
+   * @param task 任务数据
+   */
+  async updateTask(taskId: number, task: Partial<Task>): Promise<Task | null> {
+    try {
+      const response = await apiService.put(`${API_CONFIG.ENDPOINTS.TASKS.BASE}/${taskId}`, task);
+      return response.data;
+    } catch (error) {
+      console.error('更新任务失败:', error);
+      // 本地备份
+      const fullTask = { ...task, id: taskId } as Task;
+      return taskStorage.saveTask(fullTask);
     }
   }
 
   /**
    * 删除任务
+   * @param taskId 任务ID
    */
-  async deleteTask(taskId: number): Promise<void> {
+  async deleteTask(taskId: number): Promise<boolean> {
     try {
-      await apiService.delete(API_CONFIG.ENDPOINTS.TASKS.DETAIL(taskId));
-      console.log('Task deleted from API successfully');
+      await apiService.delete(`${API_CONFIG.ENDPOINTS.TASKS.BASE}/${taskId}`);
+      // 同时删除本地备份
+      taskStorage.deleteTask(taskId);
+      return true;
     } catch (error) {
-      console.error('Error deleting task:', error);
-      throw error;
+      console.error('删除任务失败:', error);
+      return false;
     }
   }
 
   /**
-   * 获取今日任务统计
+   * 完成任务
+   * @param taskId 任务ID
+   * @param duration 持续时间（分钟）
    */
-  async getDailyStats(): Promise<{ count: number, duration: number }> {
+  async completeTask(taskId: number, duration: number): Promise<Task | null> {
     try {
-      // 获取所有任务
-      const tasks = await this.getAllTasks();
-
-      // 获取今天的日期范围（中国时区）
-      const now = new Date();
-      const chinaTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
-
-      // 设置为当天的开始和结束时间
-      const todayStart = new Date(
-        chinaTime.getFullYear(),
-        chinaTime.getMonth(),
-        chinaTime.getDate()
-      ).getTime();
-
-      const todayEnd = new Date(
-        chinaTime.getFullYear(),
-        chinaTime.getMonth(),
-        chinaTime.getDate(),
-        23, 59, 59, 999
-      ).getTime();
-
-      // 过滤今天的任务
-      const todayTasks = tasks.filter(task => {
-        if (!task.start) return false;
-
-        // 将任务开始时间转换为中国时区
-        const taskDate = new Date(task.start);
-        const taskDateChina = new Date(
-          taskDate.getTime() + (taskDate.getTimezoneOffset() + 480) * 60000
-        ).getTime();
-
-        return taskDateChina >= todayStart && taskDateChina <= todayEnd;
-      });
-
-      // 计算总时长
-      const totalDuration = todayTasks.reduce((total, task) => total + (task.duration || 0), 0);
-
-      return {
-        count: todayTasks.length,
-        duration: totalDuration
+      // 获取任务当前状态
+      const task = await this.getTask(taskId);
+      if (!task) return null;
+      
+      // 更新任务状态
+      const updatedTask = {
+        ...task,
+        completed: true,
+        duration: duration
       };
+      
+      return await this.updateTask(taskId, updatedTask);
     } catch (error) {
-      console.error('Error getting daily stats:', error);
-      return { count: 0, duration: 0 };
+      console.error('完成任务失败:', error);
+      return null;
     }
   }
 
   /**
-   * 获取总计统计
+   * 获取单个任务
+   * @param taskId 任务ID
    */
-  async getTotalStats(): Promise<{ count: number, duration: number, hours: number }> {
+  async getTask(taskId: number): Promise<Task | null> {
     try {
-      // 获取所有任务
-      const tasks = await this.getAllTasks();
-
-      // 计算总时长（分钟）
-      const totalMinutes = tasks.reduce((total, task) => total + (task.duration || 0), 0);
-
-      return {
-        count: tasks.length,
-        duration: totalMinutes,
-        hours: parseFloat((totalMinutes / 60).toFixed(2))
-      };
+      const response = await apiService.get(`${API_CONFIG.ENDPOINTS.TASKS.BASE}/${taskId}`);
+      return response.data;
     } catch (error) {
-      console.error('Error getting total stats:', error);
-      return { count: 0, duration: 0, hours: 0 };
+      console.error('获取任务详情失败:', error);
+      // 尝试从本地获取
+      const tasks = taskStorage.getTasks();
+      return tasks.find(t => t.id === taskId) || null;
     }
   }
 }
 
-// 创建默认实例
+// 导出任务服务实例
 export const taskService = new TaskService();
-
-export default taskService;

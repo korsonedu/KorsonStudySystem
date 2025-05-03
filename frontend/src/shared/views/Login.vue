@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { userService } from '../services/userService'
+import { authService } from '../services/authService'
 
 const username = ref('')
 const password = ref('')
@@ -20,18 +20,18 @@ const login = async () => {
       return
     }
 
-    // 使用用户服务进行登录
-    const loginResult = await userService.login({
+    // 使用认证服务进行登录
+    const loginResult = await authService.login({
       username: username.value,
       password: password.value
     });
 
     if (loginResult) {
-      console.log('Login successful, user state updated')
+      console.log('登录成功，用户状态已更新')
       // 重定向到首页
       router.push('/')
     } else {
-      errorMessage.value = userService.error.value || '登录失败'
+      errorMessage.value = authService.error.value || '登录失败'
     }
   } catch (error: any) {
     console.error('登录失败:', error)

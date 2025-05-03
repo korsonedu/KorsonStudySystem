@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import html2canvas from 'html2canvas';
-import apiService from '../services/apiService';
+import { apiService } from '../../services/apiService';
 import { API_CONFIG } from '../../config';
-import { userService } from '../services/userService';
+import { userService } from '../../services/userService';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'vue-chartjs';
 
@@ -26,7 +26,9 @@ const posterRef = ref<HTMLElement | null>(null);
 const isGenerating = ref(false);
 const generatedImageUrl = ref('');
 const error = ref('');
+const tab = ref<'daily' | 'weekly' | 'monthly'>('daily');
 
+// 数据类型定义
 interface Task {
   id: number;
   name: string;
@@ -43,32 +45,60 @@ interface TaskType {
   total: number;
 }
 
-interface UserData {
-  username: string;
+interface Stats {
   totalTasks: number;
   totalTime: number;
-  tasksList: Task[];
-  taskDistribution: TaskType[];
+  dailyMinutes: number;
+  weeklyMinutes: number;
+  monthlyMinutes: number;
+  totalHours: number;
   streakDays: number;
+  taskDistribution: Record<string, number>;
+}
+
+interface UserData {
+  username: string;
+  stats: Stats;
+  tasks: Task[];
 }
 
 // 用户数据
 const userData = ref<UserData>({
   username: '',
-  totalTasks: 0,
-  totalTime: 0,
-  tasksList: [],
-  taskDistribution: [],
-  streakDays: 0
+  stats: {
+    totalTasks: 0,
+    totalTime: 0,
+    dailyMinutes: 0,
+    weeklyMinutes: 0,
+    monthlyMinutes: 0,
+    totalHours: 0,
+    streakDays: 0,
+    taskDistribution: {}
+  },
+  tasks: []
 });
 
 // 计算属性
 const completionRate = computed(() => {
-  if (userData.value.totalTasks === 0) return 0;
-  return Math.round((userData.value.tasksList.filter(task => task.completed).length / userData.value.totalTasks) * 100);
+  if (userData.value.stats.totalTasks === 0) return 0;
+  return Math.round((userData.value.tasks.filter(task => task.completed).length / userData.value.stats.totalTasks) * 100);
 });
 
-// 格式化日期
+// 获取当前选择的时间段数据
+const currentTimeData = computed(() => {
+  switch(tab.value) {
+    case 'daily':
+      return userData.value.stats.dailyMinutes;
+    case 'weekly':
+      return userData.value.stats.weeklyMinutes;
+    case 'monthly':
+      return userData.value.stats.monthlyMinutes;
+    default:
+      return 0;
+  }
+});
+
+// 格式化当前日期
 const formattedDate = computed(() => {
   const now = new Date();
   return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
@@ -88,7 +118,7 @@ const getTodayEnd = () => {
   return now.toISOString();
 };
 
-// 计算图表数据
+// 图表数据
 const chartData = ref({
   labels: ['暂无数据'],
   datasets: [{
@@ -99,7 +129,9 @@ const chartData = ref({
 
 // 更新图表数据
 const updateChartData = () => {
-  if (!userData.value.taskDistribution || userData.value.taskDistribution.length === 0) {
+  const distribution = userData.value.stats.taskDistribution;
+  
+  if (!distribution || Object.keys(distribution).length === 0) {
     chartData.value = {
       labels: ['暂无数据'],
       datasets: [{
@@ -110,8 +142,8 @@ const updateChartData = () => {
     return;
   }
 
-  const labels = userData.value.taskDistribution.map(item => item.type || '未知类型');
-  const data = userData.value.taskDistribution.map(item => item.count || 0);
+  const labels = Object.keys(distribution);
+  const data = Object.values(distribution);
   const backgroundColor = labels.map((_, index) => {
     const hue = (index * 137) % 360;
     return `hsla(${hue}, 70%, 60%, 0.8)`;
@@ -127,15 +159,20 @@ const updateChartData = () => {
 };
 
 // 监听用户数据变化
-watch(() => userData.value.taskDistribution, () => {
+watch(() => userData.value.stats.taskDistribution, () => {
   updateChartData();
 }, { deep: true });
+
+// 切换标签页
+const switchTab = (newTab: 'daily' | 'weekly' | 'monthly') => {
+  tab.value = newTab;
+};
 
 // 加载用户数据
 const loadUserData = async () => {
   try {
     // 检查用户是否已登录
-    if (!userService.isLoggedIn.value) {
+    if (!localStorage.getItem('token')) {
       error.value = '请先登录后再生成海报';
       return;
     }
@@ -146,162 +183,104 @@ const loadUserData = async () => {
 
     console.log('开始加载用户数据...');
 
-    // 获取用户信息
-    const profile = await userService.getProfile();
-    console.log('用户信息:', profile);
+    // 并行请求数据
+    const [profileRes, tasksRes, statsRes] = await Promise.all([
+      apiService.get('/api/auth/me'),
+      apiService.get('/api/study/tasks'),
+      apiService.get('/api/study/statistics')
+    ]);
 
-    // 获取任务列表
-    const tasks = await userService.getTasks();
-    console.log('任务列表:', tasks);
+    console.log('用户信息:', profileRes.data);
+    console.log('任务列表:', tasksRes.data);
+    console.log('统计数据:', statsRes.data);
 
-    // 获取统计数据
-    const stats = await userService.getDailyStats();
-    console.log('统计数据:', stats);
+    // 额外获取统计详情
+    const userStatsRes = await apiService.get('/api/study/statistics/user');
+    console.log('用户统计:', userStatsRes.data);
 
     // 筛选今日任务
     const todayStart = getTodayStart();
     const todayEnd = getTodayEnd();
-    const todayTasks = tasks.filter((task: any) => {
+    const todayTasks = tasksRes.data.filter((task: any) => {
       const taskDate = new Date(task.start);
       return taskDate >= new Date(todayStart) && taskDate <= new Date(todayEnd);
     });
 
-    // 计算今日总学习时间（分钟）
-    const totalTime = todayTasks.reduce((sum: number, task: any) => sum + (task.duration || 0), 0);
+    // 处理任务分布
+    const taskTypes: Record<string, number> = {};
+    todayTasks.forEach((task: any) => {
+      const type = task.category || '未分类';
+      taskTypes[type] = (taskTypes[type] || 0) + 1;
+    });
 
+    // 整合所有数据
     userData.value = {
-      username: profile.username,
-      totalTasks: todayTasks.length,
-      totalTime: totalTime,
-      tasksList: todayTasks.map((task: any) => ({
+      username: profileRes.data.username,
+      stats: {
+        totalTasks: todayTasks.length,
+        totalTime: todayTasks.reduce((sum: number, task: any) => sum + (task.duration || 0), 0),
+        dailyMinutes: statsRes.data.daily_duration || 0,
+        weeklyMinutes: statsRes.data.weekly_duration || statsRes.data.total_duration || 0,
+        monthlyMinutes: statsRes.data.monthly_duration || statsRes.data.total_duration || 0,
+        totalHours: userStatsRes.data.total_hours || 0,
+        streakDays: userStatsRes.data.streak_days || 0,
+        taskDistribution: taskTypes
+      },
+      tasks: todayTasks.map((task: any) => ({
         id: task.id,
         name: task.name,
         duration: task.duration || 0,
         start: task.start,
         end: task.end,
         completed: task.completed,
-        type: task.type || 'default'
-      })),
-      taskDistribution: Object.entries(stats.taskDistribution || {}).map(([type, count]) => ({
-        type,
-        count: Number(count),
-        total: stats.totalTasks
-      })),
-      streakDays: stats.streakDays || 0
+        type: task.category || '未分类'
+      }))
     };
 
     // 更新图表数据
     updateChartData();
 
     console.log('用户数据加载完成:', userData.value);
+    isGenerating.value = false;
   } catch (err: any) {
     console.error('加载用户数据失败:', err);
     if (err.response?.status === 401) {
       error.value = '请先登录后再生成海报';
-    } else if (err.response?.data?.detail) {
-      error.value = err.response.data.detail;
     } else {
       error.value = '加载数据失败，请稍后再试';
     }
-  } finally {
     isGenerating.value = false;
-  }
-};
-
-// 辅助函数：获取任务类型对应的颜色
-const getTaskTypeColor = (type: string): string => {
-  const colorMap: Record<string, string> = {
-    study: '#4e79a7',  // 更柔和的蓝色
-    review: '#59a14f', // 更柔和的绿色
-    practice: '#b07aa1', // 更柔和的紫色
-    default: '#7f7f7f'  // 更柔和的灰色
-  };
-  return colorMap[type] || colorMap.default;
-};
-
-// 图表配置
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  cutout: '65%',
-  plugins: {
-    legend: {
-      position: 'right' as const,
-      labels: {
-        boxWidth: 12,
-        padding: 10,
-        font: {
-          size: 12,
-          weight: '500'
-        },
-        color: '#ffffff'
-      }
-    },
-    tooltip: {
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-      titleColor: '#2c3e50',
-      bodyColor: '#2c3e50',
-      borderColor: 'rgba(255, 255, 255, 0.3)',
-      borderWidth: 1,
-      cornerRadius: 4,
-      padding: 10,
-      callbacks: {
-        label: function(context: { raw: number; label: string; chart: { data: { datasets: { data: number[] }[] } } }) {
-          const value = context.raw || 0;
-          const total = context.chart.data.datasets[0].data.reduce((a: number, b: number) => a + b, 0);
-          const percentage = Math.round((value / total) * 100);
-          return `${context.label}: ${value} 个 (${percentage}%)`;
-        }
-      }
-    }
-  },
-  elements: {
-    arc: {
-      borderWidth: 1,
-      borderRadius: 4,
-      hoverOffset: 4
-    }
-  },
-  animation: {
-    duration: 500
   }
 };
 
 // 生成海报
 const generatePoster = async () => {
   if (!posterRef.value) return;
-
-  isGenerating.value = true;
-  error.value = '';
-
+  
   try {
+    isGenerating.value = true;
+    error.value = '';
+    
+    // 生成海报图片
     const canvas = await html2canvas(posterRef.value, {
       scale: 2,
       useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#2c3e50',
-      onclone: (clonedDoc) => {
-        const clonedElement = clonedDoc.querySelector('.poster') as HTMLElement;
-        if (clonedElement) {
-          clonedElement.style.background = 'linear-gradient(135deg, #2c3e50, #3498db)';
-          const statItems = clonedElement.querySelectorAll('.stat-value');
-          statItems.forEach((item: Element) => {
-            (item as HTMLElement).style.color = '#ffffff';
-            (item as HTMLElement).style.background = 'none';
-            (item as HTMLElement).style.webkitBackgroundClip = 'unset';
-            (item as HTMLElement).style.webkitTextFillColor = '#ffffff';
-          });
-        }
-      }
+      logging: false,
+      backgroundColor: '#ffffff'
     });
-
-    generatedImageUrl.value = canvas.toDataURL('image/png');
-    emit('generated', generatedImageUrl.value);
+    
+    // 转换为图片URL
+    const imageUrl = canvas.toDataURL('image/png');
+    generatedImageUrl.value = imageUrl;
+    
+    // 触发生成完成事件
+    emit('generated', imageUrl);
+    
+    isGenerating.value = false;
     console.log('海报生成成功');
-  } catch (err) {
+  } catch (err: any) {
     console.error('生成海报失败:', err);
     error.value = '生成海报失败，请稍后再试';
-  } finally {
     isGenerating.value = false;
   }
 };
@@ -309,28 +288,20 @@ const generatePoster = async () => {
 // 下载海报
 const downloadPoster = () => {
   if (!generatedImageUrl.value) return;
-
+  
   const link = document.createElement('a');
+  link.download = `学习汇报_${formattedDate.value}.png`;
   link.href = generatedImageUrl.value;
-  link.download = `学习海报-${formattedDate.value}.png`;
-  document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
 };
 
-// 关闭模态框
+// 关闭弹窗
 const closeModal = () => {
   emit('close');
+  // 重置状态
   generatedImageUrl.value = '';
   error.value = '';
 };
-
-// 监听showModal变化
-watch(() => props.showModal, (newVal) => {
-  if (newVal) {
-    loadUserData();
-  }
-});
 
 // 组件挂载时加载数据
 onMounted(() => {
@@ -339,153 +310,149 @@ onMounted(() => {
   }
 });
 
-// 名人名言列表
-const quotes = [
-  { text: "经济学是一门研究人类如何选择使用稀缺资源的科学。", author: "保罗·萨缪尔森" },
-  { text: "市场是一只无形的手，引导着资源的有效配置。", author: "亚当·斯密" },
-  { text: "通货膨胀是货币贬值的过程，而不是物价上涨的过程。", author: "米尔顿·弗里德曼" },
-  { text: "经济周期是市场经济不可避免的规律。", author: "约瑟夫·熊彼特" },
-  { text: "经济增长的最终目的是提高人民的生活水平。", author: "阿马蒂亚·森" },
-  { text: "自由贸易是促进经济增长和繁荣的重要途径。", author: "大卫·李嘉图" },
-  { text: "经济危机往往孕育着新的机遇。", author: "约翰·梅纳德·凯恩斯" },
-  { text: "创新是经济发展的核心动力。", author: "罗伯特·索洛" },
-  { text: "经济政策的目标是实现充分就业和物价稳定。", author: "威廉·菲利普斯" },
-  { text: "市场经济需要政府适度干预，以维护公平竞争。", author: "约翰·肯尼思·加尔布雷斯" },
-  { text: "金融市场的波动性既是风险，也是机遇。", author: "乔治·索罗斯" },
-  { text: "经济全球化是不可逆转的历史趋势。", author: "托马斯·弗里德曼" },
-  { text: "可持续发展是经济增长的必由之路。", author: "罗伯特·肯尼迪" },
-  { text: "数字经济正在重塑传统商业模式。", author: "埃里克·施密特" },
-  { text: "经济决策需要平衡短期利益和长期发展。", author: "约瑟夫·斯蒂格利茨" },
-  { text: "金融创新应该服务于实体经济。", author: "迈克尔·布隆伯格" },
-  { text: "经济教育是提升国民素质的关键。", author: "加里·贝克尔" },
-  { text: "经济改革需要勇气和智慧。", author: "林毅夫" },
-  { text: "经济全球化需要更加包容的治理。", author: "克里斯蒂娜·拉加德" },
-];
-
-// 随机获取一条名言
-const randomQuote = computed(() => {
-  const index = Math.floor(Math.random() * quotes.length);
-  return quotes[index];
+// 监听showModal属性变化
+watch(() => props.showModal, (newVal) => {
+  if (newVal) {
+    loadUserData();
+  }
 });
 </script>
 
 <template>
-  <div class="poster-modal" @click.self="closeModal">
-    <div class="poster-container">
-      <div class="poster-header">
-        <h2>学习海报</h2>
-        <button class="close-btn" @click="closeModal">×</button>
+  <div v-if="showModal" class="poster-modal">
+    <div class="modal-backdrop" @click="closeModal"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>生成学习海报 <span class="emoji">🎨</span></h2>
+        <button class="close-button" @click="closeModal">&times;</button>
       </div>
-
-      <div v-if="error" class="error-message">{{ error }}</div>
-
-      <div class="poster-content">
-        <!-- 海报预览 -->
-        <div v-if="!generatedImageUrl" class="poster-preview">
-          <div ref="posterRef" class="poster">
-            <!-- 顶部信息 -->
-            <div class="poster-top">
-              <div class="poster-logo">
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23cccccc'/%3E%3C/svg%3E" alt="科晟智慧金融" />
-                <span>科晟智慧金融</span>
-              </div>
-              <div class="poster-date">{{ formattedDate }}</div>
-            </div>
-
-            <!-- 用户信息 -->
-            <div class="poster-user">
-              <h1>{{ userData.username }}&nbsp;的学习报告</h1>
-            </div>
-
-            <!-- 统计数据 -->
-            <div class="poster-stats">
-              <div class="stat-item">
-                <div class="stat-value">{{ userData.totalTasks }}</div>
-                <div class="stat-label">今日计划</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ userData.totalTime }}</div>
-                <div class="stat-label">学习分钟</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ userData.streakDays }}</div>
-                <div class="stat-label">连续学习</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ completionRate }}%</div>
-                <div class="stat-label">完成率</div>
-              </div>
-            </div>
-
-            <!-- 任务列表 -->
-            <div class="poster-tasks">
-              <h2>今日任务</h2>
-              <div class="tasks-list">
-                <div v-for="(task, index) in userData.tasksList.slice(0, 5)" :key="index" class="task-item">
-                  <div class="task-status" :class="{ completed: task.completed }">
-                    {{ task.completed ? '✓' : '○' }}
-                  </div>
-                  <div class="task-name">{{ task.name }}</div>
-                  <div class="task-duration">{{ task.duration }}分钟</div>
-                </div>
-                <div v-if="userData.tasksList.length > 5" class="more-tasks">
-                  还有 {{ userData.tasksList.length - 5 }} 个任务...
-                </div>
-              </div>
-            </div>
-
-            <!-- 添加名人名言部分 -->
-            <div class="quote-section">
-              <p class="quote-text">"{{ randomQuote.text }}"</p>
-              <p class="quote-author">—— {{ randomQuote.author }}</p>
-            </div>
-
-            <!-- 底部信息 -->
-            <div class="poster-footer">
-              <div class="footer-content">
-                <div class="company-info">
-                  <h3 class="company-name">科晟智慧 KORSON ACADEMY</h3>
-                </div>
-                <div class="slogan">
-                  <div class="slogan-item">
-                    <span class="slogan-cn">探索</span>
-                    <span class="slogan-en">EXPLORE</span>
-                  </div>
-                  <div class="slogan-divider">·</div>
-                  <div class="slogan-item">
-                    <span class="slogan-cn">学习</span>
-                    <span class="slogan-en">LEARN</span>
-                  </div>
-                  <div class="slogan-divider">·</div>
-                  <div class="slogan-item">
-                    <span class="slogan-cn">创造</span>
-                    <span class="slogan-en">CREATE</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      
+      <div v-if="error" class="error-message">
+        <span class="error-icon">⚠️</span>
+        <span>{{ error }}</span>
+      </div>
+      
+      <div v-if="isGenerating" class="loading-container">
+        <div class="spinner"></div>
+        <p>{{ generatedImageUrl ? '正在生成海报...' : '正在加载数据...' }}</p>
+      </div>
+      
+      <div v-else-if="generatedImageUrl" class="generated-poster">
+        <div class="preview-container">
+          <img :src="generatedImageUrl" alt="生成的海报" class="poster-preview">
         </div>
-
-        <!-- 生成的海报图片 -->
-        <div v-else class="generated-poster">
-          <img :src="generatedImageUrl" alt="Generated Poster" />
-        </div>
-
-        <!-- 操作按钮 -->
-        <div class="poster-actions">
-          <button v-if="!generatedImageUrl" class="generate-btn" @click="generatePoster" :disabled="isGenerating">
-            {{ isGenerating ? '生成中...' : '生成海报' }}
+        <div class="action-buttons">
+          <button class="download-button" @click="downloadPoster">
+            <span class="button-icon">💾</span> 下载海报
           </button>
-
-          <div v-else class="download-options">
-            <button class="download-btn" @click="downloadPoster">
-              <span>💾</span> 保存到设备
-            </button>
-            <button class="regenerate-btn" @click="generatedImageUrl = ''">
-              <span>🔄</span> 重新生成
-            </button>
+          <button class="close-button outline" @click="closeModal">
+            <span class="button-icon">✖️</span> 关闭
+          </button>
+        </div>
+      </div>
+      
+      <div v-else class="poster-editor">
+        <div class="tab-container">
+          <button 
+            v-for="(label, key) in { daily: '今日', weekly: '本周', monthly: '本月' }" 
+            :key="key"
+            class="tab-button" 
+            :class="{ active: tab === key }"
+            @click="switchTab(key as 'daily' | 'weekly' | 'monthly')"
+          >
+            {{ label }}
+          </button>
+        </div>
+        
+        <div ref="posterRef" class="poster-template">
+          <div class="poster-header">
+            <h2>学习数据报告</h2>
+            <p class="date">{{ formattedDate }}</p>
           </div>
+          
+          <div class="user-section">
+            <div class="avatar">{{ userData.username ? userData.username[0].toUpperCase() : 'U' }}</div>
+            <div class="user-info">
+              <h3>{{ userData.username || '学习者' }}</h3>
+              <p>连续学习 {{ userData.stats.streakDays }} 天</p>
+            </div>
+          </div>
+          
+          <div class="stats-section">
+            <div class="stat-card">
+              <div class="stat-icon">⏱️</div>
+              <div class="stat-content">
+                <h4>{{ tab === 'daily' ? '今日' : tab === 'weekly' ? '本周' : '本月' }}学习时长</h4>
+                <p class="stat-value">{{ currentTimeData }} 分钟</p>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">📚</div>
+              <div class="stat-content">
+                <h4>{{ tab === 'daily' ? '今日' : tab === 'weekly' ? '本周' : '本月' }}完成任务</h4>
+                <p class="stat-value">{{ userData.stats.totalTasks }} 个</p>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">🔄</div>
+              <div class="stat-content">
+                <h4>累计学习时长</h4>
+                <p class="stat-value">{{ userData.stats.totalHours.toFixed(1) }} 小时</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="chart-section">
+            <h3>学习内容分布</h3>
+            <div class="chart-container" style="height: 200px; position: relative;">
+              <Doughnut 
+                :data="chartData" 
+                :options="{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'right',
+                      labels: {
+                        boxWidth: 15,
+                        padding: 10,
+                        font: { size: 12 }
+                      }
+                    }
+                  }
+                }"
+              />
+            </div>
+          </div>
+          
+          <div class="tasks-section" v-if="tab === 'daily' && userData.tasks.length > 0">
+            <h3>今日任务概览</h3>
+            <ul class="tasks-list">
+              <li v-for="task in userData.tasks.slice(0, 3)" :key="task.id" class="task-item">
+                <span class="task-name">{{ task.name }}</span>
+                <span class="task-duration">{{ task.duration }} 分钟</span>
+              </li>
+              <li v-if="userData.tasks.length > 3" class="task-more">
+                还有 {{ userData.tasks.length - 3 }} 个任务...
+              </li>
+            </ul>
+          </div>
+          
+          <div class="poster-footer">
+            <p class="motivation">继续坚持，每天进步！</p>
+            <p class="app-name">学习助手 · Study Companion</p>
+          </div>
+        </div>
+        
+        <div class="action-buttons">
+          <button class="generate-button" @click="generatePoster" :disabled="isGenerating">
+            <span class="button-icon">🖼️</span> 生成海报
+          </button>
+          <button class="cancel-button" @click="closeModal">
+            <span class="button-icon">✖️</span> 取消
+          </button>
         </div>
       </div>
     </div>
@@ -497,456 +464,395 @@ const randomQuote = computed(() => {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  right: 0;
+  bottom: 0;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
-  transition: opacity 0.3s ease;
 }
 
-.poster-container {
-  background-color: white;
-  border-radius: 12px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-  width: 90%;
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1001;
+  width: 100%;
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
-  padding: 24px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  color: #1976d2;
+}
+
+.emoji {
+  margin-left: 8px;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #757575;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.close-button:hover {
+  color: #e53935;
+}
+
+.error-message {
+  background: rgba(244, 67, 54, 0.1);
+  color: #e53935;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.error-icon {
+  font-size: 1.2rem;
+  margin-right: 10px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(25, 118, 210, 0.1);
+  border-radius: 50%;
+  border-top-color: #1976d2;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.poster-editor {
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-container {
+  display: flex;
+  margin-bottom: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 5px;
+}
+
+.tab-button {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #616161;
+}
+
+.tab-button.active {
+  background: #1976d2;
+  color: white;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
+}
+
+.poster-template {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
+  color: #333;
 }
 
 .poster-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  text-align: center;
   margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #eee;
 }
 
 .poster-header h2 {
-  margin: 0;
-  color: #2c3e50;
-  font-size: 22px;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 28px;
-  cursor: pointer;
-  color: #7f8c8d;
-}
-
-.poster-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.poster-preview {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 24px;
-}
-
-/* 海报样式 */
-.poster {
-  width: 100%;
-  max-width: 400px;
-  min-height: 700px;
-  background: linear-gradient(135deg, #2c3e50, #3498db);
-  border-radius: 16px;
-  padding: 20px;
-  color: white;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow: visible;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-
-.poster::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.1) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.1) 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-  opacity: 0.1;
-  z-index: 0;
-}
-
-.poster > * {
-  position: relative;
-  z-index: 1;
-}
-
-/* 顶部信息 */
-.poster-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.poster-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.poster-logo img {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-}
-
-.poster-logo span {
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.poster-date {
-  font-size: 14px;
-  opacity: 0.9;
-}
-
-/* 用户信息 */
-.poster-user {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.poster-user h1 {
+  margin: 0 0 5px;
+  color: #1976d2;
   font-size: 24px;
-  margin: 0 0 20px 0;
-  text-align: center;
+}
+
+.date {
+  margin: 0;
+  color: #757575;
+  font-size: 14px;
+}
+
+.user-section {
+  display: flex;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.avatar {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #42a5f5, #1976d2);
   color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font-size: 24px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-right: 15px;
 }
 
-/* 统计数据 */
-.poster-stats {
+.user-info h3 {
+  margin: 0 0 5px;
+  color: #333;
+  font-size: 18px;
+}
+
+.user-info p {
+  margin: 0;
+  color: #757575;
+  font-size: 14px;
+}
+
+.stats-section {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 15px;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
 }
 
-.stat-item {
-  background: rgba(255, 255, 255, 0.15);
+.stat-card {
+  background: #f9f9f9;
   padding: 15px;
-  border-radius: 12px;
-  text-align: center;
-  backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: transform 0.3s;
-  position: relative;
-  overflow: hidden;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
 }
 
-.stat-item::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
-  pointer-events: none;
+.stat-icon {
+  font-size: 24px;
+  margin-right: 12px;
 }
 
-.stat-item:hover {
-  transform: translateY(-2px);
+.stat-content h4 {
+  margin: 0 0 5px;
+  font-size: 14px;
+  color: #757575;
 }
 
 .stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #ffffff;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.stat-label {
-  font-size: 14px;
-  opacity: 0.9;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-/* 任务列表 */
-.poster-tasks {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 15px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-}
-
-.poster-tasks h2 {
+  margin: 0;
   font-size: 18px;
-  margin: 0 0 15px 0;
-  text-align: center;
+  font-weight: bold;
+  color: #1976d2;
+}
+
+.chart-section {
+  margin-bottom: 25px;
+}
+
+.chart-section h3,
+.tasks-section h3 {
+  margin: 0 0 15px;
+  font-size: 16px;
+  color: #333;
 }
 
 .tasks-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .task-item {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  justify-content: space-between;
+  padding: 10px 15px;
+  background: #f9f9f9;
   border-radius: 8px;
-  transition: transform 0.3s;
-}
-
-.task-item:hover {
-  transform: translateX(5px);
-}
-
-.task-status {
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: all 0.3s;
-  flex-shrink: 0;
-}
-
-.task-status.completed {
-  background: #59a14f;
-  border-color: #59a14f;
-  box-shadow: 0 0 10px rgba(89, 161, 79, 0.3);
+  margin-bottom: 8px;
 }
 
 .task-name {
-  flex: 1;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 500;
+  color: #333;
 }
 
 .task-duration {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2px 8px;
-  border-radius: 12px;
-  flex-shrink: 0;
+  color: #1976d2;
+  font-weight: 600;
 }
 
-.more-tasks {
+.task-more {
   text-align: center;
-  font-size: 14px;
-  opacity: 0.8;
-  margin-top: 10px;
-}
-
-/* 修改名人名言样式 */
-.quote-section {
-  padding: 30px 20px;
-  text-align: center;
-  position: relative;
-}
-
-.quote-section::before,
-.quote-section::after {
-  content: '"';
-  font-size: 60px;
-  color: rgba(255, 255, 255, 0.2);
-  position: absolute;
-  font-family: Georgia, serif;
-}
-
-.quote-section::before {
-  left: 20px;
-  top: 10px;
-}
-
-.quote-section::after {
-  right: 20px;
-  bottom: -20px;
-}
-
-.quote-text {
-  font-size: 18px;
-  line-height: 1.8;
-  color: #ffffff;
-  margin-bottom: 15px;
+  color: #757575;
   font-style: italic;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-size: 13px;
+  margin-top: 5px;
 }
 
-.quote-author {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
-  text-align: right;
-  margin: 0;
-  font-weight: 500;
-}
-
-/* 美化底部样式 */
 .poster-footer {
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4));
-  margin: 0 -20px -20px;
-  padding: 30px 20px;
-  border-radius: 0 0 16px 16px;
-  backdrop-filter: blur(10px);
-}
-
-.footer-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-
-.company-info {
   text-align: center;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #f0f0f0;
 }
 
-.company-name {
-  font-size: 20px;
-  font-weight: bold;
+.motivation {
+  margin: 0 0 5px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1976d2;
+}
+
+.app-name {
   margin: 0;
-  color: #ffffff;
-  letter-spacing: 2px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  color: #9e9e9e;
 }
 
-.company-name-en {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 5px 0 0 0;
-  letter-spacing: 1px;
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.generate-button,
+.download-button {
+  background: linear-gradient(135deg, #42a5f5, #1976d2);
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 8px;
+  font-size: 16px;
   font-weight: 500;
-}
-
-.slogan {
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 15px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
 }
 
-.slogan-item {
+.generate-button:hover,
+.download-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(25, 118, 210, 0.4);
+}
+
+.cancel-button {
+  background: #f5f5f5;
+  color: #757575;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.cancel-button:hover {
+  background: #e0e0e0;
+}
+
+.button-icon {
+  margin-right: 8px;
+}
+
+.generated-poster {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
 }
 
-.slogan-cn {
-  font-size: 16px;
-  color: #ffffff;
-  font-weight: 500;
-}
-
-.slogan-en {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  letter-spacing: 1px;
-}
-
-.slogan-divider {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 20px;
-  margin-top: -10px;
-}
-
-/* 生成的海报 */
-.generated-poster {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 24px;
-}
-
-.generated-poster img {
+.preview-container {
   max-width: 100%;
-  max-height: 70vh;
+  overflow: hidden;
   border-radius: 12px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-/* 按钮样式 */
-.poster-actions {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  margin-top: 16px;
-}
-
-.generate-btn, .download-btn, .regenerate-btn {
-  padding: 12px 24px;
-  border-radius: 50px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 16px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.generate-btn {
-  background: linear-gradient(135deg, #3498db, #2980b9);
-  color: white;
-  min-width: 180px;
-}
-
-.download-options {
-  display: flex;
-  gap: 16px;
-}
-
-.download-btn {
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
-  color: white;
-}
-
-.regenerate-btn {
-  background: #ecf0f1;
-  color: #34495e;
-}
-
-.error-message {
-  background: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
-  padding: 12px;
-  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
   margin-bottom: 20px;
-  text-align: center;
-  width: 100%;
 }
 
-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.poster-preview {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.close-button.outline {
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  color: #757575;
+}
+
+.close-button.outline:hover {
+  background: #f5f5f5;
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    padding: 20px;
+    width: 90%;
+  }
+  
+  .stats-section {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+  }
+  
+  .generate-button,
+  .download-button,
+  .cancel-button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 </style>

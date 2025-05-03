@@ -1,114 +1,160 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { Pie } from 'vue-chartjs'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
+import { computed } from 'vue'
+import { Bar } from 'vue-chartjs'
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js'
 
 // 注册Chart.js组件
-ChartJS.register(ArcElement, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
+
+// 时间数据项接口
+interface TimeDataItem {
+  hour?: number;
+  duration?: number;
+  count?: number;
+  value?: number;
+  time?: string;
+  time_slot?: string;
+  [key: string]: any;
+}
 
 const props = defineProps<{
-  data: Array<{
-    hour: number,
-    duration: number
-  }>
+  data: Array<TimeDataItem>
 }>()
 
-// 准备图表数据
+// 图表数据计算
 const chartData = computed(() => {
-  // 将24小时分为4个时间段
-  const morningHours = [6, 7, 8, 9, 10, 11]
-  const afternoonHours = [12, 13, 14, 15, 16, 17]
-  const eveningHours = [18, 19, 20, 21, 22, 23]
-  const nightHours = [0, 1, 2, 3, 4, 5]
+  const labels = []
+  const data = []
 
-  // 计算每个时间段的总时长
-  const morning = props.data
-    .filter(item => morningHours.includes(item.hour))
-    .reduce((sum, item) => sum + item.duration, 0)
+  // 创建24小时的标签
+  for (let i = 0; i < 24; i++) {
+    labels.push(`${i}:00`)
+  }
 
-  const afternoon = props.data
-    .filter(item => afternoonHours.includes(item.hour))
-    .reduce((sum, item) => sum + item.duration, 0)
+  // 创建数据数组
+  const values = new Array(24).fill(0)
 
-  const evening = props.data
-    .filter(item => eveningHours.includes(item.hour))
-    .reduce((sum, item) => sum + item.duration, 0)
+  // 填充实际数据
+  if (Array.isArray(props.data)) {
+    props.data.forEach(item => {
+      let hour: number | undefined
 
-  const night = props.data
-    .filter(item => nightHours.includes(item.hour))
-    .reduce((sum, item) => sum + item.duration, 0)
+      // 尝试从不同字段获取小时数据
+      if (item.hour !== undefined) {
+        hour = Number(item.hour)
+      } else if (item.time) {
+        // 从 "HH:MM" 格式中提取小时
+        const match = item.time.match(/^(\d+):/)
+        hour = match ? Number(match[1]) : undefined
+      } else if (item.time_slot) {
+        // 尝试从time_slot中提取小时
+        const match = item.time_slot.match(/(\d+)/)
+        hour = match ? Number(match[1]) : undefined
+      }
+
+      // 确保小时在有效范围内
+      if (hour !== undefined && hour >= 0 && hour < 24) {
+        // 尝试从不同字段获取值
+        const value = Number(
+          item.duration !== undefined ? item.duration :
+          item.value !== undefined ? item.value :
+          item.count !== undefined ? item.count : 0
+        )
+
+        if (!isNaN(value)) {
+          values[hour] = value
+        }
+      }
+    })
+  }
 
   return {
-    labels: ['早晨 (6-12点)', '下午 (12-18点)', '晚上 (18-24点)', '深夜 (0-6点)'],
+    labels,
     datasets: [
       {
-        backgroundColor: [
-          '#FF9800', // 早晨 - 橙色
-          '#2196F3', // 下午 - 蓝色
-          '#673AB7', // 晚上 - 紫色
-          '#263238'  // 深夜 - 深灰色
-        ],
-        borderColor: 'white',
-        borderWidth: 2,
-        hoverBackgroundColor: [
-          '#FF9800', // 早晨 - 橙色
-          '#2196F3', // 下午 - 蓝色
-          '#673AB7', // 晚上 - 紫色
-          '#263238'  // 深夜 - 深灰色
-        ],
-        hoverBorderColor: 'white',
-        hoverBorderWidth: 2,
-        data: [morning, afternoon, evening, night]
+        label: '学习时长 (分钟)',
+        backgroundColor: 'rgba(33, 150, 243, 0.7)',
+        borderColor: 'rgba(33, 150, 243, 1)',
+        borderWidth: 1,
+        borderRadius: 4,
+        hoverBackgroundColor: 'rgba(33, 150, 243, 0.9)',
+        data: values
       }
     ]
   }
 })
 
+// 计算峰值时段
+const peakHour = computed(() => {
+  if (!props.data || props.data.length === 0) return '暂无数据';
+
+  let maxHour = 0;
+  let maxValue = 0;
+
+  // 查找最大值对应的小时
+  for (let i = 0; i < 24; i++) {
+    const hourData = props.data.find(item => item.hour === i);
+    if (hourData) {
+      const value = Number(hourData.duration || hourData.value || hourData.count || 0);
+      if (value > maxValue) {
+        maxValue = value;
+        maxHour = i;
+      }
+    }
+  }
+
+  // 格式化输出
+  return maxValue > 0 ? `${maxHour}:00 - ${maxHour+1}:00` : '暂无数据';
+});
+
+// 计算活跃时段数
+const activeHours = computed(() => {
+  if (!props.data || props.data.length === 0) return 0;
+
+  // 统计时长大于0的小时数
+  let count = 0;
+  for (let i = 0; i < 24; i++) {
+    const hourData = props.data.find(item => item.hour === i);
+    if (hourData) {
+      const value = Number(hourData.duration || hourData.value || hourData.count || 0);
+      if (value > 0) count++;
+    }
+  }
+
+  return count;
+});
+
 // 图表配置
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  cutout: '65%',  // 设置为环形图
   plugins: {
     legend: {
-      position: 'right',
-      labels: {
-        boxWidth: 12,
-        padding: 10,
-        font: {
-          size: 12,
-          weight: '500'
-        },
-        color: '#424242'
-      }
+      display: false
     },
     tooltip: {
-      backgroundColor: 'white',
-      titleColor: '#424242',
-      bodyColor: '#212121',
-      borderColor: '#e0e0e0',
-      borderWidth: 1,
-      cornerRadius: 4,
-      padding: 10,
       callbacks: {
         label: function(context: any) {
-          const value = context.raw || 0
-          const total = context.chart.data.datasets[0].data.reduce((a: number, b: number) => a + b, 0)
-          const percentage = Math.round((value / total) * 100)
-          return `${context.label}: ${value} 分钟 (${percentage}%)`
+          const value = context.raw || 0;
+          return `${value} 分钟`;
         }
       }
     }
   },
-  elements: {
-    arc: {
-      borderWidth: 1,
-      borderRadius: 4,
-      hoverOffset: 4
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: '学习时长(分钟)'
+      }
+    },
+    x: {
+      title: {
+        display: true,
+        text: '小时'
+      }
     }
-  },
-  animation: {
-    duration: 500
   }
 }
 </script>
@@ -116,9 +162,22 @@ const chartOptions = {
 <template>
   <div class="time-distribution-chart">
     <h3>学习时间分布</h3>
+
+    <!-- 统计信息 -->
+    <div class="stats-summary">
+      <div class="stat-item">
+        <div class="stat-label">峰值时段</div>
+        <div class="stat-value">{{ peakHour }}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">活跃时段</div>
+        <div class="stat-value">{{ activeHours }}小时</div>
+      </div>
+    </div>
+
     <div class="chart-container">
       <div v-if="props.data && props.data.length > 0" class="chart-wrapper">
-        <Pie :data="chartData" :options="chartOptions" height="300" />
+        <Bar :data="chartData" :options="chartOptions" height="300" />
       </div>
       <div v-else class="empty-chart">
         <div class="empty-icon">📊</div>
@@ -151,7 +210,7 @@ const chartOptions = {
 
 h3 {
   text-align: center;
-  margin: 0 0 20px;
+  margin: 0 0 15px;
   color: #1976d2;
   font-size: 1.2rem;
   font-weight: 600;
@@ -171,8 +230,34 @@ h3::after {
   border-radius: 1.5px;
 }
 
+.stats-summary {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+  background: rgba(33, 150, 243, 0.05);
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #5c6bc0;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  color: #1976d2;
+  font-weight: 600;
+}
+
 .chart-container {
-  height: 300px;
+  height: 250px;
   position: relative;
   flex: 1;
   display: flex;
