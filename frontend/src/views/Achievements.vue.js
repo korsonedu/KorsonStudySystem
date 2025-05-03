@@ -286,6 +286,8 @@ let __VLS_directives;
 /** @type {__VLS_StyleScopedClasses['notification-content']} */ ;
 /** @type {__VLS_StyleScopedClasses['notification-content']} */ ;
 /** @type {__VLS_StyleScopedClasses['notification-close']} */ ;
+/** @type {__VLS_StyleScopedClasses['achievements-list']} */ ;
+/** @type {__VLS_StyleScopedClasses['card-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['achievements-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['achievements-list']} */ ;
 /** @type {__VLS_StyleScopedClasses['locked-icon']} */ ;
@@ -293,6 +295,8 @@ let __VLS_directives;
 /** @type {__VLS_StyleScopedClasses['achievement-icon']} */ ;
 /** @type {__VLS_StyleScopedClasses['card-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['achievement-notification']} */ ;
+/** @type {__VLS_StyleScopedClasses['progress-overview']} */ ;
+/** @type {__VLS_StyleScopedClasses['achievement-card']} */ ;
 const __VLS_self = (await import('vue')).defineComponent({
     setup() {
         return {};

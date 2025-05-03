@@ -3,8 +3,8 @@
  * 直接使用后端API存储计划数据
  */
 
-import { apiService } from '../../../shared/services/apiService';
-import { API_CONFIG } from '../../../config/api';
+import apiService from './apiService';
+import { API_CONFIG } from '../config';
 
 // 计划类型定义
 export interface Plan {

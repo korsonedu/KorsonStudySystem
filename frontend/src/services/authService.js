@@ -2,7 +2,7 @@
  * 认证服务
  * 处理用户登录、注册、登出等认证相关功能
  */
-import apiService from './apiService';
+import { apiService } from './apiService';
 import { API_CONFIG, STORAGE_CONFIG } from '../config';
 /**
  * 认证服务类

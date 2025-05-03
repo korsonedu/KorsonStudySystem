@@ -1,18 +1,34 @@
-# 学习看板应用
+# Korson Study System
 
-一个帮助学生管理学习任务、计划和成就的应用。
+一个综合性学习平台，包含多个子系统。
 
-## 功能
+## 子系统说明
 
-- 学习任务看板 (番茄钟)
-- 任务记录和统计
-- 学习计划管理
-- 成就系统
+### 1. 学习追踪系统
+
+- 功能：番茄钟计时、任务管理、学习统计、成就系统
+- 状态：已实现
+
+### 2. 课程系统
+
+- 功能：课程管理、学习进度跟踪、课程内容展示
+- 状态：计划中
+
+### 3. 排行榜系统
+
+- 功能：学习时间排行、成就排行、积分排行
+- 状态：计划中
+
+### 4. 题库系统
+
+- 功能：题目管理、做题记录、错题本
+- 状态：计划中
 
 ## 技术栈
 
 - 前端：Vue 3 + TypeScript + Vite
 - 后端：FastAPI + SQLAlchemy + PostgreSQL
+- 部署：Docker + Nginx
 
 ## 快速开始
 
@@ -48,98 +64,55 @@ uvicorn app.main:app --reload
 ## 项目结构
 
 ```
-├── .vscode/                      # VS Code 配置
-├── backend/                      # 后端代码
-│   ├── alembic/                  # 数据库迁移工具
-│   │   ├── versions/             # 数据库迁移版本
-│   │   └── env.py                # Alembic 环境配置
-│   ├── app/                      # FastAPI 应用
-│   │   ├── models/               # 数据库模型
-│   │   │   ├── achievement.py    # 成就模型
-│   │   │   ├── plan.py           # 计划模型
-│   │   │   ├── task.py           # 任务模型
-│   │   │   └── user.py           # 用户模型
-│   │   ├── routers/              # API 路由
-│   │   │   ├── achievements.py   # 成就相关路由
-│   │   │   ├── auth.py           # 认证相关路由
-│   │   │   ├── plans.py          # 计划相关路由
-│   │   │   ├── statistics.py     # 统计相关路由
-│   │   │   └── tasks.py          # 任务相关路由
-│   │   ├── schemas/              # Pydantic 模型
-│   │   │   ├── achievement.py    # 成就数据模式
-│   │   │   ├── plan.py           # 计划数据模式
-│   │   │   ├── statistic.py      # 统计数据模式
-│   │   │   ├── task.py           # 任务数据模式
-│   │   │   ├── token.py          # 令牌数据模式
-│   │   │   └── user.py           # 用户数据模式
-│   │   ├── services/             # 服务
-│   │   │   └── email.py          # 邮件服务
-│   │   ├── achievements_definitions.py # 成就定义
-│   │   ├── auth.py               # 认证逻辑
-│   │   ├── config.py             # 配置文件
-│   │   ├── database.py           # 数据库配置
-│   │   └── main.py               # 主应用入口
-│   ├── .env                      # 环境变量
-│   ├── .env.example              # 环境变量示例
-│   ├── alembic.ini               # Alembic 配置
-│   └── requirements.txt          # 后端依赖
-│
-├── example/                      # 示例代码
-│   ├── achievements.html         # 成就页面示例
-│   ├── achievements.js           # 成就相关 JS
-│   ├── index.html                # 主页示例
-│   ├── kanban.js                 # 看板相关 JS
-│   ├── plans.js                  # 计划相关 JS
-│   ├── statistics.html           # 统计页面示例
-│   ├── statistics.js             # 统计相关 JS
-│   ├── stats.css                 # 统计页面样式
-│   └── styles.css                # 通用样式
-│
-├── frontend/                     # 前端代码
-│   ├── public/                   # 公共资源
-│   │   └── images/               # 图片资源
-│   ├── src/                      # 源代码
-│   │   ├── assets/               # 静态资源
-│   │   ├── components/           # Vue 组件
-│   │   │   ├── AchievementCard.vue  # 成就卡片组件
-│   │   │   ├── CircularTimer.vue    # 圆形计时器组件
-│   │   │   ├── Heatmap.vue          # 热图组件
-│   │   │   ├── NavBar.vue           # 导航栏组件
-│   │   │   ├── ShareButton.vue      # 分享按钮组件
-│   │   │   ├── SharePoster.vue      # 分享海报组件
-│   │   │   └── TimeDistributionChart.vue # 时间分布图组件
-│   │   ├── config/               # 配置文件
-│   │   │   ├── achievements.ts   # 成就配置
-│   │   │   ├── api.ts            # API 配置
-│   │   │   └── poster.ts         # 海报配置
-│   │   ├── services/             # 服务
-│   │   │   ├── api.ts            # API 服务
-│   │   │   ├── authService.ts    # 认证服务
-│   │   │   ├── planService.ts    # 计划服务
-│   │   │   ├── taskService.ts    # 任务服务
-│   │   │   └── userService.ts    # 用户服务
-│   │   ├── utils/                # 工具函数
-│   │   │   └── storage.ts        # 存储工具
-│   │   ├── views/                # 页面视图
-│   │   │   ├── Achievements.vue  # 成就页面
-│   │   │   ├── Home.vue          # 主页
-│   │   │   ├── Login.vue         # 登录页面
-│   │   │   ├── Register.vue      # 注册页面
-│   │   │   ├── Statistics.vue    # 统计页面
-│   │   │   └── VerifyEmail.vue   # 邮箱验证页面
-│   │   ├── App.vue               # 主应用组件
-│   │   ├── main.ts               # 应用入口
-│   │   └── style.css             # 全局样式
-│   ├── .env.example              # 环境变量示例
-│   ├── index.html                # HTML 入口
-│   ├── package.json              # 前端依赖配置
-│   ├── tsconfig.json             # TypeScript 配置
-│   └── vite.config.ts            # Vite 配置
-│
-├── .env                          # 环境变量
-├── .gitignore                    # Git 忽略文件
-├── DEPLOYMENT.md                 # 部署文档
-├── README.md                     # 项目说明文档
-├── openapi.json                  # OpenAPI 规范
-└── package.json                  # 项目依赖配置
+.
+├── backend/                  # 后端代码
+│   ├── app/                  # 应用代码
+│   │   ├── core/             # 核心功能
+│   │   │   ├── config.py     # 配置文件
+│   │   │   └── database.py   # 数据库连接
+│   │   ├── modules/          # 各个webapp模块
+│   │   │   ├── common/       # 公共模块（用户、认证等）
+│   │   │   │   ├── models/   # 数据库模型
+│   │   │   │   ├── schemas/  # Pydantic模型
+│   │   │   │   └── routers/  # API路由
+│   │   │   ├── study/        # 学习追踪系统
+│   │   │   │   ├── models/   # 数据库模型
+│   │   │   │   ├── schemas/  # Pydantic模型
+│   │   │   │   └── routers/  # API路由
+│   │   │   ├── course/       # 课程系统
+│   │   │   ├── leaderboard/  # 排行榜系统
+│   │   │   └── quiz/         # 题库系统
+│   │   └── main.py           # 主入口文件
+│   ├── scripts/              # 脚本文件
+│   └── alembic/              # 数据库迁移
+├── frontend/                 # 前端代码
+│   ├── src/                  # 源代码
+│   │   ├── apps/             # 各个webapp模块
+│   │   │   ├── study/        # 学习追踪系统
+│   │   │   │   ├── components/ # 组件
+│   │   │   │   ├── services/   # 服务
+│   │   │   │   └── views/      # 视图
+│   │   │   ├── course/       # 课程系统
+│   │   │   ├── leaderboard/  # 排行榜系统
+│   │   │   └── quiz/         # 题库系统
+│   │   ├── shared/           # 共享组件和服务
+│   │   │   ├── components/   # 共享组件
+│   │   │   ├── services/     # 共享服务
+│   │   │   ├── utils/        # 共享工具
+│   │   │   └── views/        # 共享视图（登录、注册等）
+│   │   ├── config/           # 配置文件
+│   │   ├── router/           # 路由配置
+│   │   └── App.vue           # 主应用组件
+│   └── public/               # 静态资源
+└── README.md                 # 项目说明
 ```
+
+## 数据库
+
+所有子系统共享同一个数据库 `KorsonStudySystem`，使用不同的表前缀区分：
+
+- 公共表：`common_*`
+- 学习追踪系统：`study_*`
+- 课程系统：`course_*`
+- 排行榜系统：`rank_*`
+- 题库系统：`quiz_*`

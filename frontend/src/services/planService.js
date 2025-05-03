@@ -2,7 +2,7 @@
  * 计划服务
  * 直接使用后端API存储计划数据
  */
-import apiService from './apiService';
+import { apiService } from './apiService';
 import { API_CONFIG } from '../config';
 /**
  * 计划服务类

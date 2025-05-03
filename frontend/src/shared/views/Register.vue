@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { authService } from '../services/authService'
+import { apiService } from '../services/apiService'
+import { userService } from '../services/userService'
+import { API_CONFIG } from '../../config'
+import axios from 'axios'
 
 const username = ref('')
 const email = ref('')
@@ -54,8 +57,8 @@ const register = async () => {
       invitation_code: invitationCode.value
     }
 
-    // 使用认证服务发送注册请求
-    const success = await authService.register(userData)
+    // 使用用户服务发送注册请求
+    const success = await userService.register(userData)
 
     if (success) {
       // 注册成功，显示成功消息
@@ -73,7 +76,7 @@ const register = async () => {
       }, 3000)
     } else {
       // 注册失败，显示错误信息
-      errorMessage.value = authService.error.value
+      errorMessage.value = userService.error.value
     }
   } catch (error: any) {
     console.error('注册失败:', error)

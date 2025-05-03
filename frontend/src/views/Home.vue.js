@@ -4,6 +4,8 @@ import { taskService } from '../services/taskService';
 import { planService } from '../services/planService';
 import { userService } from '../services/userService';
 import { STORAGE_CONFIG, SERVER_CONFIG } from '../config';
+import { getPlanId, sortPlansByCompletionAndDate, filterTodayPlans } from '../utils/sortUtils';
+import { executeWithRetry } from '../utils/errorUtils';
 // State for Pomodoro timer
 const taskName = ref('');
 const taskTime = ref(25);
@@ -330,22 +332,43 @@ const completeTask = async () => {
         // 不设置加载状态，提升界面流畅感
         error.value = '';
         console.log('Saving task:', taskName.value, 'duration:', taskTime.value);
-        // 获取当前时间作为结束时间
-        const currentTime = new Date();
+        // 获取当前时间作为结束时间（中国时区）
+        const now = new Date();
+        // 转换为中国时区
+        const currentTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
         // 使用实际开始时间，如果没有则使用当前时间
-        const startTime = taskStartTime.value || currentTime;
-        console.log('Task start time:', startTime, 'End time:', currentTime);
+        let startTime;
+        if (taskStartTime.value) {
+            // 转换为中国时区
+            startTime = new Date(taskStartTime.value.getTime() + (taskStartTime.value.getTimezoneOffset() + 480) * 60000);
+        }
+        else {
+            startTime = currentTime;
+        }
+        console.log('Task start time (China timezone):', startTime, 'End time (China timezone):', currentTime);
         // 计算实际持续时间（分钟）
         const actualDurationMs = currentTime.getTime() - startTime.getTime();
         const actualDurationMinutes = Math.ceil(actualDurationMs / (1000 * 60));
         console.log('Actual duration:', actualDurationMinutes, 'minutes');
+        // 将日期格式化为中国时区的ISO格式字符串（带+08:00后缀）
+        const formatDateForBackend = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+            // 格式: YYYY-MM-DDThh:mm:ss.sss+08:00
+            return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+08:00`;
+        };
         // 确保任务数据符合后端API要求
         const newTask = {
             name: taskName.value,
             duration: actualDurationMinutes, // 使用实际持续时间
             completed: true,
-            start: startTime.toISOString(),
-            end: currentTime.toISOString()
+            start: formatDateForBackend(startTime),
+            end: formatDateForBackend(currentTime)
             // 不指定用户ID，由后端根据token自动关联当前用户
         };
         console.log('Creating task with data:', newTask);
@@ -451,34 +474,11 @@ const fetchPlans = async () => {
         else {
             console.warn('No plans available to display');
         }
-        // 过滤出今天的计划
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // 设置为今天的开始时间
-        const todayPlans = plansData.filter(plan => {
-            // 如果计划有创建时间字段，检查是否是今天创建的
-            if (plan.createdAt) {
-                const planDate = new Date(plan.createdAt);
-                planDate.setHours(0, 0, 0, 0); // 设置为计划创建日的开始时间
-                return planDate.getTime() === today.getTime();
-            }
-            // 如果没有创建时间字段，默认显示（可能是旧数据）
-            return true;
-        });
+        // 使用工具函数过滤出今天的计划
+        const todayPlans = filterTodayPlans(plansData);
         console.log('Today\'s plans:', todayPlans.length);
-        // 对计划进行排序：未完成的在上面，已完成的在下面
-        // 在各自分组内按创建时间排序（如果有创建时间）
-        const sortedPlans = todayPlans.sort((a, b) => {
-            // 首先按完成状态排序
-            if (a.completed !== b.completed) {
-                return a.completed ? 1 : -1; // 未完成的排在前面
-            }
-            // 然后在各自分组内按创建时间排序（如果有）
-            if (a.createdAt && b.createdAt) {
-                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-            }
-            // 如果没有创建时间，保持原有顺序
-            return 0;
-        });
+        // 使用工具函数对计划进行排序
+        const sortedPlans = sortPlansByCompletionAndDate(todayPlans);
         plans.value = sortedPlans;
     }
     catch (err) {
@@ -497,12 +497,27 @@ const addPlan = async () => {
     try {
         // 不设置加载状态，提升界面流畅感
         planError.value = '';
+        // 获取当前时间（中国时区）
+        const now = new Date();
+        const chinaTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+        // 将日期格式化为中国时区的ISO格式字符串（带+08:00后缀）
+        const formatDateForBackend = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+            // 格式: YYYY-MM-DDThh:mm:ss.sss+08:00
+            return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+08:00`;
+        };
         // 根据后端文档，使用正确的数据格式
         const newPlan = {
             text: planInput.value, // 后端使用text字段而不是title
             completed: false, // 完成状态
             started: false, // 开始状态
-            createdAt: new Date().toISOString() // 添加创建时间字段，用于排序和过滤
+            createdAt: formatDateForBackend(chinaTime) // 添加创建时间字段，用于排序和过滤
         };
         console.log('Creating plan with data:', newPlan);
         // 使用直接API存储服务创建计划
@@ -546,13 +561,7 @@ const addPlan = async () => {
         fetchPlans();
     }
 };
-// 获取计划ID的辅助函数，处理不同的ID字段名称
-const getPlanId = (plan) => {
-    if (!plan)
-        return undefined;
-    // 使用类型断言来避免TypeScript错误
-    return plan.id || plan._id || plan.planId;
-};
+// 使用从工具函数导入的 getPlanId
 // Toggle plan completion using the planService
 const togglePlan = async (plan) => {
     try {
@@ -579,19 +588,8 @@ const togglePlan = async (plan) => {
         if (planIndex !== -1) {
             // 更新完成状态
             plans.value[planIndex].completed = !plan.completed;
-            // 重新排序计划列表
-            plans.value = [...plans.value].sort((a, b) => {
-                // 首先按完成状态排序
-                if (a.completed !== b.completed) {
-                    return a.completed ? 1 : -1; // 未完成的排在前面
-                }
-                // 然后在各自分组内按创建时间排序（如果有）
-                if (a.createdAt && b.createdAt) {
-                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-                }
-                // 如果没有创建时间，保持原有顺序
-                return 0;
-            });
+            // 使用工具函数重新排序计划列表
+            plans.value = sortPlansByCompletionAndDate(plans.value);
         }
         // 同时在后台重新加载计划列表，确保数据同步
         fetchPlans();
@@ -624,20 +622,7 @@ const deletePlan = async (planId) => {
         // 只在控制台输出错误，不显示错误消息
     }
 };
-// Format date for display
-const formatDate = (dateString) => {
-    if (!dateString)
-        return '';
-    const date = new Date(dateString);
-    return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
-};
-// Format time for display with more details
-const formatTime = (dateString) => {
-    if (!dateString)
-        return '';
-    const date = new Date(dateString);
-    return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-};
+// 使用从工具函数导入的 formatDate 和 formatTime
 // Delete a task using the taskService
 const deleteTask = async (taskId) => {
     if (!confirm('确定要删除这个任务吗？')) {
@@ -689,28 +674,9 @@ onMounted(() => {
     // 给服务器一点启动时间后再请求数据
     setTimeout(() => {
         console.log('Initiating data fetch');
-        // 添加重试机制
-        const fetchWithRetry = async (fetchFn, name, maxRetries = 3) => {
-            let retries = 0;
-            while (retries < maxRetries) {
-                try {
-                    await fetchFn();
-                    return; // 成功则返回
-                }
-                catch (err) {
-                    retries++;
-                    console.warn(`${name} failed (attempt ${retries}/${maxRetries}):`, err.message);
-                    if (retries >= maxRetries) {
-                        console.error(`${name} failed after ${maxRetries} attempts`);
-                        return;
-                    }
-                    // 等待一段时间再重试
-                    await new Promise(resolve => setTimeout(resolve, 2000 * retries));
-                }
-            }
-        };
-        fetchWithRetry(fetchTasks, 'fetchTasks');
-        fetchWithRetry(fetchPlans, 'fetchPlans');
+        // 使用工具函数添加重试机制
+        executeWithRetry(fetchTasks, 'fetchTasks');
+        executeWithRetry(fetchPlans, 'fetchPlans');
     }, 1000);
 });
 // Clean up when component is unmounted
@@ -798,7 +764,32 @@ let __VLS_directives;
 /** @type {__VLS_StyleScopedClasses['sidebar-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['sidebar-header']} */ ;
 /** @type {__VLS_StyleScopedClasses['main-content']} */ ;
+/** @type {__VLS_StyleScopedClasses['pomodoro-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['timer-container']} */ ;
+/** @type {__VLS_StyleScopedClasses['main-content']} */ ;
 /** @type {__VLS_StyleScopedClasses['plan-sidebar']} */ ;
+/** @type {__VLS_StyleScopedClasses['pomodoro-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['timer-container']} */ ;
+/** @type {__VLS_StyleScopedClasses['controls']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-btn']} */ ;
+/** @type {__VLS_StyleScopedClasses['main-content']} */ ;
+/** @type {__VLS_StyleScopedClasses['pomodoro-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['task-list']} */ ;
+/** @type {__VLS_StyleScopedClasses['plan-sidebar']} */ ;
+/** @type {__VLS_StyleScopedClasses['pomodoro-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['task-list']} */ ;
+/** @type {__VLS_StyleScopedClasses['timer-container']} */ ;
+/** @type {__VLS_StyleScopedClasses['time-setter']} */ ;
+/** @type {__VLS_StyleScopedClasses['task-input']} */ ;
+/** @type {__VLS_StyleScopedClasses['controls']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-btn']} */ ;
+/** @type {__VLS_StyleScopedClasses['task-record-details']} */ ;
+/** @type {__VLS_StyleScopedClasses['task-record-item']} */ ;
+/** @type {__VLS_StyleScopedClasses['tech-plan-item']} */ ;
+/** @type {__VLS_StyleScopedClasses['summary']} */ ;
+/** @type {__VLS_StyleScopedClasses['pomodoro-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['timer-container']} */ ;
+/** @type {__VLS_StyleScopedClasses['control-btn']} */ ;
 const __VLS_self = (await import('vue')).defineComponent({
     setup() {
         return {};

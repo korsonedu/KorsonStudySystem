@@ -3,7 +3,7 @@ export const API_CONFIG = {
   ENDPOINTS: {
     AUTH: {
       REGISTER: '/api/auth/register',
-      LOGIN: '/api/auth/token',
+      LOGIN: '/api/auth/login',
       LOGOUT: '/api/auth/logout',
       CURRENT_USER: '/api/auth/me'
     },
@@ -13,32 +13,34 @@ export const API_CONFIG = {
       DELETE: '/api/users/me'
     },
     TASKS: {
-      BASE: '/api/tasks',
-      LIST: '/api/tasks',
-      DETAIL: (id: number) => `/api/tasks/${id}`,
-      COMPLETE: (id: number) => `/api/tasks/${id}/complete`
+      BASE: '/api/study/tasks',
+      LIST: '/api/study/tasks',
+      DETAIL: (id: number) => `/api/study/tasks/${id}`,
+      COMPLETE: (id: number) => `/api/study/tasks/${id}/complete`,
+      TODAY: '/api/study/tasks/today',
+      HEATMAP: '/api/study/tasks/heatmap'
     },
     PLANS: {
-      BASE: '/api/plans',
-      LIST: '/api/plans',
-      DETAIL: (id: string | number) => `/api/plans/${id}`,
-      COMPLETE: (id: string | number) => `/api/plans/${id}/complete`
+      BASE: '/api/study/plans',
+      LIST: '/api/study/plans',
+      DETAIL: (id: string | number) => `/api/study/plans/${id}`,
+      COMPLETE: (id: string | number) => `/api/study/plans/${id}/complete`
     },
     ACHIEVEMENTS: {
-      BASE: '/api/achievements',
-      LIST: '/api/achievements',
-      DETAIL: (id: number) => `/api/achievements/${id}`,
-      UNLOCK: (id: number) => `/api/achievements/${id}/unlock`
+      BASE: '/api/study/achievements',
+      LIST: '/api/study/achievements',
+      DETAIL: (id: number) => `/api/study/achievements/${id}`,
+      UNLOCK: (id: number) => `/api/study/achievements/${id}/unlock`
     },
     STATISTICS: {
       BASE: '/api/study/statistics',
-      DAILY: '/api/study/statistics',
-      WEEKLY: '/api/study/statistics',
-      MONTHLY: '/api/study/statistics',
-      TOTAL: '/api/study/statistics',
+      DAILY: '/api/study/statistics/daily',
+      WEEKLY: '/api/study/statistics/weekly',
+      MONTHLY: '/api/study/statistics/monthly',
+      TOTAL: '/api/study/statistics/total',
       HEATMAP: '/api/study/statistics/heatmap',
       TIME_DISTRIBUTION: '/api/study/statistics/time-distribution',
-      USER_INFO: '/api/auth/me'
+      USER_INFO: '/api/study/statistics/user'
     }
   }
 };

@@ -10,10 +10,10 @@ const taskResult = ref('');
 const taskSuccess = ref(false);
 // URL选项
 const urls = [
-    '/api/tasks/',
-    '/api/tasks',
-    'http://127.0.0.1:8000/api/tasks/',
-    'http://localhost:8000/api/tasks/'
+    '/api/study/tasks/',
+    '/api/study/tasks',
+    'http://127.0.0.1:8000/api/study/tasks/',
+    'http://localhost:8000/api/study/tasks/'
 ];
 const selectedUrl = ref(urls[0]);
 // 获取用户信息

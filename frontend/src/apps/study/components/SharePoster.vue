@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import html2canvas from 'html2canvas';
-import { POSTER_SIZE, POSTER_IMAGES, POSTER_TEXT, POSTER_COLORS, POSTER_FONTS } from '../../../config/poster';
-import apiService from '../../../shared/services/apiService';
-import { API_CONFIG } from '../../../config/api';
+import { POSTER_SIZE, POSTER_IMAGES, POSTER_TEXT, POSTER_COLORS, POSTER_FONTS } from '../config/poster';
+import apiService from '../services/apiService';
+import { API_CONFIG } from '../config';
 
 // 海报配置
 const POSTER_CONFIG = {
@@ -178,13 +178,13 @@ const loadUserData = async () => {
         { name: '复习任务', completed: false, type: 'review', duration: 20 },
         { name: '练习任务', completed: false, type: 'practice', duration: 15 }
       ];
-
+      
       userData.value.taskTypeDistribution = [
         { name: 'study', percentage: 60, color: '#3498db' },
         { name: 'review', percentage: 30, color: '#2ecc71' },
         { name: 'practice', percentage: 10, color: '#9b59b6' }
       ];
-
+      
       console.log('使用默认任务数据');
     }
 

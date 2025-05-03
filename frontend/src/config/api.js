@@ -2,39 +2,45 @@ export const API_CONFIG = {
     BASE_URL: 'http://localhost:8000',
     ENDPOINTS: {
         AUTH: {
-            REGISTER: '/auth/register',
-            LOGIN: '/auth/login',
-            LOGOUT: '/auth/logout',
-            CURRENT_USER: '/auth/me'
+            REGISTER: '/api/auth/register',
+            LOGIN: '/api/auth/login',
+            LOGOUT: '/api/auth/logout',
+            CURRENT_USER: '/api/auth/me'
         },
         USER: {
-            PROFILE: '/users/me',
-            UPDATE: '/users/me',
-            DELETE: '/users/me'
+            PROFILE: '/api/users/me',
+            UPDATE: '/api/users/me',
+            DELETE: '/api/users/me'
         },
         TASKS: {
-            BASE: '/tasks',
-            LIST: '/tasks',
-            DETAIL: (id) => `/tasks/${id}`,
-            COMPLETE: (id) => `/tasks/${id}/complete`
+            BASE: '/api/study/tasks',
+            LIST: '/api/study/tasks',
+            DETAIL: (id) => `/api/study/tasks/${id}`,
+            COMPLETE: (id) => `/api/study/tasks/${id}/complete`,
+            TODAY: '/api/study/tasks/today',
+            HEATMAP: '/api/study/tasks/heatmap'
         },
         PLANS: {
-            BASE: '/plans',
-            LIST: '/plans',
-            DETAIL: (id) => `/plans/${id}`,
-            COMPLETE: (id) => `/plans/${id}/complete`
+            BASE: '/api/study/plans',
+            LIST: '/api/study/plans',
+            DETAIL: (id) => `/api/study/plans/${id}`,
+            COMPLETE: (id) => `/api/study/plans/${id}/complete`
         },
         ACHIEVEMENTS: {
-            BASE: '/achievements',
-            LIST: '/achievements',
-            DETAIL: (id) => `/achievements/${id}`,
-            UNLOCK: (id) => `/achievements/${id}/unlock`
+            BASE: '/api/study/achievements',
+            LIST: '/api/study/achievements',
+            DETAIL: (id) => `/api/study/achievements/${id}`,
+            UNLOCK: (id) => `/api/study/achievements/${id}/unlock`
         },
         STATISTICS: {
-            BASE: '/statistics',
-            DAILY: '/statistics/daily',
-            WEEKLY: '/statistics/weekly',
-            MONTHLY: '/statistics/monthly'
+            BASE: '/api/study/statistics',
+            DAILY: '/api/study/statistics/daily',
+            WEEKLY: '/api/study/statistics/weekly',
+            MONTHLY: '/api/study/statistics/monthly',
+            TOTAL: '/api/study/statistics/total',
+            HEATMAP: '/api/study/statistics/heatmap',
+            TIME_DISTRIBUTION: '/api/study/statistics/time-distribution',
+            USER_INFO: '/api/study/statistics/user'
         }
     }
 };

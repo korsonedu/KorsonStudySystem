@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import api from '../../../shared/services/apiService'
-import AchievementCard from '../components/AchievementCard.vue'
+// @ts-ignore
+import { apiService } from '../../../shared/services/apiService'
+import AchievementCard from '../../../shared/components/AchievementCard.vue'
 import { ACHIEVEMENTS } from '../../../config/achievements'
 
 // Achievements data

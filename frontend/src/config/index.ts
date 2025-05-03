@@ -19,7 +19,7 @@ const getEnvConfig = () => {
     // 前端配置
     FRONTEND_PROTOCOL: windowEnv?.FRONTEND_PROTOCOL || import.meta.env.VITE_FRONTEND_PROTOCOL || 'http',
     FRONTEND_HOST: windowEnv?.FRONTEND_HOST || import.meta.env.VITE_FRONTEND_HOST || 'localhost',
-    FRONTEND_PORT: windowEnv?.FRONTEND_PORT || import.meta.env.VITE_FRONTEND_PORT || 5173,
+    FRONTEND_PORT: windowEnv?.FRONTEND_PORT || import.meta.env.VITE_FRONTEND_PORT || 5174,
     FRONTEND_BASE_PATH: windowEnv?.FRONTEND_BASE_PATH || import.meta.env.VITE_FRONTEND_BASE_PATH || '',
   };
 };
@@ -95,39 +95,40 @@ export const API_CONFIG = {
       REGISTER: '/api/auth/register',
       LOGIN: '/api/auth/login',
       LOGOUT: '/api/auth/logout',
-      CURRENT_USER: '/api/auth/me'
+      CURRENT_USER: '/api/auth/me',
+      VERIFY_EMAIL: '/api/auth/verify-email'
     },
 
     // 任务相关
     TASKS: {
-      BASE: '/api/tasks',
-      DETAIL: (id: number) => `/api/tasks/${id}`,
-      COMPLETE: (id: number) => `/api/tasks/${id}/complete`
+      BASE: '/api/study/tasks',
+      DETAIL: (id: number) => `/api/study/tasks/${id}`,
+      COMPLETE: (id: number) => `/api/study/tasks/${id}/complete`
     },
 
     // 计划相关
     PLANS: {
-      BASE: '/api/plans',
-      DETAIL: (id: number | string) => `/api/plans/${id}`
+      BASE: '/api/study/plans',
+      DETAIL: (id: number | string) => `/api/study/plans/${id}`
     },
 
     // 成就相关
     ACHIEVEMENTS: {
-      BASE: '/api/achievements',
-      DETAIL: (id: number) => `/api/achievements/${id}`,
-      UNLOCK: (id: number) => `/api/achievements/${id}/unlock`
+      BASE: '/api/study/achievements',
+      DETAIL: (id: number) => `/api/study/achievements/${id}`,
+      UNLOCK: (id: number) => `/api/study/achievements/${id}/unlock`
     },
 
     // 统计相关
     STATISTICS: {
-      DAILY: '/api/statistics/daily',
-      WEEKLY: '/api/statistics/weekly',
-      MONTHLY: '/api/statistics/monthly',
-      TOTAL: '/api/statistics/total',
-      HEATMAP: '/api/statistics/heatmap',
-      TIME_DISTRIBUTION: '/api/statistics/time-distribution',
-      USER_INFO: '/api/statistics/user-info',
-      USER_STATS: '/api/statistics/user-stats'  // 新增：用户任务统计
+      DAILY: '/api/study/statistics/daily',
+      WEEKLY: '/api/study/statistics/weekly',
+      MONTHLY: '/api/study/statistics/monthly',
+      TOTAL: '/api/study/statistics/total',
+      HEATMAP: '/api/study/statistics/heatmap', // 热力图数据
+      TIME_DISTRIBUTION: '/api/study/statistics/time-distribution',
+      USER_INFO: '/api/study/statistics/user',
+      USER_STATS: '/api/study/statistics/user'  // 用户任务统计
     }
   },
 
@@ -170,6 +171,9 @@ export const ENV_CONFIG = {
     return this.NODE_ENV === 'test';
   }
 };
+
+// 导出成就配置
+export { ACHIEVEMENTS } from './achievements';
 
 // 导出所有配置
 export default {

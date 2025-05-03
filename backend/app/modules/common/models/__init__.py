@@ -1,6 +1,2 @@
-# backend/app/modules/common/models/__init__.py
-"""
-公共模块的数据模型
-"""
-
-from app.modules.common.models.user import User
+# 公共模块模型
+# 包含用户、权限等模型

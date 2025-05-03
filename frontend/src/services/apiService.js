@@ -205,5 +205,5 @@ export const apiService = {
         }
     }
 };
-export default apiService;
+// 不再使用默认导出，只使用命名导出
 //# sourceMappingURL=apiService.js.map

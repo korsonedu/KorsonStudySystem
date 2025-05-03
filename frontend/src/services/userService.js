@@ -3,7 +3,7 @@
  * 提供响应式的用户状态管理，确保登录状态变化时自动更新界面
  */
 import { ref, computed } from 'vue';
-import apiService from './apiService';
+import { apiService } from './apiService';
 import { STORAGE_CONFIG, API_CONFIG } from '../config';
 // 用户状态
 const currentUser = ref(null);

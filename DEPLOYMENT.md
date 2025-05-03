@@ -177,18 +177,6 @@ server {
 
 这种设计允许多个应用共享用户认证和基础数据，同时保持各自功能模块的独立性。
 
-### 数据库创建
-
-首次部署时，需要创建数据库并授予权限：
-
-```bash
-cd backend
-source venv/bin/activate
-python scripts/create_db.py
-```
-
-这将创建`KorsonStudySystem`数据库并授予必要的权限。
-
 ### 数据库迁移
 
 如果您从旧版本升级，需要运行数据库迁移脚本：
@@ -200,16 +188,6 @@ python scripts/migrate_db.py
 ```
 
 这将把旧数据库中的数据迁移到新的表结构中。
-
-### 数据库初始化
-
-如果是全新安装，数据库表会在应用首次启动时自动创建。如果需要手动创建表结构，可以运行：
-
-```bash
-cd backend
-source venv/bin/activate
-python -c "from app.database import Base, engine; from app.modules.common.models import *; from app.modules.study.models import *; Base.metadata.create_all(bind=engine)"
-```
 
 ### PostgreSQL优化
 

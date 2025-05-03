@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import NavBar from './apps/study/components/NavBar.vue'
+import NavBar from './shared/components/NavBar.vue'
 import MacosTopBar from './shared/components/MacosTopBar.vue'
-import { authService } from './shared/services/authService'
+import { userService } from './shared/services/userService'
 
 const route = useRoute()
 
@@ -21,20 +21,28 @@ const showTopBar = computed(() => {
 
 // 初始化时检查用户状态
 onMounted(() => {
+  console.log('App mounted')
+
   // 检查用户登录状态
-  authService.checkAuth()
+  const isLoggedIn = userService.checkAuth()
+  console.log('User is logged in:', isLoggedIn)
 
   // 如果有令牌，尝试获取当前用户信息
-  if (authService.isLoggedIn.value) {
-    authService.getCurrentUser()
+  if (userService.isLoggedIn.value) {
+    console.log('Trying to get current user')
+    userService.getCurrentUser()
       .then(user => {
         if (user) {
           console.log('Current user loaded:', user)
+        } else {
+          console.log('No user data returned')
         }
       })
       .catch(err => {
         console.error('Error loading current user:', err)
       })
+  } else {
+    console.log('No token found, user not logged in')
   }
 })
 </script>

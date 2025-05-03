@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, onBeforeUnmount } from 'vue'
 // 使用直接API存储服务
-import { taskService } from '../services/taskService'
-import { planService } from '../services/planService'
-import { authService } from '../../../shared/services/authService'
-import CircularTimer from '../components/CircularTimer.vue'
-import ShareButton from '../components/ShareButton.vue'
+// @ts-ignore
+import { taskService } from '../../../shared/services/taskService'
+// @ts-ignore
+import { planService } from '../../../shared/services/planService'
+// @ts-ignore
+import { userService } from '../../../shared/services/userService'
+import CircularTimer from '../../../shared/components/CircularTimer.vue'
+import ShareButton from '../../../shared/components/ShareButton.vue'
 import DebugPanel from '../../../shared/components/DebugPanel.vue'
 import { STORAGE_CONFIG, SERVER_CONFIG } from '../../../config'
 // 导入工具函数
-import { formatDate, formatTime } from '../../../utils/dateUtils'
-import { getPlanId, sortPlansByCompletionAndDate, filterTodayPlans } from '../../../utils/sortUtils'
-import { executeWithRetry, logErrorOnly } from '../../../utils/errorUtils'
+// @ts-ignore
+import { formatDate, formatTime } from '../../../shared/utils/dateUtils'
+// @ts-ignore
+import { getPlanId, sortPlansByCompletionAndDate, filterTodayPlans } from '../../../shared/utils/sortUtils'
+// @ts-ignore
+import { executeWithRetry, logErrorOnly } from '../../../shared/utils/errorUtils'
 
 // State for Pomodoro timer
 const taskName = ref('')
@@ -24,7 +30,7 @@ const buttonText = computed(() => isRunning.value ? '⏸️ 暂停' : '▶️ �
 
 // 检查当前用户是否是 testuser
 const isTestUser = computed(() => {
-  return authService.currentUser.value?.username === 'testuser'
+  return userService.currentUser.value?.username === 'testuser'
 })
 
 // Task records
@@ -514,13 +520,22 @@ const fetchTasks = async () => {
     }
 
     // 计算统计信息
-    if (taskRecords.value.length > 0) {
-      // 使用存储服务获取统计信息
+    try {
+      // 使用存储服务获取统计信息，无论是否有任务记录
       const dailyStats = await taskService.getDailyStats()
       const totalStats = await taskService.getTotalStats()
 
-      dailyTotal.value = dailyStats.duration
-      totalHours.value = totalStats.hours
+      console.log('Daily stats:', dailyStats)
+      console.log('Total stats:', totalStats)
+
+      // 设置统计数据，确保有默认值
+      dailyTotal.value = dailyStats?.duration || 0
+      totalHours.value = totalStats?.hours || 0
+    } catch (statsErr) {
+      console.error('Error fetching statistics:', statsErr)
+      // 设置默认值
+      dailyTotal.value = 0
+      totalHours.value = 0
     }
 
     // 不显示成功消息，提升界面流畅感
@@ -791,8 +806,8 @@ onMounted(() => {
     console.log('Initiating data fetch')
 
     // 使用工具函数添加重试机制
-    executeWithRetry(fetchTasks, 'fetchTasks')
-    executeWithRetry(fetchPlans, 'fetchPlans')
+    executeWithRetry(() => fetchTasks())
+    executeWithRetry(() => fetchPlans())
   }, 1000)
 })
 
@@ -895,8 +910,8 @@ onBeforeUnmount(() => {
           </li>
         </ul>
         <div class="summary">
-          <p>今日学习时长: <span>{{ dailyTotal }}</span> 分钟</p>
-          <p>总学习时长: <span>{{ totalHours }}</span> 小时</p>
+          <p>今日学习时长: <span>{{ dailyTotal || 0 }}</span> 分钟</p>
+          <p>总学习时长: <span>{{ (totalHours || 0).toFixed(2) }}</span> 小时</p>
         </div>
       </div>
 

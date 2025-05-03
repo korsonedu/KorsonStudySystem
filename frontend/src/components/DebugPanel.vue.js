@@ -37,7 +37,7 @@ const testAllEndpoints = async () => {
     // 测试调试API接口
     try {
         testEndpointStatus.value.tasksDebug.status = 'loading';
-        const debugResponse = await axios.get('http://127.0.0.1:8000/api/tasks/debug', {
+        const debugResponse = await axios.get('http://127.0.0.1:8000/api/study/tasks/debug', {
             headers: authHeader
         });
         testEndpointStatus.value.tasksDebug = {
@@ -56,7 +56,7 @@ const testAllEndpoints = async () => {
     // 测试任务API接口
     try {
         testEndpointStatus.value.tasks.status = 'loading';
-        const tasksResponse = await axios.get('http://127.0.0.1:8000/api/tasks', {
+        const tasksResponse = await axios.get('http://127.0.0.1:8000/api/study/tasks', {
             headers: authHeader
         });
         testEndpointStatus.value.tasks = {
@@ -75,7 +75,7 @@ const testAllEndpoints = async () => {
     // 测试计划API接口
     try {
         testEndpointStatus.value.plans.status = 'loading';
-        const plansResponse = await axios.get('http://127.0.0.1:8000/api/plans', {
+        const plansResponse = await axios.get('http://127.0.0.1:8000/api/study/plans', {
             headers: authHeader
         });
         testEndpointStatus.value.plans = {
@@ -115,7 +115,7 @@ const testTaskCreation = async () => {
             start: startTime.toISOString(),
             end: currentTime.toISOString()
         };
-        const response = await axios.post('http://127.0.0.1:8000/api/tasks', testTask, {
+        const response = await axios.post('http://127.0.0.1:8000/api/study/tasks', testTask, {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`

@@ -3,7 +3,7 @@
  * 处理用户登录、注册、登出等认证相关功能
  */
 
-import apiService from './apiService';
+import { apiService } from './apiService';
 import { API_CONFIG, STORAGE_CONFIG } from '../config';
 
 // 用户类型定义
@@ -50,18 +50,18 @@ export const authService = {
         API_CONFIG.ENDPOINTS.AUTH.LOGIN,
         credentials
       );
-      
+
       // 保存token和用户信息
       localStorage.setItem(STORAGE_CONFIG.TOKEN_KEY, response.data.access_token);
       localStorage.setItem(STORAGE_CONFIG.USERNAME_KEY, credentials.username);
-      
+
       return response.data.user;
     } catch (error) {
       console.error('登录失败:', error);
       throw error;
     }
   },
-  
+
   /**
    * 用户注册
    * @param userData 用户数据
@@ -79,7 +79,7 @@ export const authService = {
       throw error;
     }
   },
-  
+
   /**
    * 用户登出
    */
@@ -94,7 +94,7 @@ export const authService = {
       localStorage.removeItem(STORAGE_CONFIG.USERNAME_KEY);
     }
   },
-  
+
   /**
    * 获取当前登录用户信息
    * @returns 用户信息
@@ -108,7 +108,7 @@ export const authService = {
       return null;
     }
   },
-  
+
   /**
    * 检查用户是否已登录
    * @returns 是否已登录
@@ -116,7 +116,7 @@ export const authService = {
   isLoggedIn(): boolean {
     return !!localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
   },
-  
+
   /**
    * 获取当前用户名
    * @returns 用户名

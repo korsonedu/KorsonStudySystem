@@ -61,7 +61,7 @@ const testAllEndpoints = async () => {
   // 测试任务API接口
   try {
     testEndpointStatus.value.tasks.status = 'loading'
-    const tasksResponse = await axios.get('http://127.0.0.1:8000/api/tasks', {
+    const tasksResponse = await axios.get('http://127.0.0.1:8000/api/study/tasks', {
       headers: authHeader
     })
     testEndpointStatus.value.tasks = {
@@ -80,7 +80,7 @@ const testAllEndpoints = async () => {
   // 测试计划API接口
   try {
     testEndpointStatus.value.plans.status = 'loading'
-    const plansResponse = await axios.get('http://127.0.0.1:8000/api/plans', {
+    const plansResponse = await axios.get('http://127.0.0.1:8000/api/study/plans', {
       headers: authHeader
     })
     testEndpointStatus.value.plans = {
@@ -105,7 +105,7 @@ const testTaskCreation = async () => {
     loading.value = true
     error.value = ''
     const token = localStorage.getItem('token')
-    
+
     if (!token) {
       error.value = '没有认证令牌，请先登录'
       loading.value = false
@@ -125,7 +125,7 @@ const testTaskCreation = async () => {
       end: currentTime.toISOString()
     }
 
-    const response = await axios.post('http://127.0.0.1:8000/api/tasks', testTask, {
+    const response = await axios.post('http://127.0.0.1:8000/api/study/tasks', testTask, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -138,11 +138,11 @@ const testTaskCreation = async () => {
       requestData: testTask,
       responseData: response.data
     }
-    
+
     loading.value = false
   } catch (err: any) {
     console.error('测试创建任务失败:', err)
-    
+
     debugData.value = {
       status: 'error',
       message: '任务创建失败',
@@ -150,7 +150,7 @@ const testTaskCreation = async () => {
       requestError: err.request ? '请求错误' : (err.response ? `服务器返回 ${err.response.status}` : '未知错误'),
       errorDetails: err.response ? err.response.data : null
     }
-    
+
     error.value = err.response?.data?.detail || '任务创建失败，请检查控制台查看详细错误'
     loading.value = false
   }
@@ -165,7 +165,7 @@ onMounted(() => {
 <template>
   <div class="debug-panel">
     <h2>API 调试面板</h2>
-    
+
     <div class="debug-controls">
       <button @click="testAllEndpoints" :disabled="loading" class="btn btn-primary">
         测试所有API接口
@@ -181,7 +181,7 @@ onMounted(() => {
     <!-- API 端点测试结果 -->
     <div class="endpoint-tests" v-if="testEndpointStatus.test.status !== 'pending'">
       <h3>API端点测试结果</h3>
-      
+
       <div class="endpoint-item">
         <div class="endpoint-header">
           <span class="endpoint-name">/api/test</span>
@@ -241,18 +241,18 @@ onMounted(() => {
       <div class="result-status" :class="{ success: debugData.status === 'success', error: debugData.status === 'error' }">
         {{ debugData.message }}
       </div>
-      
+
       <div v-if="debugData.error" class="error-details">
         <h4>错误信息</h4>
         <p>{{ debugData.error }}</p>
         <p v-if="debugData.requestError">{{ debugData.requestError }}</p>
         <pre v-if="debugData.errorDetails">{{ JSON.stringify(debugData.errorDetails, null, 2) }}</pre>
       </div>
-      
+
       <div v-if="debugData.status === 'success'" class="success-details">
         <h4>请求数据</h4>
         <pre>{{ JSON.stringify(debugData.requestData, null, 2) }}</pre>
-        
+
         <h4>响应数据</h4>
         <pre>{{ JSON.stringify(debugData.responseData, null, 2) }}</pre>
       </div>
@@ -390,4 +390,4 @@ h4 {
 .error-details, .success-details {
   margin-top: 15px;
 }
-</style> 
+</style>
