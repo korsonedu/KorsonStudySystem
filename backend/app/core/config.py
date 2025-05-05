@@ -1,15 +1,14 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
-import pytz
 
 # 加载环境变量
 env_path = Path(__file__).parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 # 环境配置
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "t")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
 
 # 服务器配置
 HOST = os.getenv("HOST", "0.0.0.0")

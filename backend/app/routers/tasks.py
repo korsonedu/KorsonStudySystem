@@ -3,12 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models.task import Task
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
+from app.schemas.task import TaskCreate, TaskUpdate
 from app.auth import get_current_active_user
 from app.database import get_db
 from datetime import datetime
 import pytz
-from app.config import TIMEZONE
+from app.core.config import TIMEZONE
 
 router = APIRouter()
 
@@ -42,10 +42,7 @@ def read_tasks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), c
 @router.post("/", response_model=None)  # 移除响应模型限制
 def create_task(task: TaskCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     try:
-        print(f"Received task data: {task}")
-        print(f"Current user: {current_user.username}, ID: {current_user.id}")
         task_data = task.model_dump()
-        print(f"Task data after model_dump: {task_data}")
 
         # 如果start和end是字符串,则转换为datetime对象
         try:
@@ -65,9 +62,7 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db), current_user: U
 
                     # 移除时区信息（数据库存储无时区日期）
                     task_data['start'] = parsed_date.replace(tzinfo=None)
-                    print(f"Successfully parsed start time: {task_data['start']}")
                 except Exception as parse_error:
-                    print(f"Error parsing date with dateutil: {str(parse_error)}")
                     raise HTTPException(status_code=400, detail=f"Invalid start date format: {start_str}")
 
             if isinstance(task_data['end'], str):
@@ -83,15 +78,10 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db), current_user: U
 
                     # 移除时区信息（数据库存储无时区日期）
                     task_data['end'] = parsed_date.replace(tzinfo=None)
-                    print(f"Successfully parsed end time: {task_data['end']}")
                 except Exception as parse_error:
-                    print(f"Error parsing date with dateutil: {str(parse_error)}")
                     raise HTTPException(status_code=400, detail=f"Invalid end date format: {end_str}")
 
-            print(f"Final start time: {task_data['start']}")
-            print(f"Final end time: {task_data['end']}")
         except ValueError as e:
-            print(f"Date parsing error: {str(e)}")
             raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
 
         # 确保不指定ID，让数据库自动生成
@@ -109,7 +99,6 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db), current_user: U
             db.refresh(db_task)
         except Exception as e:
             db.rollback()
-            print(f"Error committing task: {str(e)}")
             # 不再尝试重置序列，让数据库自动处理
             raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
 
@@ -130,11 +119,6 @@ def create_task(task: TaskCreate, db: Session = Depends(get_db), current_user: U
     except Exception as e:
         # 回滚事务
         db.rollback()
-        # 打印详细错误信息
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"Task creation error: {str(e)}")
-        print(f"Error details: {error_details}")
         # 重新抛出异常
         raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
 

@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 from sqlalchemy.sql import func
-from app.config import TABLE_PREFIX
+from app.core.config import TABLE_PREFIX
 
 class Achievement(Base):
     __tablename__ = f"{TABLE_PREFIX['STUDY']}achievements"

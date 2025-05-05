@@ -3,17 +3,18 @@
  * 提供统一的API调用方法，处理错误和认证
  */
 import axios, { AxiosRequestHeaders, AxiosResponse } from 'axios';
-import { API_CONFIG, STORAGE_CONFIG, SERVER_CONFIG, ENV_CONFIG } from '../../config';
+import { API_CONFIG, STORAGE_CONFIG } from '../../config';
+import { env } from '../../config/env';
 
 // 根据环境选择基础URL
 const getBaseUrl = () => {
-  // 开发环境下，使用完整的后端URL
-  if (ENV_CONFIG.IS_DEV) {
-    return SERVER_CONFIG.BACKEND.URL;
+  // 如果配置了API_CONFIG.BASE_URL，则使用它
+  if (API_CONFIG.BASE_URL) {
+    return API_CONFIG.BASE_URL;
   }
 
-  // 生产环境下，根据配置决定使用相对路径还是完整URL
-  return API_CONFIG.BASE_URL || '';
+  // 否则使用相对路径
+  return '';
 };
 
 // 创建axios实例
@@ -34,9 +35,22 @@ apiClient.interceptors.request.use(
     config.headers = config.headers || {} as AxiosRequestHeaders;
 
     // 添加认证token
-    const token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
+    let token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      // 确保令牌格式正确 - 检查是否已经包含 Bearer 前缀
+      if (!token.startsWith('Bearer ')) {
+        token = `Bearer ${token}`;
+        // 更新本地存储中的令牌格式
+        localStorage.setItem(STORAGE_CONFIG.TOKEN_KEY, token);
+      }
+
+      // 添加认证头
+      config.headers.Authorization = token;
+
+      // 确保URL没有尾部斜杠
+      if (config.url && config.url.endsWith('/') && !config.url.endsWith('//')) {
+        config.url = config.url.slice(0, -1);
+      }
     }
 
     // 添加请求ID，便于跟踪和调试
@@ -44,10 +58,14 @@ apiClient.interceptors.request.use(
     config.headers['X-Request-ID'] = requestId;
 
     // 记录请求信息（仅在开发环境）
-    if (ENV_CONFIG.IS_DEV) {
-      console.log(`[${requestId}] Request:`, {
+    if (env.IS_DEV) {
+      console.log(`[${requestId}] 发送请求:`, {
         method: config.method?.toUpperCase(),
         url: config.url,
+        headers: {
+          Authorization: token ? 'Bearer ***' : 'None',
+          'Content-Type': config.headers['Content-Type']
+        },
         data: config.data
       });
     }
@@ -67,7 +85,7 @@ apiClient.interceptors.response.use(
     const requestId = response.config.headers?.['X-Request-ID'] || 'unknown';
 
     // 成功响应处理（仅在开发环境记录详细信息）
-    if (ENV_CONFIG.IS_DEV) {
+    if (env.IS_DEV) {
       console.log(`[${requestId}] API响应成功:`, {
         url: response.config.url,
         status: response.status,
@@ -84,24 +102,50 @@ apiClient.interceptors.response.use(
     // 统一错误处理
     if (error.response) {
       const status = error.response.status;
+      const url = error.config?.url || '';
 
       // 处理401未授权错误
       if (status === 401) {
-        // 清除本地存储的认证信息
-        localStorage.removeItem(STORAGE_CONFIG.TOKEN_KEY);
-        localStorage.removeItem(STORAGE_CONFIG.USERNAME_KEY);
+        // 检查是否是登录相关的请求
+        const isAuthRequest = url.includes('/api/auth/login') ||
+                             url.includes('/api/auth/register');
 
-        // 如果不是登录页面，重定向到登录页
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        // 检查是否是/me请求
+        const isMeRequest = url.includes('/api/auth/me');
+
+        if (isMeRequest) {
+          console.log(`[${requestId}] 收到401未授权响应，但不会自动重定向`);
+
+          // 检查是否有token
+          const token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
+          if (token) {
+            console.log(`[${requestId}] 令牌存在但可能已过期，尝试刷新令牌`);
+            // 这里可以添加刷新令牌的逻辑
+          }
+
+          console.error(`[${requestId}] API认证失败 (401)，URL: ${url}`);
+        } else if (!isAuthRequest) {
+          // 如果不是登录相关请求，清除认证信息并重定向
+          console.log(`[${requestId}] 401未授权，清除认证信息并重定向到登录页`);
+
+          // 清除本地存储的认证信息
+          localStorage.removeItem(STORAGE_CONFIG.TOKEN_KEY);
+          localStorage.removeItem(STORAGE_CONFIG.USERNAME_KEY);
+
+          // 如果不是登录页面，重定向到登录页
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
         }
       }
 
       // 记录错误详情
       console.error(`[${requestId}] API响应错误:`, {
         status,
+        statusText: error.response.statusText,
         data: error.response.data,
-        url: error.config?.url
+        url: error.config?.url,
+        method: error.config?.method
       });
     } else if (error.request) {
       // 请求已发送但未收到响应

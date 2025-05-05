@@ -24,10 +24,16 @@ export const executeWithRetry = async (
       return; // 成功则返回
     } catch (err: any) {
       retries++;
-      console.warn(`${name} failed (attempt ${retries}/${maxRetries}):`, err.message);
+      // 只在开发环境输出警告
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`${name} failed (attempt ${retries}/${maxRetries}):`, err.message);
+      }
 
       if (retries >= maxRetries) {
-        console.error(`${name} failed after ${maxRetries} attempts`);
+        // 只在开发环境输出错误
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(`${name} failed after ${maxRetries} attempts`);
+        }
         return;
       }
 
@@ -72,14 +78,18 @@ export const handleApiError = (error: any, defaultMessage = '操作失败，请�
 
 /**
  * 记录错误到控制台，但不显示给用户
+ * 在生产环境中不输出错误
  * @param context 错误上下文
  * @param error 错误对象
  */
 export const logErrorOnly = (context: string, error: any): void => {
-  console.error(`Error in ${context}:`, error);
-  
-  // 如果有详细错误信息，也记录下来
-  if (error.response && error.response.data) {
-    console.error(`Error details:`, error.response.data);
+  // 只在开发环境输出错误
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(`Error in ${context}:`, error);
+
+    // 如果有详细错误信息，也记录下来
+    if (error.response && error.response.data) {
+      console.error(`Error details:`, error.response.data);
+    }
   }
 };

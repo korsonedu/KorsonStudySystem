@@ -1,36 +1,30 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, onBeforeUnmount } from 'vue'
-// 使用直接API存储服务
-// @ts-ignore
+import { ref, onMounted, computed, watch } from 'vue'
 import { taskService } from '../../../shared/services/taskService'
-// @ts-ignore
 import { planService } from '../../../shared/services/planService'
-// @ts-ignore
-import { userService } from '../../../shared/services/userService'
-import CircularTimer from '../../../shared/components/CircularTimer.vue'
-import ShareButton from '../../../shared/components/ShareButton.vue'
-import DebugPanel from '../../../shared/components/DebugPanel.vue'
-import { STORAGE_CONFIG, SERVER_CONFIG } from '../../../config'
-// 导入工具函数
-// @ts-ignore
-import { formatDate, formatTime } from '../../../shared/utils/dateUtils'
-// @ts-ignore
+import CircularTimer from '../components/CircularTimer.vue'
+import ConfirmDialog from '../../../shared/components/ConfirmDialog.vue'
+import { formatDate, formatTime, toChineseTimezone, formatChineseDate, formatTimeOnly } from '../../../utils/dateUtils'
 import { getPlanId, sortPlansByCompletionAndDate, filterTodayPlans } from '../../../shared/utils/sortUtils'
-// @ts-ignore
-import { executeWithRetry, logErrorOnly } from '../../../shared/utils/errorUtils'
 
 // State for Pomodoro timer
 const taskName = ref('')
 const taskTime = ref(25)
-const timer = ref('25:00')
 const isRunning = ref(false)
-const intervalId = ref<number | null>(null)
 const totalSeconds = ref(25 * 60)
 const buttonText = computed(() => isRunning.value ? '⏸️ 暂停' : '▶️ 开始')
 
-// 检查当前用户是否是 testuser
-const isTestUser = computed(() => {
-  return userService.currentUser.value?.username === 'testuser'
+// 监听taskTime的变化，实时更新时钟显示
+watch(taskTime, (newValue) => {
+  // 只在有值且不在运行状态时更新时钟
+  if (newValue && !isRunning.value) {
+    // 限制最大值为120分钟
+    if (newValue > 120) taskTime.value = 120
+    totalSeconds.value = taskTime.value * 60
+  } else if (!newValue && !isRunning.value) {
+    // 当输入框为空时，显示0分钟
+    totalSeconds.value = 0
+  }
 })
 
 // Task records
@@ -44,22 +38,11 @@ const plans = ref<Array<any>>([])
 const planInput = ref('')
 const planError = ref('')
 
-// 调试模式 - 只对 testuser 可见
-const debugMode = ref(false)
-const toggleDebugMode = () => {
-  // 使用计算属性检查是否是 testuser
-  if (!isTestUser.value) {
-    console.warn('Debug mode is only available for testuser')
-    return
-  }
-
-  debugMode.value = !debugMode.value
-  if (debugMode.value) {
-    // 当开启调试模式时，显示更多信息
-    updateCurrentUser()
-    console.log('Debug mode enabled')
-  }
-}
+// 确认对话框状态
+const showConfirmDialog = ref(false)
+const confirmDialogTitle = ref('确认')
+const confirmDialogMessage = ref('')
+const confirmDialogCallback = ref(() => {})
 
 // 拖拽功能
 const handleDragStart = (event: DragEvent, plan: any) => {
@@ -81,7 +64,7 @@ const handleDragStart = (event: DragEvent, plan: any) => {
     event.target.classList.add('dragging')
   }
 
-  console.log('Drag started with plan:', plan, 'ID:', planId)
+  // 拖拽开始
 }
 
 const handleDragEnd = (event: Event) => {
@@ -131,232 +114,51 @@ const handleDrop = (event: DragEvent) => {
   const planId = event.dataTransfer.getData('application/plan-id')
   if (planId) {
     currentDraggedPlanId.value = planId
-    console.log('Stored dragged plan ID:', planId)
   } else {
     currentDraggedPlanId.value = null
   }
 
   // 设置任务名称
   taskName.value = planText
-  console.log('Plan dropped into task input:', planText, 'with ID:', planId)
 }
 
-// 当前用户信息
-const currentUser = ref('')
-const tokenInfo = ref('')
-const apiStatus = ref('')
-const updateCurrentUser = () => {
-  const username = localStorage.getItem(STORAGE_CONFIG.USERNAME_KEY)
-  const token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY)
-  currentUser.value = username || '未登录'
-  tokenInfo.value = token ? `${token.substring(0, 15)}...` : '无令牌'
-  console.log('Current user:', username, 'Has token:', !!token)
-  if (token) {
-    console.log('Token preview:', token.substring(0, 20) + '...')
-  }
-}
 
-// 检查可用的API端点 - 仅供调试使用
-const checkAPIEndpoints = async () => {
-  if (!isTestUser.value) return
-
-  planError.value = '检查API端点中...'
-
-  try {
-    // 使用配置文件中的服务器配置
-    const backendUrl = SERVER_CONFIG.BACKEND.URL;
-
-    // 尝试主要API端点
-    const endpoints = [
-      '/api/tasks',
-      '/api/plans',
-      '/api/auth/me'
-    ]
-
-    let foundEndpoints = []
-
-    for (const endpoint of endpoints) {
-      try {
-        planError.value = `测试端点: ${endpoint}...`
-        const response = await fetch(endpoint)
-
-        foundEndpoints.push({
-          url: endpoint,
-          status: response.status,
-          statusText: response.statusText
-        })
-      } catch (err) {
-        console.error(`Error checking endpoint ${endpoint}:`, err)
-      }
-    }
-
-    if (foundEndpoints.length > 0) {
-      planError.value = `API端点状态:\n${foundEndpoints.map(e => `${e.url}: ${e.status} ${e.statusText}`).join('\n')}`
-    } else {
-      planError.value = '未找到任何可用的API端点'
-    }
-
-    // 3秒后清除消息
-    setTimeout(() => {
-      planError.value = ''
-    }, 3000)
-  } catch (err: any) {
-    console.error('API endpoint check failed:', err)
-    planError.value = `检查失败: ${err.message}`
-
-    // 3秒后清除错误消息
-    setTimeout(() => {
-      planError.value = ''
-    }, 3000)
-  }
-}
-
-// 清空计划
-const clearPlans = async () => {
-  try {
-    planError.value = '正在清空计划...'
-
-    // 使用直接API存储服务获取所有计划
-    const allPlans = await planService.getAllPlans()
-    console.log('Plans to clear:', allPlans.length)
-
-    // 删除每个计划
-    let deletedCount = 0
-    for (let i = 0; i < allPlans.length; i++) {
-      const plan = allPlans[i]
-
-      // 检查是否是有效的对象
-      if (!plan || typeof plan !== 'object') {
-        console.error(`Invalid plan at index ${i}:`, plan)
-        continue
-      }
-
-      try {
-        // 检查计划ID的位置
-        // 使用类型断言来避免TypeScript错误
-        const planId = plan.id || (plan as any)._id || (plan as any).planId
-
-        if (!planId) {
-          console.error(`Plan at index ${i} has no valid ID:`, plan)
-          continue
-        }
-
-        // 使用直接API存储服务删除计划
-        await planService.deletePlan(planId)
-        console.log(`Deleted plan ${planId}`)
-        deletedCount++
-      } catch (err) {
-        console.error(`Failed to delete plan at index ${i}:`, plan, err)
-      }
-    }
-
-    // 刷新计划列表
-    await fetchPlans()
-
-    planError.value = `成功清空 ${deletedCount} 个计划`
-    setTimeout(() => {
-      planError.value = ''
-    }, 3000)
-  } catch (err: any) {
-    console.error('Error clearing plans:', err)
-    planError.value = `清空计划失败: ${err.message}`
-  }
-}
-
-// 测试API连接 - 仅供调试使用
-const testApiConnection = async () => {
-  if (!isTestUser.value) return
-
-  apiStatus.value = '测试中...'
-
-  try {
-    // 测试基本连接
-    apiStatus.value = '测试后端连接...'
-
-    // 测试认证
-    const token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY)
-    if (!token) {
-      apiStatus.value = '错误: 无认证令牌'
-      return
-    }
-
-    // 获取用户信息
-    const userResponse = await fetch('/api/auth/me', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-
-    if (!userResponse.ok) {
-      apiStatus.value = `认证失败: 状态码 ${userResponse.status}`
-      return
-    }
-
-    const userData = await userResponse.json()
-    apiStatus.value = `认证成功: 用户ID ${userData.id}, 用户名 ${userData.username}`
-
-    // 3秒后清除消息
-    setTimeout(() => {
-      apiStatus.value = ''
-    }, 3000)
-  } catch (err: any) {
-    console.error('API test failed:', err)
-    apiStatus.value = `错误: ${err.message}`
-
-    // 3秒后清除错误消息
-    setTimeout(() => {
-      apiStatus.value = ''
-    }, 3000)
-  }
-}
 
 // 记录实际开始时间
 const taskStartTime = ref<Date | null>(null)
 
-// Start/Pause timer
+// 开始/暂停计时器
 const toggleTimer = () => {
-  if (isRunning.value) {
-    // Pause timer
-    if (intervalId.value) {
-      clearInterval(intervalId.value)
-      intervalId.value = null
+  // 如果当前未运行，且要开始计时，需要检查时间是否有效
+  if (!isRunning.value) {
+    // 检查是否设置了有效的时间
+    if (!taskTime.value || taskTime.value <= 0) {
+      alert('请设置有效的专注时长')
+      return
     }
-    isRunning.value = false
-  } else {
-    // Start timer
-    isRunning.value = true
+
+    // 确保时间不超过120分钟
+    if (taskTime.value > 120) {
+      taskTime.value = 120
+    }
+
+    // 更新总秒数
+    totalSeconds.value = taskTime.value * 60
+
     // 记录开始时间
-    if (!taskStartTime.value) {
-      taskStartTime.value = new Date()
-      console.log('Task started at:', taskStartTime.value)
-    }
+    taskStartTime.value = new Date()
 
-    intervalId.value = setInterval(() => {
-      if (totalSeconds.value > 0) {
-        totalSeconds.value--
-        updateTimerDisplay()
-      } else {
-        completeTask()
-      }
-    }, 1000) as unknown as number
+    // 切换运行状态
+    isRunning.value = true
+  } else {
+    // 暂停计时
+    isRunning.value = false
   }
 }
 
-// Update timer display
-const updateTimerDisplay = () => {
-  const minutes = Math.floor(totalSeconds.value / 60)
-  const seconds = totalSeconds.value % 60
-  timer.value = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-}
-
-// Reset timer
+// Reset timer - 简化版本，使用CircularTimer组件处理计时逻辑
 const resetTimer = () => {
-  console.log('Reset timer called')
-  if (intervalId.value) {
-    clearInterval(intervalId.value)
-    intervalId.value = null
-  }
+  // 停止计时器
   isRunning.value = false
 
   // 清空任务名称
@@ -368,90 +170,111 @@ const resetTimer = () => {
   // 重置为默认25分钟
   taskTime.value = 25
   totalSeconds.value = taskTime.value * 60
-  updateTimerDisplay()
-
-  console.log('Timer reset to 25 minutes')
 }
 
-// Complete current task
+// 完成当前任务
 const completeTask = async () => {
-  console.log('Complete task called')
-
-  // 停止计时器
-  isRunning.value = false
-  if (intervalId.value) {
-    clearInterval(intervalId.value)
-    intervalId.value = null
-  }
-
   // 检查任务名称
   if (taskName.value.trim() === '') {
-    // 不显示错误提示，提升界面流畅感
     return
   }
+
+  // 显示自定义确认对话框
+  confirmDialogTitle.value = '完成学习任务'
+  confirmDialogMessage.value = `确定要结束"${taskName.value}"任务吗？`
+
+  // 设置确认回调函数
+  confirmDialogCallback.value = async () => {
+    // 停止计时器
+    isRunning.value = false
+
+    // 隐藏对话框
+    showConfirmDialog.value = false
+
+    // 继续执行保存任务的逻辑
+    await saveCompletedTask()
+  }
+
+  // 显示对话框
+  showConfirmDialog.value = true
+}
+
+// 保存已完成的任务
+const saveCompletedTask = async () => {
 
   try {
     // 不设置加载状态，提升界面流畅感
     error.value = ''
-    console.log('Saving task:', taskName.value, 'duration:', taskTime.value)
 
     // 获取当前时间作为结束时间（中国时区）
     const now = new Date();
     // 转换为中国时区
-    const currentTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    const currentTime = toChineseTimezone(now);
 
     // 使用实际开始时间，如果没有则使用当前时间
     let startTime;
     if (taskStartTime.value) {
       // 转换为中国时区
-      startTime = new Date(taskStartTime.value.getTime() + (taskStartTime.value.getTimezoneOffset() + 480) * 60000);
+      startTime = toChineseTimezone(taskStartTime.value);
     } else {
       startTime = currentTime;
     }
 
-    console.log('Task start time (China timezone):', startTime, 'End time (China timezone):', currentTime);
+    // 任务开始和结束时间已设置为中国时区
 
-    // 计算实际持续时间（分钟）
-    const actualDurationMs = currentTime.getTime() - startTime.getTime();
-    const actualDurationMinutes = Math.ceil(actualDurationMs / (1000 * 60));
-    console.log('Actual duration:', actualDurationMinutes, 'minutes');
+    // 计算实际时长（从开始到结束的分钟数）
+    let taskDuration = taskTime.value; // 默认使用设置的时长
 
-    // 将日期格式化为中国时区的ISO格式字符串（带+08:00后缀）
+    // 如果有开始时间，计算实际时长
+    if (taskStartTime.value) {
+      // 计算实际时长（毫秒）
+      const durationMs = currentTime.getTime() - startTime.getTime();
+      // 转换为分钟并四舍五入
+      const actualDuration = Math.round(durationMs / 60000);
+      // 使用实际时长，但确保至少为1分钟
+      taskDuration = Math.max(actualDuration, 1);
+    } else {
+      // 确保默认时长至少为1分钟
+      taskDuration = Math.max(taskDuration, 1);
+    }
+
+    // 确保任务时长至少为1分钟
+
+    // 将日期格式化为ISO格式字符串（不带时区信息）
     const formatDateForBackend = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+      // 确保日期是中国时区
+      const chinaDate = toChineseTimezone(date);
+      // 获取年月日时分秒
+      const year = chinaDate.getFullYear();
+      const month = String(chinaDate.getMonth() + 1).padStart(2, '0');
+      const day = String(chinaDate.getDate()).padStart(2, '0');
+      const hours = String(chinaDate.getHours()).padStart(2, '0');
+      const minutes = String(chinaDate.getMinutes()).padStart(2, '0');
+      const seconds = String(chinaDate.getSeconds()).padStart(2, '0');
 
-      // 格式: YYYY-MM-DDThh:mm:ss.sss+08:00
-      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+08:00`;
+      // 返回格式化的日期时间字符串（不带时区信息）
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
     };
 
     // 确保任务数据符合后端API要求
     const newTask = {
       name: taskName.value,
-      duration: actualDurationMinutes, // 使用实际持续时间
+      duration: taskDuration, // 使用计算出的实际时长
       completed: true,
       start: formatDateForBackend(startTime),
       end: formatDateForBackend(currentTime)
       // 不指定用户ID，由后端根据token自动关联当前用户
     }
 
-    console.log('Creating task with data:', newTask)
-
     // 使用直接API存储服务保存任务
     const savedTask = await taskService.addTask(newTask)
-    console.log('Task saved successfully:', savedTask)
 
     // 刷新任务列表
     await fetchTasks()
 
     // 如果有对应的计划ID，将该计划标记为已完成
     if (currentDraggedPlanId.value) {
-      console.log('Updating plan status for ID:', currentDraggedPlanId.value)
+      // 更新对应计划的状态
 
       // 查找对应的计划
       const planToUpdate = plans.value.find(plan => {
@@ -460,15 +283,15 @@ const completeTask = async () => {
       })
 
       if (planToUpdate && !planToUpdate.completed) {
-        console.log('Found plan to update:', planToUpdate)
+        // 找到要更新的计划
 
         // 调用togglePlan方法将计划标记为已完成
         await togglePlan(planToUpdate)
-        console.log('Plan marked as completed')
+        // 计划已标记为完成
       } else if (planToUpdate) {
-        console.log('Plan already completed, no update needed')
+        // 计划已经完成，无需更新
       } else {
-        console.warn('Could not find plan with ID:', currentDraggedPlanId.value)
+        // 找不到指定ID的计划
       }
 
       // 重置当前拖拽的计划ID
@@ -479,9 +302,8 @@ const completeTask = async () => {
     resetTimer()
     taskName.value = ''
   } catch (err: any) {
-    console.error('Error completing task:', err)
-    if (err.response && err.response.data) {
-      console.error('Error details:', err.response.data)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('完成任务失败')
     }
     // 只在控制台输出错误，不显示错误消息
 
@@ -490,371 +312,276 @@ const completeTask = async () => {
   }
 }
 
-// Handle task time input change
-const handleTimeChange = () => {
-  if (taskTime.value < 1) taskTime.value = 1
-  if (!isRunning.value) {
-    totalSeconds.value = taskTime.value * 60
-    updateTimerDisplay()
-  }
-}
+// 由于已经添加了watch监听器，这个函数已不再需要
+// 删除冗余函数
 
-// Fetch tasks using the taskService
+// 获取任务列表
 const fetchTasks = async () => {
   try {
-    // 不设置加载状态，提升界面流畅感
     error.value = ''
 
-    // 使用直接API存储服务获取任务
-    const tasks = await taskService.getAllTasks()
-    console.log('Tasks loaded from API:', tasks.length)
+    // 获取今日任务列表
+    const todayTasks = await taskService.getTodayTasks()
+    taskRecords.value = todayTasks
 
-    // 设置任务记录（已按开始时间排序）
-    taskRecords.value = tasks
+    // 今日任务获取成功
 
-    // 输出详细的任务列表信息
-    if (taskRecords.value.length > 0) {
-      console.log('First task example:', taskRecords.value[0])
-    } else {
-      console.warn('No tasks available to display')
-    }
-
-    // 计算统计信息
+    // 获取统计信息
     try {
-      // 使用存储服务获取统计信息，无论是否有任务记录
       const dailyStats = await taskService.getDailyStats()
       const totalStats = await taskService.getTotalStats()
 
-      console.log('Daily stats:', dailyStats)
-      console.log('Total stats:', totalStats)
-
-      // 设置统计数据，确保有默认值
       dailyTotal.value = dailyStats?.duration || 0
       totalHours.value = totalStats?.hours || 0
     } catch (statsErr) {
-      console.error('Error fetching statistics:', statsErr)
-      // 设置默认值
       dailyTotal.value = 0
       totalHours.value = 0
     }
-
-    // 不显示成功消息，提升界面流畅感
-  } catch (err: any) {
-    console.error('Error in fetchTasks:', err)
-    // 只在控制台输出错误，不显示错误消息
-
-    // 初始化空数据
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('获取今日任务失败')
+    }
     taskRecords.value = []
     dailyTotal.value = 0
     totalHours.value = 0
   }
 }
 
-// Fetch plans using the planService
+// 获取计划列表
 const fetchPlans = async () => {
   try {
-    // 不设置加载状态，提升界面流畅感
     planError.value = ''
 
-    // 使用直接API存储服务获取计划
+    // 获取所有计划
     const plansData = await planService.getAllPlans()
-    console.log('Plans loaded from API:', plansData.length)
 
-    // 输出计划数据信息
-    if (plansData.length > 0) {
-      console.log('First plan example:', plansData[0])
-    } else {
-      console.warn('No plans available to display')
-    }
-
-    // 使用工具函数过滤出今天的计划
+    // 过滤今天的计划并排序
     const todayPlans = filterTodayPlans(plansData)
-    console.log('Today\'s plans:', todayPlans.length)
-
-    // 使用工具函数对计划进行排序
     const sortedPlans = sortPlansByCompletionAndDate(todayPlans)
 
     plans.value = sortedPlans
-  } catch (err: any) {
-    console.error('Error fetching plans:', err)
-    // 只在控制台输出错误，不显示错误消息
-
-    // 即使出错，也确保初始化数据
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('获取计划失败')
+    }
     plans.value = []
   }
 }
 
-// Add a new plan using the planService
+// 添加新计划
 const addPlan = async () => {
   if (planInput.value.trim() === '') {
-    // 不显示错误提示，提升界面流畅感
     return
   }
 
   try {
-    // 不设置加载状态，提升界面流畅感
     planError.value = ''
 
     // 获取当前时间（中国时区）
     const now = new Date();
-    const chinaTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    const chinaTime = toChineseTimezone(now);
 
-    // 将日期格式化为中国时区的ISO格式字符串（带+08:00后缀）
+    // 格式化日期为ISO格式字符串（不带时区信息）
     const formatDateForBackend = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+      // 确保日期是中国时区
+      const chinaDate = toChineseTimezone(date);
+      // 获取年月日时分秒
+      const year = chinaDate.getFullYear();
+      const month = String(chinaDate.getMonth() + 1).padStart(2, '0');
+      const day = String(chinaDate.getDate()).padStart(2, '0');
+      const hours = String(chinaDate.getHours()).padStart(2, '0');
+      const minutes = String(chinaDate.getMinutes()).padStart(2, '0');
+      const seconds = String(chinaDate.getSeconds()).padStart(2, '0');
 
-      // 格式: YYYY-MM-DDThh:mm:ss.sss+08:00
-      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+08:00`;
+      // 返回格式化的日期时间字符串（不带时区信息）
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
     };
 
-    // 根据后端文档，使用正确的数据格式
+    // 创建新计划对象
     const newPlan = {
-      text: planInput.value,  // 后端使用text字段而不是title
-      completed: false,  // 完成状态
-      started: false,  // 开始状态
-      createdAt: formatDateForBackend(chinaTime)  // 添加创建时间字段，用于排序和过滤
+      text: planInput.value,
+      completed: false,
+      started: false,
+      createdAt: formatDateForBackend(chinaTime)
     }
 
-    console.log('Creating plan with data:', newPlan)
-
-    // 使用直接API存储服务创建计划
+    // 添加计划
     const createdPlan = await planService.addPlan(newPlan)
-    console.log('Plan created successfully:', createdPlan)
-
-    // 显示详细的计划信息，包括ID
-    if (createdPlan && createdPlan.id) {
-      console.log(`Plan created with ID: ${createdPlan.id}, text: ${createdPlan.text}`)
-    } else {
-      console.warn('Created plan has no ID or is incomplete:', createdPlan)
-    }
 
     // 清空输入框
     planInput.value = ''
 
-    // 在前端先添加计划，然后重新排序
-    // 这样可以避免在等待API响应时的闪烁
-    if (createdPlan) {
-      // 添加新计划到列表
-      plans.value.push(createdPlan)
-
-      // 重新排序计划列表
-      plans.value = [...plans.value].sort((a, b) => {
-        // 首先按完成状态排序
-        if (a.completed !== b.completed) {
-          return a.completed ? 1 : -1 // 未完成的排在前面
-        }
-
-        // 然后在各自分组内按创建时间排序（如果有）
-        if (a.createdAt && b.createdAt) {
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        }
-
-        // 如果没有创建时间，保持原有顺序
-        return 0
-      })
-    }
-
-    // 同时在后台重新加载计划列表，确保数据同步
+    // 重新获取计划列表
     fetchPlans()
-  } catch (err: any) {
-    console.error('Error adding plan:', err)
-    // 只在控制台输出错误，不显示错误消息
-
-    // 如果出错，重新加载计划列表以确保数据一致性
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('添加计划失败')
+    }
     fetchPlans()
   }
 }
 
-// 使用从工具函数导入的 getPlanId
-
-// Toggle plan completion using the planService
+// 切换计划完成状态
 const togglePlan = async (plan: any) => {
   try {
-    // 不设置加载状态，提升界面流畅感
     planError.value = ''
 
     // 获取计划ID
     const planId = getPlanId(plan)
     if (!planId) {
-      console.error('Plan has no valid ID:', plan)
       return
     }
 
-    // 根据后端文档，使用正确的数据格式
+    // 创建更新后的计划对象
     const updatedPlan = {
-      text: plan.text || plan.title || '',  // 使用text字段，兼容title
-      completed: !plan.completed,  // 切换完成状态
-      started: plan.started || false  // 保持开始状态
+      text: plan.text || plan.title || '',
+      completed: !plan.completed,
+      started: plan.started || false
     }
 
-    // 使用直接API存储服务更新计划
+    // 更新计划
     await planService.updatePlan(planId, updatedPlan)
-    console.log('Plan updated successfully:', planId)
 
-    // 在前端先更新计划状态，然后重新排序
-    // 这样可以避免在等待API响应时的闪烁
+    // 在前端更新状态并重新排序
     const planIndex = plans.value.findIndex(p => getPlanId(p) === planId)
     if (planIndex !== -1) {
-      // 更新完成状态
       plans.value[planIndex].completed = !plan.completed
-
-      // 使用工具函数重新排序计划列表
       plans.value = sortPlansByCompletionAndDate(plans.value)
     }
 
-    // 同时在后台重新加载计划列表，确保数据同步
+    // 重新获取计划列表
     fetchPlans()
-  } catch (err: any) {
-    console.error('Error updating plan:', err)
-    // 只在控制台输出错误，不显示错误消息
-
-    // 如果出错，重新加载计划列表以确保数据一致性
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('更新计划失败')
+    }
     fetchPlans()
   }
 }
 
-// Delete a plan using the planService
+// 删除计划
 const deletePlan = async (planId: number | string | undefined) => {
-  // 检查计划ID是否有效
   if (!planId) {
-    console.error('Cannot delete plan with invalid ID:', planId)
     return
   }
 
-  try {
-    // 不设置加载状态，提升界面流畅感
-    planError.value = ''
+  // 显示确认对话框
+  confirmDialogTitle.value = '删除计划'
+  confirmDialogMessage.value = '确定要删除这个学习计划吗？'
 
-    // 使用直接API存储服务删除计划
-    await planService.deletePlan(planId)
-    console.log('Plan deleted successfully:', planId)
+  // 设置确认回调函数
+  confirmDialogCallback.value = async () => {
+    try {
+      planError.value = ''
 
-    // 重新加载计划列表
-    await fetchPlans()
-  } catch (err: any) {
-    console.error(`Error deleting plan ${planId}:`, err)
-    // 只在控制台输出错误，不显示错误消息
-  }
-}
+      // 删除计划
+      await planService.deletePlan(planId)
 
-// 使用从工具函数导入的 formatDate 和 formatTime
+      // 重新加载计划列表
+      await fetchPlans()
 
-// Delete a task using the taskService
-const deleteTask = async (taskId: number) => {
-  if (!confirm('确定要删除这个任务吗？')) {
-    return
-  }
-
-  try {
-    // 不设置加载状态，提升界面流畅感
-    error.value = ''
-
-    console.log('Deleting task:', taskId)
-
-    // 使用直接API存储服务删除任务
-    await taskService.deleteTask(taskId)
-    console.log('Task deleted successfully:', taskId)
-
-    // 重新加载任务列表
-    await fetchTasks()
-  } catch (err: any) {
-    console.error('Error deleting task:', err)
-    // 只在控制台输出错误，不显示错误消息
-  }
-}
-
-// Watch for changes in taskTime
-watch(taskTime, (_newVal) => {
-  handleTimeChange()
-})
-
-// Load data on component mount
-onMounted(() => {
-  console.log('Home component mounted')
-
-  const token = localStorage.getItem('token')
-  if (!token) {
-    console.warn('No authentication token found, may affect data fetching')
-  }
-
-  // 更新当前用户信息
-  updateCurrentUser()
-
-  // 检查当前用户是否是 testuser，如果是则允许开启调试模式
-  userService.getCurrentUser()
-    .then(user => {
-      if (user && user.username === 'testuser') {
-        console.log('Debug mode available for testuser')
-        // 不自动启用调试模式，但允许用户手动开启
-      } else {
-        // 确保非 testuser 用户无法开启调试模式
-        debugMode.value = false
+      // 隐藏对话框
+      showConfirmDialog.value = false
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('删除计划失败')
       }
-    })
-    .catch(err => {
-      console.error('Error checking user for debug mode:', err)
-    })
-
-  // 给服务器一点启动时间后再请求数据
-  setTimeout(() => {
-    console.log('Initiating data fetch')
-
-    // 使用工具函数添加重试机制
-    executeWithRetry(() => fetchTasks())
-    executeWithRetry(() => fetchPlans())
-  }, 1000)
-})
-
-// Clean up when component is unmounted
-onBeforeUnmount(() => {
-  if (intervalId.value) {
-    clearInterval(intervalId.value)
-    intervalId.value = null
+      showConfirmDialog.value = false
+    }
   }
+
+  // 显示对话框
+  showConfirmDialog.value = true
+}
+
+// 删除任务
+const deleteTask = async (taskId: number) => {
+  // 显示确认对话框
+  confirmDialogTitle.value = '删除学习记录'
+  confirmDialogMessage.value = '确定要删除这条学习记录吗？'
+
+  // 设置确认回调函数
+  confirmDialogCallback.value = async () => {
+    try {
+      error.value = ''
+
+      // 删除任务
+      await taskService.deleteTask(taskId)
+
+      // 重新加载任务列表
+      await fetchTasks()
+
+      // 隐藏对话框
+      showConfirmDialog.value = false
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('删除任务失败')
+      }
+      showConfirmDialog.value = false
+    }
+  }
+
+  // 显示对话框
+  showConfirmDialog.value = true
+}
+
+// 组件挂载时获取数据
+onMounted(() => {
+  fetchTasks()
+  fetchPlans()
 })
 </script>
 
 <template>
   <div class="main-content">
+    <!-- 确认对话框 -->
+    <ConfirmDialog
+      :show="showConfirmDialog"
+      :title="confirmDialogTitle"
+      :message="confirmDialogMessage"
+      @confirm="confirmDialogCallback"
+      @cancel="showConfirmDialog = false"
+    />
+    <!-- 主要内容区域 - 番茄钟为焦点 -->
     <main class="pomodoro-main">
+      <!-- 番茄钟卡片 - 作为页面焦点 -->
       <div class="pomodoro-card">
-        <div v-if="debugMode && isTestUser" class="user-info">
-          <div>当前用户: {{ currentUser }}</div>
-          <div>令牌信息: {{ tokenInfo }}</div>
-          <div v-if="apiStatus" class="api-status">状态: {{ apiStatus }}</div>
-          <div class="debug-actions">
-            <button class="test-api-btn" @click="testApiConnection">测试API连接</button>
-            <router-link to="/api-test" class="api-test-link">打开API测试页面</router-link>
-          </div>
-        </div>
+        <h2 class="pomodoro-title">专注学习时钟 <span class="emoji">⏱️</span></h2>
+        <p class="pomodoro-subtitle">使用番茄工作法提高学习效率</p>
+
         <div v-if="error" class="error-message">{{ error }}</div>
 
+        <!-- 任务输入区域 - 支持拖放计划 - 横排在上方 -->
         <div class="time-setter"
           @dragover="handleDragOver"
           @dragleave="handleDragLeave"
           @drop="handleDrop"
         >
-          <input
-            type="text"
-            v-model="taskName"
-            placeholder="输入学习任务 📖"
-            class="task-input"
-          >
-          <input
-            type="number"
-            v-model="taskTime"
-            min="1"
-            placeholder="分钟 ⏳"
-            :disabled="isRunning"
-          >
+          <div class="input-group task-group">
+            <label for="task-input">学习任务</label>
+            <input
+              id="task-input"
+              type="text"
+              v-model="taskName"
+              placeholder="输入你要专注的学习内容 📖"
+              class="task-input"
+            >
+          </div>
+          <div class="input-group time-group">
+            <label for="time-input">专注时长</label>
+            <input
+              id="time-input"
+              type="number"
+              v-model="taskTime"
+              max="120"
+              placeholder="分钟 ⏳"
+              :disabled="isRunning"
+              class="time-input"
+            >
+          </div>
         </div>
 
+        <!-- 番茄钟主体 -->
         <div class="timer-container">
           <CircularTimer
             :totalSeconds="totalSeconds"
@@ -863,6 +590,7 @@ onBeforeUnmount(() => {
           />
         </div>
 
+        <!-- 控制按钮 -->
         <div class="controls">
           <button class="control-btn primary-btn" @click="toggleTimer" :disabled="!taskName.trim()">{{ buttonText }}</button>
           <button class="control-btn success-btn" @click="completeTask" :disabled="!taskName.trim()">✅ 结束</button>
@@ -870,21 +598,12 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <!-- 任务记录列表 -->
       <div class="task-list">
         <div class="list-header">
-          <h2>任务记录 📝</h2>
-          <div class="header-controls">
-            <button
-              v-if="isTestUser"
-              class="debug-btn"
-              @click="toggleDebugMode"
-              title="开发者调试模式"
-            >
-              🛠️ 调试
-            </button>
-          </div>
+          <h2>今日学习记录 📝</h2>
         </div>
-        <p v-if="taskRecords.length === 0" class="empty-message">暂无任务记录</p>
+        <p v-if="taskRecords.length === 0" class="empty-message">今天还没有学习记录，开始你的第一个学习任务吧！</p>
         <ul v-else class="task-records">
           <li v-for="(task, index) in taskRecords" :key="index" class="task-record-item">
             <div class="task-record-content">
@@ -893,54 +612,46 @@ onBeforeUnmount(() => {
                 <button class="delete-task-btn" @click="deleteTask(task.id)" title="删除任务">❌</button>
               </div>
               <div class="task-record-details">
-                <span class="task-time">
-                  <span class="label">开始:</span> {{ formatTime(task.start) }}
+                <span class="task-date">
+                  <span class="label">日期:</span> {{ formatChineseDate(task.start, false) }}
                 </span>
                 <span class="task-time">
-                  <span class="label">结束:</span> {{ formatTime(task.end) }}
+                  <span class="label">开始:</span> {{ formatTimeOnly(task.start) }}
+                </span>
+                <span class="task-time">
+                  <span class="label">结束:</span> {{ formatTimeOnly(task.end) }}
                 </span>
                 <span class="task-duration">
                   <span class="label">时长:</span> {{ task.duration }} 分钟
-                </span>
-                <span v-if="debugMode" class="task-id">
-                  <span class="label">ID:</span> {{ task.id || '无ID' }}
                 </span>
               </div>
             </div>
           </li>
         </ul>
-        <div class="summary">
-          <p>今日学习时长: <span>{{ dailyTotal || 0 }}</span> 分钟</p>
-          <p>总学习时长: <span>{{ (totalHours || 0).toFixed(2) }}</span> 小时</p>
-        </div>
       </div>
-
-      <!-- 调试面板 - 只对 testuser 可见 -->
-      <DebugPanel v-if="debugMode && isTestUser" />
     </main>
 
+    <!-- 侧边栏 - 今日计划 -->
     <aside class="plan-sidebar">
       <div class="sidebar-header">
-        <h2>今日计划 📋</h2>
+        <h2>今日学习计划 📋</h2>
+        <p class="sidebar-subtitle">可以拖动计划到番茄钟任务栏</p>
       </div>
       <div v-if="planError" class="error-message">{{ planError }}</div>
-
-      <div v-if="debugMode && isTestUser" class="plan-debug">
-        <button class="clear-plans-btn" @click="clearPlans">清空计划</button>
-        <button class="check-api-btn" @click="checkAPIEndpoints">检查API端点</button>
-      </div>
 
       <div class="plan-control">
         <input
           type="text"
           v-model="planInput"
-          placeholder="添加今日计划"
+          placeholder="添加今日学习计划"
           @keyup.enter="addPlan"
         >
-        <button @click="addPlan" :disabled="!planInput.trim()">➕</button>
+        <button class="add-plan-btn" @click="addPlan" :disabled="!planInput.trim()">
+          <span class="plus-icon">+</span>
+        </button>
       </div>
 
-      <p v-if="plans.length === 0" class="empty-message">暂无计划</p>
+      <p v-if="plans.length === 0" class="empty-message">暂无学习计划，添加一个吧！</p>
       <ul v-else class="tech-plan-list">
         <li
           v-for="plan in plans"
@@ -970,9 +681,6 @@ onBeforeUnmount(() => {
               <div v-if="plan.completed" class="tech-plan-status">已完成</div>
               <div v-else class="tech-plan-status pending">待完成</div>
             </div>
-          </div>
-          <div v-if="debugMode && isTestUser" class="tech-plan-debug-info">
-            ID: {{ getPlanId(plan) || '无ID' }}
           </div>
           <button
             class="tech-plan-delete-btn"
@@ -1053,7 +761,7 @@ onBeforeUnmount(() => {
   border-radius: 20px;
   padding: 40px;
   box-shadow: 0 15px 35px rgba(94, 114, 228, 0.1), 0 5px 15px rgba(0, 0, 0, 0.05);
-  margin-bottom: 20px;
+  margin-bottom: 30px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1093,35 +801,59 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 
+.pomodoro-title {
+  font-size: 1.8rem;
+  color: #2c3e50;
+  margin-bottom: 5px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.pomodoro-subtitle {
+  color: #7f8c8d;
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 1rem;
+}
+
+.emoji {
+  font-size: 1.6rem;
+  vertical-align: middle;
+  margin-left: 5px;
+}
+
 .timer-container {
   display: flex;
   justify-content: center;
-  margin: 40px 0;
+  margin: 20px 0 30px;
   transform: scale(1.5);
   flex: 1;
+  min-height: 200px;
 }
 
 .time-setter {
   display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
+  flex-direction: row;
+  gap: 20px;
+  margin: 20px 0;
   width: 100%;
-  max-width: 500px;
-}
-
-.time-setter {
+  max-width: 800px;
   position: relative;
   transition: all 0.3s ease;
+  padding: 20px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
 .time-setter.drag-over {
-  transform: scale(1.02);
-  box-shadow: 0 0 20px rgba(94, 114, 228, 0.3);
-  border-radius: 8px;
+  border: 2px dashed rgba(94, 114, 228, 0.5);
+  background-color: rgba(94, 114, 228, 0.05);
+  transform: scale(1.01);
 }
 
 .time-setter.drag-over::after {
-  content: '放置计划到这里';
+  content: '拖放计划到这里开始学习';
   position: absolute;
   top: -30px;
   left: 50%;
@@ -1141,18 +873,48 @@ onBeforeUnmount(() => {
   50% { transform: translateX(-50%) translateY(-5px); }
 }
 
-.time-setter input {
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-group {
+  flex: 2; /* 调整比例为2:1，更加平衡 */
+}
+
+.time-group {
   flex: 1;
-  padding: 12px 15px;
+  min-width: 150px; /* 增加最小宽度，使时间输入框更宽 */
+}
+
+.input-group label {
+  font-size: 0.9rem;
+  color: #5e72e4;
+  font-weight: 600;
+  margin-left: 5px;
+}
+
+.time-setter input {
+  width: 100%;
+  padding: 14px 15px; /* 增加高度 */
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   font-size: 1rem;
   transition: all 0.3s ease;
   background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
 }
 
 .time-setter input.task-input {
   border-left: 3px solid #5e72e4;
+}
+
+.time-setter input.time-input {
+  border-left: 3px solid #2dce89;
+  font-size: 1.1rem; /* 增加字体大小 */
+  font-weight: 500; /* 加粗 */
+  text-align: center; /* 居中显示 */
 }
 
 .time-setter input:focus {
@@ -1166,7 +928,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   gap: 15px;
-  margin-top: 20px;
+  margin: 20px 0;
   width: 100%;
   max-width: 500px;
 }
@@ -1232,45 +994,144 @@ onBeforeUnmount(() => {
   opacity: 0.7;
 }
 
-.task-list {
+/* 学习统计卡片 */
+.study-stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin: 20px 0;
+  width: 100%;
+  max-width: 500px;
+}
+
+.stat-card {
+  flex: 1;
   background: white;
   border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.stat-icon {
+  font-size: 2rem;
+  margin-right: 15px;
+  color: #5e72e4;
+}
+
+.stat-content h3 {
+  margin: 0 0 5px;
+  font-size: 0.9rem;
+  color: #7f8c8d;
+  font-weight: 500;
+}
+
+.stat-content p {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+/* 学习提示 */
+.study-tips {
+  margin-top: 20px;
+  background: rgba(94, 114, 228, 0.05);
+  border-radius: 12px;
+  padding: 15px 20px;
+  width: 100%;
+  max-width: 500px;
+  border-left: 4px solid #5e72e4;
+}
+
+.study-tips h4 {
+  margin: 0 0 10px;
+  color: #5e72e4;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.study-tips ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.study-tips li {
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.task-list {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding-bottom: 15px;
+}
+
+.list-header h2 {
+  font-size: 1.4rem;
+  color: #2c3e50;
+  margin: 0;
+  font-weight: 600;
 }
 
 .task-records {
   margin: 0;
   padding: 0;
   list-style: none;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 5px;
 }
 
 .task-record-item {
-  margin-bottom: 12px;
-  padding: 12px;
+  margin-bottom: 15px;
+  padding: 15px;
   background-color: #f8f9fa;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
+  border-radius: 10px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  border-left: 3px solid #5e72e4;
 }
 
 .task-record-item:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+  transform: translateY(-3px);
+  background-color: #f5f7ff;
 }
 
 .task-record-content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .task-record-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding-bottom: 10px;
 }
 
 .task-name {
@@ -1282,25 +1143,33 @@ onBeforeUnmount(() => {
 .task-record-details {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 15px;
   font-size: 0.9rem;
   color: #666;
 }
 
-.task-time, .task-duration, .task-id {
+.task-time, .task-duration, .task-date {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  background: rgba(94, 114, 228, 0.05);
+  padding: 5px 10px;
+  border-radius: 20px;
+  margin-right: 5px;
+  margin-bottom: 5px;
 }
 
-.task-id {
-  color: #9b59b6;
-  font-family: monospace;
+.task-date {
+  background: rgba(45, 206, 137, 0.05);
+}
+
+.task-date .label {
+  color: #2dce89;
 }
 
 .label {
-  font-weight: 500;
-  color: #888;
+  font-weight: 600;
+  color: #5e72e4;
 }
 
 .delete-task-btn {
@@ -1309,27 +1178,45 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font-size: 0.9rem;
   opacity: 0.6;
-  transition: opacity 0.2s;
+  transition: all 0.2s ease;
+  padding: 5px;
+  border-radius: 4px;
 }
 
 .delete-task-btn:hover {
   opacity: 1;
+  background: rgba(245, 54, 92, 0.1);
 }
 
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
+.empty-message {
+  text-align: center;
+  padding: 30px;
+  color: #95a5a6;
+  font-style: italic;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 10px;
 }
 
+/* 侧边栏样式 */
 .sidebar-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 10px;
+  flex-direction: column;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-header h2 {
+  font-size: 1.4rem;
+  color: #2c3e50;
+  margin: 0 0 5px 0;
+  font-weight: 600;
+}
+
+.sidebar-subtitle {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  margin: 0;
 }
 
 .header-controls {
@@ -1391,53 +1278,68 @@ onBeforeUnmount(() => {
 
 .plan-control {
   display: flex;
-  gap: 8px;
   margin-bottom: 16px;
   position: relative;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.plan-control:focus-within {
+  box-shadow: 0 4px 15px rgba(94, 114, 228, 0.15);
+  transform: translateY(-2px);
 }
 
 .plan-control input {
   flex: 1;
-  padding: 10px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background: rgba(255, 255, 255, 0.8);
+  padding: 14px 16px;
+  border: none;
+  font-size: 0.95rem;
+  background: transparent;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
 .plan-control input:focus {
-  border-color: var(--secondary-color);
-  box-shadow: 0 2px 10px rgba(52, 152, 219, 0.15);
   outline: none;
 }
 
-.plan-control button {
-  background: linear-gradient(135deg, #3498db, #2980b9);
+.add-plan-btn {
+  background: linear-gradient(135deg, #5e72e4, #825ee4);
   color: white;
   border: none;
-  border-radius: 8px;
-  width: 36px;
+  width: 50px;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 0.9rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(52, 152, 219, 0.2);
 }
 
-.plan-control button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2980b9, #1a5276);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+.plus-icon {
+  font-size: 22px;
+  font-weight: 300;
+  line-height: 1;
+  transition: all 0.3s ease;
 }
 
-.plan-control button:disabled {
-  background: linear-gradient(135deg, #bdc3c7, #95a5a6);
+.add-plan-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4a5bd4, #6f4dd4);
+  width: 60px;
+}
+
+.add-plan-btn:hover:not(:disabled) .plus-icon {
+  transform: scale(1.2);
+}
+
+.add-plan-btn:active:not(:disabled) .plus-icon {
+  transform: scale(1);
+}
+
+.add-plan-btn:disabled {
+  background: linear-gradient(135deg, #d1d8e6, #a0aec0);
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 /* 科技感计划列表 */
@@ -1889,48 +1791,78 @@ h2 {
 
 /* 响应式布局 */
 /* 平板设备 */
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
   .main-content {
-    gap: 10px;
+    gap: 20px;
   }
 
   .pomodoro-card {
     padding: 30px;
   }
 
-  .timer-container {
-    transform: scale(1.3);
+  .study-tips {
+    max-width: 100%;
   }
 }
 
-/* 小平板和大手机 */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .main-content {
     flex-direction: column;
   }
 
   .plan-sidebar {
     width: 100%;
-    margin-top: 20px;
+    margin-top: 30px;
   }
 
-  .pomodoro-card {
-    padding: 25px;
-    min-height: 320px;
+  .pomodoro-main {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
   }
 
   .timer-container {
-    margin: 30px 0;
+    transform: scale(1.3);
+  }
+
+  .study-stats {
+    flex-direction: row;
+    max-width: 100%;
+  }
+}
+
+/* 小平板和大手机 */
+@media (max-width: 768px) {
+  .pomodoro-card {
+    padding: 25px;
+  }
+
+  .timer-container {
+    margin: 20px 0;
     transform: scale(1.2);
   }
 
   .controls {
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
   }
 
   .control-btn {
-    margin: 5px;
+    width: 100%;
+  }
+
+  .time-setter {
+    flex-direction: column;
+    padding: 10px;
+  }
+
+  .task-group, .time-group {
+    width: 100%;
+  }
+
+  .task-record-details {
+    flex-wrap: wrap;
   }
 }
 
@@ -1947,17 +1879,17 @@ h2 {
     box-sizing: border-box;
   }
 
-  .pomodoro-card {
-    min-height: 300px;
+  .pomodoro-title {
+    font-size: 1.5rem;
   }
 
-  .task-list {
-    margin-top: 15px;
+  .pomodoro-subtitle {
+    font-size: 0.9rem;
   }
 
   .timer-container {
     transform: scale(1);
-    margin: 20px 0;
+    margin: 15px 0;
   }
 
   .time-setter {
@@ -1965,16 +1897,8 @@ h2 {
     gap: 8px;
   }
 
-  .task-input {
-    width: 100%;
-  }
-
-  .controls {
-    width: 100%;
-  }
-
   .control-btn {
-    padding: 8px 12px;
+    padding: 10px;
     font-size: 0.9rem;
   }
 
@@ -1992,16 +1916,20 @@ h2 {
     padding: 10px;
   }
 
-  .summary {
-    flex-direction: column;
-    gap: 5px;
+  .study-tips {
+    padding: 12px;
+  }
+
+  .study-tips li {
+    font-size: 0.85rem;
+    margin-bottom: 5px;
   }
 }
 
 /* 小手机设备 */
 @media (max-width: 360px) {
   .pomodoro-card {
-    padding: 15px;
+    padding: 12px;
   }
 
   .timer-container {
@@ -2009,9 +1937,12 @@ h2 {
   }
 
   .control-btn {
-    padding: 6px 10px;
+    padding: 8px;
     font-size: 0.85rem;
-    margin: 3px;
+  }
+
+  .list-header h2, .sidebar-header h2 {
+    font-size: 1.2rem;
   }
 }
 </style>

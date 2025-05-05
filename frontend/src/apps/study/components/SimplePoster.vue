@@ -6,6 +6,7 @@ import { API_CONFIG, POSTER_CONFIG } from '../config';
 import { authService } from '../../../shared/services/authService';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'vue-chartjs';
+import { calculateTotalDuration } from '../services/UserTasksService';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -43,11 +44,19 @@ interface TaskType {
   total: number;
 }
 
+interface Plan {
+  id: number;
+  text: string;
+  completed: boolean;
+  started: boolean;
+}
+
 interface UserData {
   username: string;
   totalTasks: number;
   totalTime: number;
   tasksList: Task[];
+  plansList: Plan[];
   taskDistribution: TaskType[];
   streakDays: number;
 }
@@ -58,14 +67,21 @@ const userData = ref<UserData>({
   totalTasks: 0,
   totalTime: 0,
   tasksList: [],
+  plansList: [],
   taskDistribution: [],
   streakDays: 0
 });
 
 // 计算属性
 const completionRate = computed(() => {
-  if (userData.value.totalTasks === 0) return 0;
-  return Math.round((userData.value.tasksList.filter(task => task.completed).length / userData.value.totalTasks) * 100);
+  // 确保只使用今日计划计算完成率
+  if (userData.value.plansList.length === 0) return 0;
+
+  // 计算已完成的计划数量
+  const completedPlans = userData.value.plansList.filter(plan => plan.completed).length;
+
+  // 计算完成率
+  return Math.round((completedPlans / userData.value.plansList.length) * 100);
 });
 
 // 格式化日期
@@ -73,6 +89,24 @@ const formattedDate = computed(() => {
   const now = new Date();
   return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
 });
+
+// 格式化时间（将分钟转换为小时和分钟）
+const formatTime = (minutes: number): string => {
+  if (!minutes || isNaN(minutes)) return '0分钟';
+
+  if (minutes < 60) {
+    return `${minutes}分钟`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) {
+    return `${hours}小时`;
+  }
+
+  return `${hours}小时${remainingMinutes}分钟`;
+};
 
 // 获取今日开始时间
 const getTodayStart = () => {
@@ -135,6 +169,12 @@ watch(() => userData.value.taskDistribution, () => {
 const loadUserData = async () => {
   try {
     // 检查用户是否已登录
+    const token = localStorage.getItem('auth_token');
+    const username = localStorage.getItem('username');
+
+    // 强制更新登录状态
+    authService.checkAuth();
+
     if (!authService.isLoggedIn.value) {
       error.value = '请先登录后再生成海报';
       return;
@@ -144,19 +184,28 @@ const loadUserData = async () => {
     isGenerating.value = true;
     error.value = '';
 
-    console.log('开始加载用户数据...');
+    // 并行获取所有需要的数据
+    const [profileRes, tasksRes, plansRes, statsRes] = await Promise.all([
+      apiService.get(API_CONFIG.ENDPOINTS.AUTH.CURRENT_USER),
+      apiService.get(API_CONFIG.ENDPOINTS.TASKS.BASE),
+      apiService.get(API_CONFIG.ENDPOINTS.PLANS.BASE),
+      apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.DAILY)
+    ]);
 
     // 获取用户信息
-    const profile = await authService.getProfile();
-    console.log('用户信息:', profile);
+    const profile = profileRes.data;
 
     // 获取任务列表
-    const tasks = await authService.getTasks();
-    console.log('任务列表:', tasks);
+    const tasks = tasksRes.data || [];
+
+    // 获取计划列表
+    const plans = plansRes.data || [];
 
     // 获取统计数据
-    const stats = await authService.getDailyStats();
-    console.log('统计数据:', stats);
+    const statsData = statsRes.data || {};
+
+    // 初始化今日学习时长
+    let dailyDuration = 0;
 
     // 筛选今日任务
     const todayStart = getTodayStart();
@@ -166,13 +215,40 @@ const loadUserData = async () => {
       return taskDate >= new Date(todayStart) && taskDate <= new Date(todayEnd);
     });
 
+    // 使用与统计页面相同的计算函数，确保时长至少为1分钟
+    dailyDuration = calculateTotalDuration(todayTasks);
+
+    console.log('今日学习时长（分钟）:', dailyDuration);
+
+    // 使用上面已经筛选好的今日任务
+
+    // 筛选今日计划
+    const todayPlans = plans.filter((plan: any) => {
+      // 检查计划是否属于当前用户
+      if (plan.user_id !== profile.id) return false;
+
+      // 如果计划没有创建时间，则检查开始时间
+      if (!plan.created_at && !plan.start_time) return false;
+
+      // 使用创建时间或开始时间来判断是否是今天的计划
+      const planDate = new Date(plan.start_time || plan.created_at);
+      return planDate >= new Date(todayStart) && planDate <= new Date(todayEnd);
+    });
+
+    // 今日计划数据准备完成
+
     // 计算今日总学习时间（分钟）
     const totalTime = todayTasks.reduce((sum: number, task: any) => sum + (task.duration || 0), 0);
 
+    // 获取用户统计数据
+    const userStatsRes = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.USER_STATS);
+    const userStats = userStatsRes.data || {};
+
+    // 更新用户数据
     userData.value = {
       username: profile.username,
-      totalTasks: todayTasks.length,
-      totalTime: totalTime,
+      totalTasks: todayPlans.length, // 使用计划数量而不是任务数量
+      totalTime: dailyDuration, // 使用统计API返回的今日学习时长
       tasksList: todayTasks.map((task: any) => ({
         id: task.id,
         name: task.name,
@@ -182,20 +258,40 @@ const loadUserData = async () => {
         completed: task.completed,
         type: task.type || 'default'
       })),
-      taskDistribution: Object.entries(stats.taskDistribution || {}).map(([type, count]) => ({
-        type,
-        count: Number(count),
-        total: stats.totalTasks
+      plansList: todayPlans.map((plan: any) => ({
+        id: plan.id,
+        text: plan.text,
+        completed: plan.completed,
+        started: plan.started
       })),
-      streakDays: stats.streakDays || 0
+      // 使用今日任务计算任务分布
+      taskDistribution: (() => {
+        // 计算今日任务分布
+        const distribution: Record<string, number> = {};
+        todayTasks.forEach((task: any) => {
+          const type = task.type || 'default';
+          distribution[type] = (distribution[type] || 0) + 1;
+        });
+
+        // 转换为数组格式
+        return Object.entries(distribution).map(([type, count]) => ({
+          type,
+          count: Number(count),
+          total: todayTasks.length
+        }));
+      })(),
+      // 确保连续学习天数正确获取
+      streakDays: userStats.streak_days || 0
     };
+
+    // 海报数据准备完成
 
     // 更新图表数据
     updateChartData();
-
-    console.log('用户数据加载完成:', userData.value);
   } catch (err: any) {
-    console.error('加载用户数据失败:', err);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('加载用户数据失败');
+    }
     if (err.response?.status === 401) {
       error.value = '请先登录后再生成海报';
     } else if (err.response?.data?.detail) {
@@ -275,31 +371,77 @@ const generatePoster = async () => {
   error.value = '';
 
   try {
+    // 获取海报元素的宽高比
+    const posterElement = posterRef.value;
+    const posterWidth = posterElement.offsetWidth;
+    const posterHeight = posterElement.offsetHeight;
+    const aspectRatio = posterHeight / posterWidth;
+
+    // 使用固定宽度和计算的高度
+    const fixedWidth = 400;
+    const fixedHeight = Math.round(fixedWidth * aspectRatio);
+
+    // 使用更高的缩放比例以获得更清晰的图像
     const canvas = await html2canvas(posterRef.value, {
-      scale: 2,
+      scale: 3, // 提高缩放比例，获得更高质量的图像
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#2c3e50',
       onclone: (clonedDoc) => {
+        // 获取克隆的海报元素
         const clonedElement = clonedDoc.querySelector('.poster') as HTMLElement;
         if (clonedElement) {
+          // 确保背景渐变正确应用
           clonedElement.style.background = 'linear-gradient(135deg, #2c3e50, #3498db)';
-          const statItems = clonedElement.querySelectorAll('.stat-value');
+          // 设置固定宽度和高度，保持宽高比
+          clonedElement.style.width = `${fixedWidth}px`;
+          clonedElement.style.height = `${fixedHeight}px`;
+
+          // 确保统计数据样式正确
+          const statItems = clonedElement.querySelectorAll('.stat-item');
           statItems.forEach((item: Element) => {
-            (item as HTMLElement).style.color = '#ffffff';
-            (item as HTMLElement).style.background = 'none';
-            (item as HTMLElement).style.webkitBackgroundClip = 'unset';
-            (item as HTMLElement).style.webkitTextFillColor = '#ffffff';
+            (item as HTMLElement).style.background = 'rgba(255, 255, 255, 0.15)';
+            (item as HTMLElement).style.backdropFilter = 'blur(5px)';
+            (item as HTMLElement).style.border = '1px solid rgba(255, 255, 255, 0.2)';
           });
+
+          // 确保统计数值样式正确
+          const statValues = clonedElement.querySelectorAll('.stat-value');
+          statValues.forEach((item: Element) => {
+            (item as HTMLElement).style.color = '#ffffff';
+            (item as HTMLElement).style.textShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+          });
+
+          // 确保任务列表样式正确
+          const taskItems = clonedElement.querySelectorAll('.task-item');
+          taskItems.forEach((item: Element) => {
+            (item as HTMLElement).style.background = 'rgba(255, 255, 255, 0.08)';
+            (item as HTMLElement).style.border = '1px solid rgba(255, 255, 255, 0.1)';
+          });
+
+          // 确保底部样式正确
+          const footer = clonedElement.querySelector('.poster-footer') as HTMLElement;
+          if (footer) {
+            footer.style.background = 'linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4))';
+          }
+
+          // 确保名言样式正确
+          const quoteText = clonedElement.querySelector('.quote-text') as HTMLElement;
+          if (quoteText) {
+            quoteText.style.color = '#ffffff';
+            quoteText.style.textShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+          }
         }
       }
     });
 
+    // 将画布转换为图像URL
     generatedImageUrl.value = canvas.toDataURL('image/png');
     emit('generated', generatedImageUrl.value);
-    console.log('海报生成成功');
   } catch (err) {
-    console.error('生成海报失败:', err);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('生成海报失败');
+    }
     error.value = '生成海报失败，请稍后再试';
   } finally {
     isGenerating.value = false;
@@ -310,12 +452,68 @@ const generatePoster = async () => {
 const downloadPoster = () => {
   if (!generatedImageUrl.value) return;
 
-  const link = document.createElement('a');
-  link.href = generatedImageUrl.value;
-  link.download = `学习海报-${formattedDate.value}.png`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  try {
+    // 创建一个新的图片对象，确保图片已完全加载
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // 允许跨域
+    img.onload = () => {
+      // 创建canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      // 在canvas上绘制图片
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('无法获取canvas上下文');
+        }
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+
+      // 将canvas转换为Blob
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('无法创建Blob');
+          }
+          return;
+        }
+        // 创建一个临时URL
+        const url = URL.createObjectURL(blob);
+
+        // 创建下载链接
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `学习海报-${formattedDate.value}.png`;
+        link.style.display = 'none';
+
+        // 添加到文档并触发点击
+        document.body.appendChild(link);
+        link.click();
+
+        // 清理
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 100);
+      }, 'image/png');
+    };
+
+    // 设置图片源
+    img.src = generatedImageUrl.value;
+
+    // 如果图片已经加载完成，手动触发onload事件
+    if (img.complete) {
+      img.dispatchEvent(new Event('load'));
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('下载海报失败');
+    }
+    alert('下载海报失败，请稍后再试');
+  }
 };
 
 // 关闭模态框
@@ -362,16 +560,15 @@ const quotes = [
   { text: "经济全球化需要更加包容的治理。", author: "克里斯蒂娜·拉加德" },
 ];
 
+// 随机选择一条名人名言
+const selectedQuote = ref(quotes[Math.floor(Math.random() * quotes.length)]);
+
 // 海报配置
 const posterSize = POSTER_CONFIG.SIZE;
 const posterImages = POSTER_CONFIG.IMAGES;
 const posterText = POSTER_CONFIG.TEXT;
 
-// 随机获取一条名言
-const randomQuote = computed(() => {
-  const index = Math.floor(Math.random() * quotes.length);
-  return quotes[index];
-});
+// 注意：名人名言直接在模板中随机选择
 </script>
 
 <template>
@@ -391,34 +588,34 @@ const randomQuote = computed(() => {
             <!-- 顶部信息 -->
             <div class="poster-top">
               <div class="poster-logo">
-                <img :src="posterImages.LOGO.URL" :width="posterImages.LOGO.WIDTH / 5" :height="posterImages.LOGO.HEIGHT / 5" :alt="posterText.INSTITUTION_NAME" />
-                <span>{{ posterText.INSTITUTION_NAME }}</span>
+                <img src="../../../assets/kslogo.png" width="40" height="40" alt="科晟智慧" />
+                <span>科晟智慧</span>
               </div>
               <div class="poster-date">{{ formattedDate }}</div>
             </div>
 
             <!-- 用户信息 -->
             <div class="poster-user">
-              <h1>{{ userData.username }}&nbsp;&nbsp;{{ posterText.TITLE }}</h1>
+              <h1>{{ userData.username }} 的学习成果</h1>
             </div>
 
             <!-- 统计数据 -->
             <div class="poster-stats">
               <div class="stat-item">
-                <div class="stat-value">{{ userData.totalTasks }}</div>
+                <div class="stat-value">{{ userData.totalTasks }} 项</div>
                 <div class="stat-label">今日计划</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ userData.totalTime }}</div>
-                <div class="stat-label">学习分钟</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ userData.streakDays }}</div>
-                <div class="stat-label">连续学习</div>
+                <div class="stat-value">{{ formatTime(userData.totalTime) }}</div>
+                <div class="stat-label">学习时长</div>
               </div>
               <div class="stat-item">
                 <div class="stat-value">{{ completionRate }}%</div>
                 <div class="stat-label">完成率</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">{{ userData.streakDays }} 天</div>
+                <div class="stat-label">连续学习</div>
               </div>
             </div>
 
@@ -436,23 +633,28 @@ const randomQuote = computed(() => {
                 <div v-if="userData.tasksList.length > 5" class="more-tasks">
                   还有 {{ userData.tasksList.length - 5 }} 个任务...
                 </div>
+                <div v-if="userData.tasksList.length === 0" class="empty-tasks">
+                  今日暂无学习任务
+                </div>
               </div>
             </div>
 
             <!-- 添加名人名言部分 -->
             <div class="quote-section">
-              <p class="quote-text">"{{ randomQuote.text }}"</p>
-              <p class="quote-author">—— {{ randomQuote.author }}</p>
+              <p v-if="selectedQuote" class="quote-text">"{{ selectedQuote.text }}"</p>
+              <p v-if="selectedQuote" class="quote-author">—— {{ selectedQuote.author }}</p>
             </div>
 
             <!-- 底部信息 -->
             <div class="poster-footer">
               <div class="footer-content">
                 <div class="company-info">
-                  <h3 class="company-name">{{ posterText.INSTITUTION_NAME }}</h3>
+                  <h3 class="company-name">科晟智慧</h3>
+                  <h3 class="company-name">KORSON ACADEMY</h3>
+
                 </div>
                 <div class="slogan">
-                  <p>{{ posterText.SUBTITLE }}</p>
+                  <p>探索 · 学习 · 创造</p>
                 </div>
               </div>
             </div>
@@ -751,11 +953,18 @@ const randomQuote = computed(() => {
   flex-shrink: 0;
 }
 
-.more-tasks {
+.more-tasks, .empty-tasks {
   text-align: center;
   font-size: 14px;
   opacity: 0.8;
   margin-top: 10px;
+}
+
+.empty-tasks {
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
 }
 
 /* 修改名人名言样式 */
@@ -878,10 +1087,11 @@ const randomQuote = computed(() => {
 }
 
 .generated-poster img {
-  max-width: 100%;
-  max-height: 70vh;
-  border-radius: 12px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  width: 400px; /* 固定宽度，与预览海报宽度一致 */
+  height: auto; /* 保持宽高比 */
+  border-radius: 16px; /* 与预览海报圆角一致 */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); /* 与预览海报阴影一致 */
+  object-fit: contain; /* 确保图片不会被拉伸或压缩 */
 }
 
 /* 按钮样式 */

@@ -86,55 +86,55 @@ export interface TimeDistributionData {
 // 任务相关API
 export const tasksApi = {
   // 获取任务列表
-  getTasks: () => apiService.get(API_CONFIG.ENDPOINTS.TASKS.STUDY_BASE),
+  getTasks: () => apiService.get(API_CONFIG.ENDPOINTS.TASKS.BASE),
 
   // 创建任务
-  createTask: (taskData: TaskData) => apiService.post(API_CONFIG.ENDPOINTS.TASKS.STUDY_BASE, taskData),
+  createTask: (taskData: TaskData) => apiService.post(API_CONFIG.ENDPOINTS.TASKS.BASE, taskData),
 
   // 获取任务详情
-  getTask: (id: number) => apiService.get(API_CONFIG.ENDPOINTS.TASKS.STUDY_DETAIL(id)),
+  getTask: (id: number) => apiService.get(API_CONFIG.ENDPOINTS.TASKS.DETAIL(id)),
 
   // 更新任务
   updateTask: (id: number, taskData: Partial<TaskData>) =>
-    apiService.put(API_CONFIG.ENDPOINTS.TASKS.STUDY_DETAIL(id), taskData),
+    apiService.put(API_CONFIG.ENDPOINTS.TASKS.DETAIL(id), taskData),
 
   // 删除任务
-  deleteTask: (id: number) => apiService.delete(API_CONFIG.ENDPOINTS.TASKS.STUDY_DETAIL(id)),
+  deleteTask: (id: number) => apiService.delete(API_CONFIG.ENDPOINTS.TASKS.DETAIL(id)),
 
   // 完成任务
   completeTask: (id: number, data: { duration: number, completed_at?: string }) =>
-    apiService.post(API_CONFIG.ENDPOINTS.TASKS.STUDY_COMPLETE(id), data)
+    apiService.post(API_CONFIG.ENDPOINTS.TASKS.COMPLETE(id), data)
 };
 
 // 计划相关API
 export const plansApi = {
   // 获取计划列表
-  getPlans: () => apiService.get(API_CONFIG.ENDPOINTS.PLANS.STUDY_BASE),
+  getPlans: () => apiService.get(API_CONFIG.ENDPOINTS.PLANS.BASE),
 
   // 创建计划
-  createPlan: (planData: PlanData) => apiService.post(API_CONFIG.ENDPOINTS.PLANS.STUDY_BASE, planData),
+  createPlan: (planData: PlanData) => apiService.post(API_CONFIG.ENDPOINTS.PLANS.BASE, planData),
 
   // 获取计划详情
-  getPlan: (id: number) => apiService.get(API_CONFIG.ENDPOINTS.PLANS.STUDY_DETAIL(id)),
+  getPlan: (id: number) => apiService.get(API_CONFIG.ENDPOINTS.PLANS.DETAIL(id)),
 
   // 更新计划
   updatePlan: (id: number, planData: Partial<PlanData>) =>
-    apiService.put(API_CONFIG.ENDPOINTS.PLANS.STUDY_DETAIL(id), planData),
+    apiService.put(API_CONFIG.ENDPOINTS.PLANS.DETAIL(id), planData),
 
   // 删除计划
-  deletePlan: (id: number) => apiService.delete(API_CONFIG.ENDPOINTS.PLANS.STUDY_DETAIL(id))
+  deletePlan: (id: number) => apiService.delete(API_CONFIG.ENDPOINTS.PLANS.DETAIL(id))
 };
 
 // 成就相关API
 export const achievementsApi = {
   // 获取成就列表
-  getAchievements: () => apiService.get(API_CONFIG.ENDPOINTS.ACHIEVEMENTS.STUDY_BASE),
+  getAchievements: () => apiService.get(API_CONFIG.ENDPOINTS.ACHIEVEMENTS.BASE),
 
   // 获取成就详情
-  getAchievement: (id: number) => apiService.get(API_CONFIG.ENDPOINTS.ACHIEVEMENTS.STUDY_DETAIL(id)),
+  getAchievement: (id: number) => apiService.get(API_CONFIG.ENDPOINTS.ACHIEVEMENTS.DETAIL(id)),
 
   // 解锁成就
-  unlockAchievement: (id: number) => apiService.post(API_CONFIG.ENDPOINTS.ACHIEVEMENTS.STUDY_UNLOCK(id))
+  unlockAchievement: (id: number) => apiService.post(API_CONFIG.ENDPOINTS.ACHIEVEMENTS.UNLOCK(id))
 };
 
 /**
@@ -144,7 +144,7 @@ export const statisticsApi = {
   // 获取基本统计
   getBasicStats: async (): Promise<Statistics> => {
     try {
-      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.STUDY_BASE);
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.TOTAL);
       return response;
     } catch (error) {
       console.error('获取基本统计失败:', error);
@@ -155,7 +155,7 @@ export const statisticsApi = {
   // 获取每日统计
   getDailyStats: async (): Promise<Statistics> => {
     try {
-      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.STUDY_DAILY);
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.DAILY);
       return response;
     } catch (error) {
       console.error('获取每日统计失败:', error);
@@ -166,7 +166,7 @@ export const statisticsApi = {
   // 获取每周统计
   getWeeklyStats: async (): Promise<Statistics> => {
     try {
-      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.STUDY_WEEKLY);
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.WEEKLY);
       return response;
     } catch (error) {
       console.error('获取每周统计失败:', error);
@@ -177,7 +177,7 @@ export const statisticsApi = {
   // 获取每月统计
   getMonthlyStats: async (): Promise<Statistics> => {
     try {
-      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.STUDY_MONTHLY);
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.MONTHLY);
       return response;
     } catch (error) {
       console.error('获取每月统计失败:', error);
@@ -188,7 +188,7 @@ export const statisticsApi = {
   // 获取总计统计
   getTotalStats: async (): Promise<Statistics> => {
     try {
-      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.STUDY_TOTAL);
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.TOTAL);
       return response;
     } catch (error) {
       console.error('获取总计统计失败:', error);
@@ -199,7 +199,7 @@ export const statisticsApi = {
   // 获取热力图数据
   getHeatmapData: async (): Promise<{data: HeatmapData[]}> => {
     try {
-      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.STUDY_HEATMAP);
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.HEATMAP);
       return response;
     } catch (error) {
       console.error('获取热力图数据失败:', error);
@@ -210,7 +210,7 @@ export const statisticsApi = {
   // 获取时间分布数据
   getTimeDistribution: async (): Promise<{data: TimeDistributionData}> => {
     try {
-      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.STUDY_TIME_DISTRIBUTION);
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.TIME_DISTRIBUTION);
       return response;
     } catch (error) {
       console.error('获取时间分布数据失败:', error);
@@ -221,7 +221,7 @@ export const statisticsApi = {
   // 获取用户统计
   getUserStats: async (): Promise<UserStats> => {
     try {
-      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.STUDY_USER_INFO);
+      const response = await apiService.get(API_CONFIG.ENDPOINTS.STATISTICS.USER_INFO);
       return response;
     } catch (error: any) {
       console.error('获取用户统计失败:', error);

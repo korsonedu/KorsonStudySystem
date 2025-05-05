@@ -10,12 +10,12 @@ const app = createApp(App)
 app.use(router)
 
 // 全局错误处理
-app.config.errorHandler = (err, instance, info) => {
-  console.error('Global error:', err)
-  console.error('Error info:', info)
+app.config.errorHandler = (err, _instance, _info) => {
+  // 生产环境中只记录错误，不输出到控制台
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('Error:', err)
+  }
 }
 
 // 挂载应用
 app.mount('#app')
-
-console.log('App initialized')

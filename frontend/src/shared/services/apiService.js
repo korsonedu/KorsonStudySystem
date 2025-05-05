@@ -36,28 +36,28 @@ apiClient.interceptors.request.use(
     }
 
     // 添加认证token
-    const token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
+    let token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      // 确保令牌格式正确 - 检查是否已经包含 Bearer 前缀
+      if (!token.startsWith('Bearer ')) {
+        token = `Bearer ${token}`;
+      }
+      config.headers.Authorization = token;
     }
 
     // 添加请求ID，便于跟踪和调试
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
     config.headers['X-Request-ID'] = requestId;
 
-    // 记录请求信息（仅在开发环境）
-    if (ENV_CONFIG.IS_DEV) {
-      console.log(`[${requestId}] Request:`, {
-        method: config.method?.toUpperCase(),
-        url: config.url,
-        data: config.data
-      });
-    }
+    // 开发环境下可以启用详细日志
+    // 生产环境不输出日志
 
     return config;
   },
   (error) => {
-    console.error('API请求准备失败:', error);
+    if (ENV_CONFIG.IS_DEV) {
+      console.error('API请求准备失败');
+    }
     return Promise.reject(error);
   }
 );
@@ -68,14 +68,8 @@ apiClient.interceptors.response.use(
     // 获取请求ID
     const requestId = response.config.headers?.['X-Request-ID'] || 'unknown';
 
-    // 成功响应处理（仅在开发环境记录详细信息）
-    if (ENV_CONFIG.IS_DEV) {
-      console.log(`[${requestId}] API响应成功:`, {
-        url: response.config.url,
-        status: response.status,
-        data: response.data
-      });
-    }
+    // 成功响应处理
+    // 生产环境不输出日志
 
     return response;
   },
@@ -99,27 +93,20 @@ apiClient.interceptors.response.use(
         }
       }
 
-      // 记录错误详情
-      console.error(`[${requestId}] API响应错误:`, {
-        status,
-        data: error.response.data,
-        url: error.config?.url
-      });
+      // 记录错误详情（仅在开发环境）
+      if (ENV_CONFIG.IS_DEV) {
+        console.error(`API响应错误: ${status}`);
+      }
     } else if (error.request) {
       // 请求已发送但未收到响应
-      console.error(`[${requestId}] API请求未收到响应:`, {
-        url: error.config?.url,
-        method: error.config?.method?.toUpperCase(),
-        message: error.message
-      });
-
-      // 对于CORS错误，尝试提供更有用的信息
-      if (error.message === 'Network Error') {
-        console.error(`[${requestId}] 可能是CORS问题，请检查后端CORS配置`);
+      if (ENV_CONFIG.IS_DEV) {
+        console.error('API请求未收到响应');
       }
     } else {
       // 请求配置有误
-      console.error(`[${requestId}] API请求配置错误:`, error.message);
+      if (ENV_CONFIG.IS_DEV) {
+        console.error('API请求配置错误');
+      }
     }
 
     return Promise.reject(error);
@@ -139,9 +126,19 @@ export const apiService = {
    */
   async get(url, config) {
     try {
+      // 检查URL是否为undefined
+      if (url === undefined) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('API请求URL为undefined');
+        }
+        throw new Error('API请求URL为undefined');
+      }
+
       return await apiClient.get(url, config);
     } catch (error) {
-      console.error(`GET ${url} 失败:`, error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`GET ${url} 失败`);
+      }
       throw error;
     }
   },
@@ -157,7 +154,9 @@ export const apiService = {
     try {
       return await apiClient.post(url, data, config);
     } catch (error) {
-      console.error(`POST ${url} 失败:`, error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`POST ${url} 失败`);
+      }
       throw error;
     }
   },
@@ -173,7 +172,9 @@ export const apiService = {
     try {
       return await apiClient.put(url, data, config);
     } catch (error) {
-      console.error(`PUT ${url} 失败:`, error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`PUT ${url} 失败`);
+      }
       throw error;
     }
   },
@@ -188,7 +189,9 @@ export const apiService = {
     try {
       return await apiClient.delete(url, config);
     } catch (error) {
-      console.error(`DELETE ${url} 失败:`, error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`DELETE ${url} 失败`);
+      }
       throw error;
     }
   },
@@ -224,7 +227,9 @@ export const apiService = {
       const cleanUrl = url.replace(/\/\//g, '/').replace(/\/$/, '');
       return await apiClient.post(cleanUrl, formData, formConfig);
     } catch (error) {
-      console.error(`POST FORM ${url} 失败:`, error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`POST FORM ${url} 失败`);
+      }
       throw error;
     }
   }

@@ -1,7 +1,35 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '../services/authService'
+import { userService } from '../services/userService'
+
+// 检查本地存储中的令牌
+const token = localStorage.getItem('auth_token')
+console.log('Login.vue - Token in localStorage:', token ? 'exists' : 'not found')
+
+// 组件挂载时检查登录状态
+onMounted(() => {
+  console.log('Login.vue - 组件挂载，检查登录状态')
+
+  // 检查用户是否已登录
+  const isAuthenticatedUser = userService.checkAuth()
+  const isAuthenticatedAuth = authService.checkAuth()
+  const isAuthenticated = isAuthenticatedUser || isAuthenticatedAuth || !!token
+
+  console.log('Login.vue - 登录状态检查结果:', {
+    isAuthenticatedUser,
+    isAuthenticatedAuth,
+    token: !!token,
+    isAuthenticated
+  })
+
+  // 如果已登录，重定向到首页
+  if (isAuthenticated) {
+    console.log('Login.vue - 用户已登录，重定向到首页')
+    router.replace('/')
+  }
+})
 
 const username = ref('')
 const password = ref('')
@@ -13,6 +41,7 @@ const login = async () => {
   try {
     errorMessage.value = ''
     loading.value = true
+    console.log('Login.vue - 开始登录流程')
 
     if (!username.value || !password.value) {
       errorMessage.value = '请输入用户名和密码'
@@ -21,22 +50,44 @@ const login = async () => {
     }
 
     // 使用认证服务进行登录
+    console.log('Login.vue - 调用 authService.login')
     const loginResult = await authService.login({
       username: username.value,
       password: password.value
     });
 
+    console.log('Login.vue - 登录结果:', loginResult)
+
+    // 检查登录后的令牌
+    const token = localStorage.getItem('auth_token')
+    console.log('Login.vue - 登录后 Token in localStorage:', token ? 'exists' : 'not found')
+
+    // 如果令牌存在，检查格式
+    if (token && !token.startsWith('Bearer ')) {
+      console.log('Login.vue - 令牌格式不正确，添加 Bearer 前缀')
+      const correctedToken = `Bearer ${token}`
+      localStorage.setItem('auth_token', correctedToken)
+      localStorage.setItem('token', correctedToken)
+      console.log('Login.vue - 令牌已修正')
+    }
+
     if (loginResult) {
-      console.log('登录成功，用户状态已更新')
+      console.log('Login.vue - 登录成功，用户状态已更新')
+
+      // 检查 authService 中的用户状态
+      console.log('Login.vue - authService.currentUser:', authService.currentUser.value)
+      console.log('Login.vue - authService.isLoggedIn:', authService.isLoggedIn.value)
+
       // 重定向到首页
       router.push('/')
     } else {
+      console.error('Login.vue - 登录失败:', authService.error.value)
       errorMessage.value = authService.error.value || '登录失败'
     }
   } catch (error: any) {
-    console.error('登录失败:', error)
+    console.error('Login.vue - 登录异常:', error)
     if (error.response) {
-      console.error('错误详情:', error.response.data)
+      console.error('Login.vue - 错误详情:', error.response.data)
       errorMessage.value = error.response.data.detail || '登录失败，请检查用户名和密码'
     } else {
       errorMessage.value = '登录失败，请检查网络连接'

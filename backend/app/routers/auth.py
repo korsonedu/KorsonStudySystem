@@ -8,7 +8,7 @@ from app.schemas.user import UserCreate, UserResponse
 from app.auth import verify_password, create_access_token, get_current_active_user, get_password_hash
 from app.database import get_db
 from datetime import timedelta
-from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
+from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
 from jose import jwt, JWTError
 from app.services.email import send_verification_email
 
@@ -63,7 +63,9 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         "username": current_user.username,
         "email": current_user.email,
         "is_active": current_user.is_active,
-        "is_superuser": current_user.is_superuser
+        "is_superuser": current_user.is_superuser,
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+        "email_verified": current_user.email_verified
     }
 
 @router.post("/register", response_model=UserResponse)
@@ -100,12 +102,12 @@ async def register_user(user_data: UserCreate, background_tasks: BackgroundTasks
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
+
     # 发送验证邮件
     if user_data.email:
         # 在后台任务中发送邮件
         background_tasks.add_task(
-            send_verification_email, 
+            send_verification_email,
             user_email=new_user.email,
             username=new_user.username,
             user_id=new_user.id
@@ -121,22 +123,22 @@ async def verify_email(token_data: dict, db: Session = Depends(get_db)):
         token = token_data.get("token")
         if not token:
             raise HTTPException(status_code=400, detail="缺少验证令牌")
-            
+
         # 解码令牌获取用户ID
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("sub")
-        
+
         if not user_id:
             raise HTTPException(status_code=400, detail="无效的验证令牌")
-            
+
         # 更新用户邮箱验证状态
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
-            
+
         user.email_verified = True
         db.commit()
-        
+
         return {"status": "success", "message": "邮箱验证成功"}
     except JWTError:
         raise HTTPException(status_code=400, detail="验证令牌无效或已过期")

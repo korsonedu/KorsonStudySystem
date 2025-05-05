@@ -5,7 +5,8 @@ export const API_CONFIG = {
       REGISTER: '/api/auth/register',
       LOGIN: '/api/auth/login',
       LOGOUT: '/api/auth/logout',
-      CURRENT_USER: '/api/auth/me'
+      CURRENT_USER: '/api/auth/me',
+      VERIFY_EMAIL: '/api/auth/verify-email'
     },
     USER: {
       PROFILE: '/api/users/me',
@@ -17,8 +18,7 @@ export const API_CONFIG = {
       LIST: '/api/study/tasks',
       DETAIL: (id: number) => `/api/study/tasks/${id}`,
       COMPLETE: (id: number) => `/api/study/tasks/${id}/complete`,
-      TODAY: '/api/study/tasks/today',
-      HEATMAP: '/api/study/tasks/heatmap'
+      TODAY: '/api/study/tasks/today'
     },
     PLANS: {
       BASE: '/api/study/plans',
@@ -37,7 +37,7 @@ export const API_CONFIG = {
       DAILY: '/api/study/statistics/daily',
       WEEKLY: '/api/study/statistics/weekly',
       MONTHLY: '/api/study/statistics/monthly',
-      TOTAL: '/api/study/statistics/total',
+      TOTAL: '/api/study/statistics',
       HEATMAP: '/api/study/statistics/heatmap',
       TIME_DISTRIBUTION: '/api/study/statistics/time-distribution',
       USER_INFO: '/api/study/statistics/user'

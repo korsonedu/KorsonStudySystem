@@ -1,6 +1,11 @@
 /**
  * 日期工具函数
+ * 统一使用中国时区（UTC+8）
  */
+import { APP_CONFIG } from '../../config';
+
+// 获取时区配置
+const TIMEZONE = APP_CONFIG.TIMEZONE;
 
 /**
  * 格式化日期为 YYYY-MM-DD 格式
@@ -130,11 +135,49 @@ export function daysBetween(date1: Date | string, date2: Date | string): number 
 export function toChinaTimezone(dateStr: string): Date {
   const date = new Date(dateStr);
   // 中国时区偏移量（+8小时）
-  const chinaTimezoneOffset = 8 * 60 * 60 * 1000;
+  const chinaTimezoneOffset = TIMEZONE.OFFSET * 60 * 60 * 1000;
   // 获取当前时区偏移量
   const localTimezoneOffset = date.getTimezoneOffset() * 60 * 1000;
   // 调整为中国时区
   return new Date(date.getTime() + localTimezoneOffset + chinaTimezoneOffset);
+}
+
+/**
+ * 获取当前中国时区的日期对象
+ * @returns 中国时区的当前日期对象
+ */
+export function getNowInChinaTimezone(): Date {
+  return toChinaTimezone(new Date().toISOString());
+}
+
+/**
+ * 将日期对象转换为中国时区的日期字符串（YYYY-MM-DD）
+ * @param date 日期对象
+ * @returns 中国时区的日期字符串
+ */
+export function formatDateInChinaTimezone(date: Date | string): string {
+  const chinaDate = date instanceof Date ? toChinaTimezone(date.toISOString()) : toChinaTimezone(date);
+  return formatDate(chinaDate);
+}
+
+/**
+ * 将日期对象转换为中国时区的时间字符串（HH:MM）
+ * @param date 日期对象
+ * @returns 中国时区的时间字符串
+ */
+export function formatTimeInChinaTimezone(date: Date | string): string {
+  const chinaDate = date instanceof Date ? toChinaTimezone(date.toISOString()) : toChinaTimezone(date);
+  return formatTime(chinaDate);
+}
+
+/**
+ * 将日期对象转换为中国时区的日期时间字符串（YYYY-MM-DD HH:MM）
+ * @param date 日期对象
+ * @returns 中国时区的日期时间字符串
+ */
+export function formatDateTimeInChinaTimezone(date: Date | string): string {
+  const chinaDate = date instanceof Date ? toChinaTimezone(date.toISOString()) : toChinaTimezone(date);
+  return formatDateTime(chinaDate);
 }
 
 export default {
@@ -148,5 +191,9 @@ export default {
   getMonthStart,
   getMonthEnd,
   daysBetween,
-  toChinaTimezone
+  toChinaTimezone,
+  getNowInChinaTimezone,
+  formatDateInChinaTimezone,
+  formatTimeInChinaTimezone,
+  formatDateTimeInChinaTimezone
 };

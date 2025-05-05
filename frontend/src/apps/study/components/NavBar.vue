@@ -2,28 +2,14 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import SimplePoster from './SimplePoster.vue'
-import { userService } from '../services/userService'
+import { userService } from '../../../shared/services/userService'
 
 const router = useRouter()
-const showUserMenu = ref(false)
 const showPosterModal = ref(false)
 const generatedImageUrl = ref('')
 
 // 使用用户服务的响应式状态
-const username = computed(() => userService.currentUser.value?.username || '')
 const isLoggedIn = computed(() => userService.isLoggedIn.value)
-
-// 登出
-const logout = async () => {
-  await userService.logout()
-  showUserMenu.value = false
-  router.push('/login')
-}
-
-// 切换用户菜单显示状态
-const toggleUserMenu = () => {
-  showUserMenu.value = !showUserMenu.value
-}
 
 // 显示海报生成模态框
 const showPoster = () => {
@@ -40,16 +26,7 @@ const handlePosterGenerated = (imageUrl: string) => {
   generatedImageUrl.value = imageUrl
 }
 
-// 监听点击事件，如果点击的不是用户菜单，则关闭菜单
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (!target.closest('.user-menu') && !target.closest('.user-btn')) {
-    showUserMenu.value = false
-  }
-}
-
-// 添加点击事件监听器
-document.addEventListener('click', handleClickOutside)
+// 不再需要监听点击事件，因为用户菜单已移至顶栏
 </script>
 
 <template>
@@ -63,23 +40,9 @@ document.addEventListener('click', handleClickOutside)
         <button class="nav-btn" @click="showPoster">🖼️ 下载海报</button>
       </nav>
 
-      <!-- 用户菜单 -->
-      <div v-if="isLoggedIn" class="user-container">
-        <button class="nav-btn user-btn" @click="toggleUserMenu">
-          <span class="username">{{ username }}</span>
-          <span class="user-icon">👤</span>
-        </button>
+      <!-- 用户菜单已移至顶栏 -->
 
-        <div v-if="showUserMenu" class="user-menu">
-          <div class="menu-item" @click="logout">退出登录</div>
-        </div>
-      </div>
-
-      <!-- 登录/注册按钮 -->
-      <div v-else class="auth-buttons">
-        <router-link to="/login" class="nav-btn">登录</router-link>
-        <router-link to="/register" class="nav-btn">注册</router-link>
-      </div>
+      <!-- 不显示登录/注册按钮，这些按钮应该只在顶部MacOS栏中显示 -->
     </div>
 
     <!-- 海报模态框 -->

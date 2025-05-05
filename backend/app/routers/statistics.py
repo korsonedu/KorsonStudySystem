@@ -1,14 +1,14 @@
 # backend/app/routers/statistics.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, distinct
+from sqlalchemy import func
 from datetime import datetime, date, timedelta
 from app.models.task import Task
 from app.models.user import User
 from app.auth import get_current_active_user
 from app.database import get_db
 import pytz
-from app.config import TIMEZONE
+from app.core.config import TIMEZONE
 from typing import List, Dict, Any
 
 router = APIRouter()
@@ -35,13 +35,41 @@ def get_basic_stats(db: Session = Depends(get_db), current_user: User = Depends(
         Task.user_id == current_user.id
     ).scalar() or 0
 
+    # 查询总任务数
+    total_tasks = db.query(func.count(Task.id)).filter(
+        Task.user_id == current_user.id
+    ).scalar() or 0
+
     # 转换为小时
     total_hours = round(total_minutes / 60, 1)
 
     return {
         "daily_duration": daily_duration,
         "total_hours": total_hours,
-        "total_minutes": total_minutes
+        "total_minutes": total_minutes,
+        "total_tasks": total_tasks
+    }
+
+# 获取用户总计统计数据
+@router.get("/total", response_model=Dict[str, Any])
+def get_total_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    # 查询所有任务总时长
+    total_minutes = db.query(func.sum(Task.duration)).filter(
+        Task.user_id == current_user.id
+    ).scalar() or 0
+
+    # 查询总任务数
+    total_tasks = db.query(func.count(Task.id)).filter(
+        Task.user_id == current_user.id
+    ).scalar() or 0
+
+    # 转换为小时
+    total_hours = round(total_minutes / 60, 1)
+
+    return {
+        "total_tasks": total_tasks,
+        "total_minutes": total_minutes,
+        "total_hours": total_hours
     }
 
 # 获取用户每日统计数据
@@ -142,7 +170,6 @@ def get_monthly_stats(db: Session = Depends(get_db), current_user: User = Depend
     # 获取本月的日期范围（中国时区）
     china_tz = pytz.timezone(TIMEZONE)
     now = datetime.now(china_tz)
-    today = now.date()
 
     # 计算本月的开始日期和结束日期
     year = now.year
@@ -288,32 +315,50 @@ def get_user_stats(db: Session = Depends(get_db), current_user: User = Depends(g
 
 # 辅助函数：计算连续学习天数
 def calculate_streak_days(db: Session, user_id: int) -> int:
-    # 获取过去30天的日期范围
+    # 获取中国时区
     china_tz = pytz.timezone(TIMEZONE)
     now = datetime.now(china_tz)
     today = now.date()
 
-    # 查询过去30天每天是否有学习记录
+    # 查询过去90天每天是否有学习记录
     day_records = db.query(
         func.date(Task.start).label('date')
     ).filter(
         Task.user_id == user_id,
-        Task.start >= datetime.combine(today - timedelta(days=30), datetime.min.time()),
+        Task.start >= datetime.combine(today - timedelta(days=90), datetime.min.time()),
         Task.start <= datetime.combine(today, datetime.max.time())
     ).group_by(func.date(Task.start)).all()
 
-    # 提取日期列表
-    study_dates = [record.date for record in day_records]
+    # 提取日期列表并排序
+    study_dates = sorted([record.date for record in day_records], reverse=True)
 
-    # 如果今天没有学习记录，则从昨天开始计算
-    start_date = today if today in study_dates else today - timedelta(days=1)
+    # 如果没有学习记录，返回0
+    if not study_dates:
+        return 0
+
+    # 检查今天是否有学习记录
+    has_today = today in study_dates
 
     # 计算连续学习天数
-    streak = 0
-    current_date = start_date
+    streak = 1 if has_today else 0  # 如果今天有记录，从1开始计数
 
-    while current_date in study_dates:
-        streak += 1
-        current_date = current_date - timedelta(days=1)
+    # 如果今天没有记录但昨天有，从昨天开始计算
+    start_idx = 0 if has_today else (1 if today - timedelta(days=1) in study_dates else -1)
+
+    # 如果没有可计算的起始日期，返回0
+    if start_idx == -1:
+        return 0
+
+    # 从起始日期开始向前检查连续性
+    current_date = study_dates[start_idx]
+
+    for i in range(start_idx + 1, len(study_dates)):
+        # 如果下一个日期与当前日期相差1天，则连续
+        if (current_date - study_dates[i]).days == 1:
+            streak += 1
+            current_date = study_dates[i]
+        else:
+            # 连续性中断
+            break
 
     return streak

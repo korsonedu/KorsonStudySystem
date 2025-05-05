@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 from app.schemas.token import TokenData
 from app.models.user import User
 from app.database import get_db
-from app.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.core.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -22,7 +22,7 @@ def verify_password(plain_password: str, hashed_password: str):
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.now(datetime.timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -39,7 +39,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise credentials_exception

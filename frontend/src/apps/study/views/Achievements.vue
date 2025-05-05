@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { apiService } from '../../../shared/services/apiService'
 import studyApi from '../services/studyApi'
-import AchievementCard from '../../../shared/components/AchievementCard.vue'
+import AchievementCard from '../components/AchievementCard.vue'
 import { ACHIEVEMENTS } from '../../../config/achievements'
 
 // Achievements data
@@ -16,9 +15,6 @@ const userStats = ref<any>(null)
 const showNotification = ref(false)
 const notificationMessage = ref('')
 const notificationTimeout = ref<number | null>(null)
-
-// 存储上一次的成就状态，用于检测新解锁的成就
-const previousAchievements = ref<any[]>([]);
 
 // Fetch achievements
 const fetchAchievements = async () => {
@@ -35,88 +31,48 @@ const fetchAchievements = async () => {
       const backendAchievements = response.data.achievements || []
       userStats.value = response.data.user_stats || {}
 
-      console.log('后端成就数据:', backendAchievements)
-      console.log('用户统计数据:', userStats.value)
-
-      // 保存上一次的成就状态，用于检测新解锁的成就
-      const oldAchievements = [...achievements.value];
-
-      // 将后端数据与前端定义结合
-      const newAchievements = ACHIEVEMENTS.map(frontendAchievement => {
-        // 查找对应的后端成就数据
-        const backendAchievement = backendAchievements.find(
-          (ba: any) => ba.id === frontendAchievement.id
-        )
-
-        // 如果存在后端成就数据且已解锁，使用后端数据
-        if (backendAchievement && backendAchievement.is_unlocked) {
-          // 处理等级信息
-          const levels = frontendAchievement.levels.map((level, index) => {
-            const backendLevel = backendAchievement.levels[index]
-            // 确保后端数据存在，避免出现null或undefined
-            return {
-              id: index + 1,
-              level: level.level,
-              description: level.description,
-              unlocked: backendLevel ? backendLevel.unlocked : false,
-              unlockedAt: backendLevel ? backendLevel.unlocked_at : null
-            }
-          })
-
-          // 返回合并后的成就数据
-          return {
-            id: frontendAchievement.id,
-            name: frontendAchievement.name,
-            description: frontendAchievement.description,
-            icon: frontendAchievement.icon,
-            unlocked: backendAchievement.is_unlocked,
-            progress: calculateProgress(backendAchievement),
-            currentLevel: backendAchievement.highest_level,
-            maxLevel: frontendAchievement.levels.length,
-            levels: levels
-          }
-        } else {
-          // 如果后端没有对应数据或未解锁，使用前端默认值
-          return {
-            id: frontendAchievement.id,
-            name: frontendAchievement.name,
-            description: frontendAchievement.description,
-            icon: frontendAchievement.icon,
-            unlocked: backendAchievement ? backendAchievement.is_unlocked : false,
-            progress: backendAchievement ? calculateProgress(backendAchievement) : 0,
-            currentLevel: backendAchievement ? backendAchievement.highest_level : 0,
-            maxLevel: frontendAchievement.levels.length,
-            levels: frontendAchievement.levels.map((level, index) => ({
-              id: index + 1,
-              level: level.level,
-              description: level.description,
-              unlocked: backendAchievement && backendAchievement.levels && backendAchievement.levels[index] ?
-                      backendAchievement.levels[index].unlocked : false,
-              unlockedAt: backendAchievement && backendAchievement.levels && backendAchievement.levels[index] ?
-                        backendAchievement.levels[index].unlocked_at : null
-            }))
-          }
+      // 使用后端数据，结合前端定义的名称和描述
+      achievements.value = backendAchievements.map((backendAchievement: any) => {
+        // 查找对应的前端成就定义
+        const frontendAchievement = ACHIEVEMENTS.find(
+          (fa) => fa.id === backendAchievement.id
+        ) || {
+          id: backendAchievement.id,
+          name: backendAchievement.name || `成就 #${backendAchievement.id}`,
+          description: backendAchievement.description || '',
+          icon: '🏆',
+          levels: []
         }
-      })
 
-      // 检查是否有新解锁的成就
-      if (achievements.value.length > 0) {
-        newAchievements.forEach(newAchievement => {
-          const oldAchievement = oldAchievements.find(a => a.id === newAchievement.id)
+        // 处理等级信息
+        const levels = backendAchievement.levels.map((backendLevel: any, index: number) => {
+          const frontendLevel = frontendAchievement.levels[index] || {
+            level: index + 1,
+            description: backendLevel.description || `等级 ${index + 1}`
+          }
 
-          // 如果成就是新解锁的或者等级提升了
-          if (oldAchievement &&
-              (!oldAchievement.unlocked && newAchievement.unlocked ||
-               newAchievement.currentLevel > oldAchievement.currentLevel)) {
-            // 显示解锁通知
-            showUnlockNotification(newAchievement)
+          return {
+            id: index + 1,
+            level: frontendLevel.level,
+            description: frontendLevel.description,
+            unlocked: backendLevel.unlocked,
+            unlockedAt: backendLevel.unlocked_at
           }
         })
-      }
 
-      // 更新成就列表
-      achievements.value = newAchievements
-      console.log('处理后的成就数据:', achievements.value)
+        // 返回成就数据
+        return {
+          id: backendAchievement.id,
+          name: frontendAchievement.name,
+          description: frontendAchievement.description,
+          icon: frontendAchievement.icon,
+          unlocked: backendAchievement.is_unlocked,
+          progress: calculateProgress(backendAchievement),
+          currentLevel: backendAchievement.highest_level,
+          maxLevel: levels.length,
+          levels: levels
+        }
+      })
     } else {
       throw new Error('获取成就数据失败')
     }
@@ -127,24 +83,8 @@ const fetchAchievements = async () => {
     error.value = err.response?.data?.detail || err.message || '获取成就数据失败，请稍后再试'
     loading.value = false
 
-    // 即使出错，也确保初始化数据
-    achievements.value = ACHIEVEMENTS.map(achievement => ({
-      id: achievement.id,
-      name: achievement.name,
-      description: achievement.description,
-      icon: achievement.icon,
-      unlocked: false,
-      progress: 0,
-      currentLevel: 0,
-      maxLevel: achievement.levels.length,
-      levels: achievement.levels.map((level, index) => ({
-        id: index + 1,
-        level: level.level,
-        description: level.description,
-        unlocked: false,
-        unlockedAt: null
-      }))
-    }))
+    // 出错时不使用模拟数据，显示错误信息
+    achievements.value = []
   }
 }
 
@@ -156,11 +96,6 @@ const calculateProgress = (achievement: any) => {
   const totalLevels = achievement.levels.length
 
   return totalLevels > 0 ? Math.round((unlockedLevels / totalLevels) * 100) : 0
-}
-
-// Toggle achievement expansion
-const toggleExpand = (id: number) => {
-  expandedId.value = expandedId.value === id ? null : id
 }
 
 // 计算已解锁成就数量
@@ -185,31 +120,14 @@ const refreshAchievements = () => {
 }
 
 // 切换成就展开/收起状态
-const toggleAchievement = (id: number, event: Event, unlocked: boolean) => {
-  // 阻止事件冒泡
-  event.stopPropagation()
-
+const toggleAchievement = (id: number, event: Event | undefined, unlocked: boolean) => {
   // 如果成就未解锁，不执行任何操作
   if (!unlocked) {
     return
   }
 
-  // 如果点击的是当前展开的成就，则收起
-  if (expandedId.value === id) {
-    expandedId.value = null
-  } else {
-    // 如果有其他展开的成就，先将其收起
-    if (expandedId.value !== null) {
-      // 使用 setTimeout 确保先收起当前展开的成就，再展开新的成就
-      expandedId.value = null
-      setTimeout(() => {
-        expandedId.value = id
-      }, 50)
-    } else {
-      // 如果没有展开的成就，直接展开点击的成就
-      expandedId.value = id
-    }
-  }
+  // 切换展开状态
+  expandedId.value = expandedId.value === id ? null : id
 }
 
 // 点击空白处关闭展开的卡片
@@ -294,18 +212,24 @@ onUnmounted(() => {
       <button class="retry-button" @click="refreshAchievements">重试</button>
     </div>
 
-    <div v-else class="achievements-grid">
-      <div
-        v-for="achievement in achievements"
-        :key="achievement.id"
-        class="achievement-item"
-        :class="{ 'unlocked': achievement.unlocked }"
-      >
-        <AchievementCard
-          :achievement="achievement"
-          :expanded="expandedId === achievement.id"
-          @toggle="toggleAchievement(achievement.id, $event, achievement.unlocked)"
-        />
+    <div v-else>
+      <!-- 所有成就 -->
+      <div class="achievements-section">
+        <h3 class="section-title">所有成就</h3>
+        <div class="achievements-grid">
+          <div
+            v-for="achievement in achievements"
+            :key="achievement.id"
+            class="achievement-item"
+            :class="{ 'locked-item': !achievement.unlocked }"
+          >
+            <AchievementCard
+              :achievement="achievement"
+              :expanded="expandedId === achievement.id"
+              @toggle="toggleAchievement(achievement.id, $event, achievement.unlocked)"
+            />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -326,47 +250,97 @@ onUnmounted(() => {
   margin: 0 auto;
   padding: 30px;
   position: relative;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, #3498db, #2ecc71);
+  border-radius: 2px;
 }
 
 h2 {
-  font-size: 2.2rem;
+  font-size: 1.8rem;
   color: #2c3e50;
   margin-bottom: 5px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
+  letter-spacing: 0.3px;
 }
 
 .emoji {
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   margin-left: 8px;
 }
 
 .subtitle {
   color: #7f8c8d;
-  font-size: 1.1rem;
-  margin-top: 5px;
+  font-size: 1rem;
+  margin-top: 6px;
+  font-weight: 400;
 }
 
 .progress-section {
-  background: white;
+  background: linear-gradient(145deg, #ffffff, #f9f9f9);
   border-radius: 16px;
-  padding: 25px 30px;
-  margin-bottom: 40px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
-  border: 1px solid #f0f0f0;
+  padding: 20px 25px;
+  margin-bottom: 35px;
+  box-shadow:
+    0 5px 20px rgba(0, 0, 0, 0.03),
+    0 1px 3px rgba(0, 0, 0, 0.01);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3498db, #2ecc71);
+  opacity: 0.8;
 }
 
 .progress-overview h3 {
   color: #2c3e50;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   margin-bottom: 15px;
   font-weight: 600;
+  letter-spacing: 0.3px;
+  position: relative;
+  display: inline-block;
+}
+
+.progress-overview h3::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 30px;
+  height: 2px;
+  background: linear-gradient(90deg, #3498db, #2ecc71);
+  opacity: 0.7;
 }
 
 .progress-data {
@@ -377,56 +351,96 @@ h2 {
 }
 
 .progress-count {
-  font-size: 1.1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
 }
 
 .current {
   color: #2ecc71;
   font-weight: 700;
+  font-size: 1.1rem;
 }
 
 .separator {
   color: #bdc3c7;
-  margin: 0 5px;
+  margin: 0 6px;
 }
 
 .total {
   color: #7f8c8d;
+  font-size: 1rem;
 }
 
 .progress-percentage {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   color: #2ecc71;
+  background: rgba(46, 204, 113, 0.08);
+  padding: 3px 10px;
+  border-radius: 12px;
 }
 
 .progress-bar-container {
-  height: 12px;
-  background: #f0f0f0;
-  border-radius: 8px;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
   overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.02);
 }
 
 .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #2ecc71, #27ae60);
-  border-radius: 8px;
-  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(90deg, #3498db, #2ecc71);
+  border-radius: 6px;
+  transition: width 0.5s ease-out;
+  position: relative;
+  z-index: 2;
+}
+
+.achievements-section {
+  margin-bottom: 40px;
+  animation: fadeIn 0.4s ease-out;
+  animation-fill-mode: both;
+}
+
+.section-title {
+  font-size: 1.3rem;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  position: relative;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+}
+
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: linear-gradient(to bottom, #3498db, #2ecc71);
+  border-radius: 2px;
+  margin-right: 10px;
 }
 
 .achievements-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
-  margin-top: 20px;
 }
 
 .achievement-item {
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
-.achievement-item:hover {
-  transform: translateY(-5px);
+.locked-item {
+  opacity: 0.8;
 }
 
 .loading-container {
@@ -435,16 +449,17 @@ h2 {
   align-items: center;
   justify-content: center;
   padding: 50px 0;
+  color: #7f8c8d;
 }
 
 .spinner {
-  width: 50px;
-  height: 50px;
-  border: 5px solid rgba(46, 204, 113, 0.2);
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 0, 0, 0.05);
+  border-top-color: #3498db;
   border-radius: 50%;
-  border-top-color: #2ecc71;
   animation: spin 1s linear infinite;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 @keyframes spin {
@@ -452,41 +467,39 @@ h2 {
 }
 
 .error-container {
-  text-align: center;
-  padding: 50px 20px;
   background: rgba(231, 76, 60, 0.05);
   border-radius: 12px;
-  margin: 20px 0;
+  padding: 20px;
+  text-align: center;
+  margin: 30px 0;
 }
 
 .error-message {
   color: #e74c3c;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .retry-button {
   background: #e74c3c;
   color: white;
   border: none;
-  padding: 10px 25px;
-  border-radius: 20px;
-  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  font-weight: 500;
+  transition: background 0.2s;
 }
 
 .retry-button:hover {
   background: #c0392b;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
 }
 
 .achievement-notification {
   position: fixed;
-  bottom: 30px;
-  right: 30px;
+  bottom: 20px;
+  right: 20px;
   z-index: 1000;
-  animation: slideIn 0.5s ease-out;
+  animation: slideIn 0.3s ease-out;
 }
 
 @keyframes slideIn {
@@ -495,14 +508,14 @@ h2 {
 }
 
 .notification-content {
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
-  color: white;
-  padding: 15px 20px;
+  background: white;
   border-radius: 12px;
-  box-shadow: 0 5px 20px rgba(46, 204, 113, 0.3);
+  padding: 15px 20px;
   display: flex;
   align-items: center;
-  min-width: 300px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #2ecc71;
+  max-width: 300px;
 }
 
 .notification-icon {
@@ -511,38 +524,43 @@ h2 {
 }
 
 .notification-content p {
-  flex: 1;
   margin: 0;
-  font-weight: 500;
+  flex: 1;
+  font-size: 0.95rem;
+  color: #2c3e50;
 }
 
 .close-button {
   background: none;
   border: none;
-  color: white;
-  font-size: 1.2rem;
+  color: #bdc3c7;
   cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.3s ease;
+  font-size: 1rem;
+  padding: 0 0 0 10px;
+  transition: color 0.2s;
 }
 
 .close-button:hover {
-  opacity: 1;
+  color: #7f8c8d;
 }
 
 @media (max-width: 768px) {
   .achievements-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .achievements-grid {
     grid-template-columns: 1fr;
   }
 
-  .achievement-notification {
-    bottom: 20px;
-    right: 20px;
-    left: 20px;
+  .achievements-container {
+    padding: 20px 15px;
   }
 
-  .notification-content {
-    min-width: 0;
+  .progress-section {
+    padding: 15px 20px;
   }
 }
 </style>

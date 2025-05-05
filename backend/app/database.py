@@ -2,7 +2,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .config import DATABASE_URL, DATABASE_POOL_SIZE, DATABASE_MAX_OVERFLOW
+from .core.config import DATABASE_URL, DATABASE_POOL_SIZE, DATABASE_MAX_OVERFLOW
 
 # 创建数据库引擎，添加连接池配置
 engine = create_engine(

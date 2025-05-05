@@ -7,6 +7,7 @@ const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
+const invitationCode = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
 const loading = ref(false)
@@ -35,7 +36,8 @@ const register = async () => {
     const userData = {
       username: username.value,
       email: email.value || undefined, // 如果为空字符串则设为undefined
-      password: password.value
+      password: password.value,
+      invitation_code: invitationCode.value || undefined // 添加邀请码
     }
 
     // 使用认证服务发送注册请求
@@ -51,10 +53,10 @@ const register = async () => {
       confirmPassword.value = ''
       invitationCode.value = ''
 
-      // 3秒后自动跳转到登录页
+      // 延迟2秒后跳转到登录页，让用户看到成功消息
       setTimeout(() => {
         router.push('/login')
-      }, 3000)
+      }, 2000)
     } else {
       // 注册失败，显示错误信息
       errorMessage.value = authService.error.value || '注册失败，请稍后再试'

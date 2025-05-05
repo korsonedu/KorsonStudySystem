@@ -1,6 +1,8 @@
 # 生产环境部署指南
 
-本文档提供了将应用部署到生产环境的详细步骤和最佳实践。
+本文档提供了将科晟智慧学习系统部署到生产环境的详细步骤和最佳实践。
+
+**最后更新日期**: 2024年
 
 ## 目录
 
@@ -19,9 +21,9 @@
 
 ### 系统要求
 
-- Python 3.8+
-- Node.js 16+
-- PostgreSQL 12+
+- Python 3.12+
+- Node.js 18+
+- PostgreSQL 14+
 - Nginx (用于反向代理)
 - 具有公网IP的服务器或云服务
 
@@ -35,7 +37,7 @@
 ### 1. 克隆代码库
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/yourusername/newstudytool.git
 cd newstudytool
 ```
 
@@ -50,18 +52,20 @@ pip install -r requirements.txt
 
 ### 3. 配置环境变量
 
-复制示例环境变量文件并进行配置：
+项目根目录已有统一的环境变量文件，确保其配置正确：
 
 ```bash
-cp .env.example .env
-# 编辑.env文件，设置生产环境的值
+# 检查并编辑根目录的.env文件
+nano .env
 ```
 
 关键配置项：
-- 将`ENVIRONMENT`设置为`production`
+- 确保`ENVIRONMENT=production`
+- 确保`DEBUG=False`
 - 设置强随机的`SECRET_KEY`
 - 配置正确的数据库连接字符串
 - 设置前端URL用于CORS配置
+- 确保邮件配置正确（用于用户注册验证）
 
 ### 4. 数据库迁移
 
@@ -106,16 +110,17 @@ npm install
 
 ### 2. 配置环境变量
 
-创建生产环境配置文件：
+前端使用根目录的统一环境变量文件，确保其中的前端配置正确：
 
 ```bash
-cp .env.example .env.production
-# 编辑.env.production文件，设置生产环境的值
+# 检查根目录的.env文件中的前端配置
+nano .env
 ```
 
 关键配置项：
-- 设置后端API的正确URL
-- 配置适当的超时和重试参数
+- 确保`VITE_API_BASE_URL`指向正确的后端API地址
+- 确保`VITE_BACKEND_PROTOCOL`、`VITE_BACKEND_HOST`和`VITE_BACKEND_PORT`配置正确
+- 配置适当的超时和重试参数（`VITE_API_TIMEOUT`、`VITE_API_RETRY_COUNT`等）
 
 ### 3. 构建前端应用
 
@@ -241,19 +246,17 @@ window.__ENV__ = {
   BACKEND_HOST: 'yourdomain.com',
   BACKEND_PORT: '',
   BACKEND_BASE_PATH: '/api',
-  // 其他环境变量...
+  API_BASE_URL: 'https://yourdomain.com/api',
+  TIMEZONE: 'Asia/Shanghai',
+  TIMEZONE_OFFSET: '8',
+  DEFAULT_POMODORO_TIME: '25',
+  DEFAULT_BREAK_TIME: '5',
+  APP_NAME: '科晟智慧学习系统'
 };
 EOF
 ```
 
-在`index.html`中引入此脚本：
-
-```html
-<head>
-  <!-- 其他标签 -->
-  <script src="/env-config.js"></script>
-</head>
-```
+这个脚本会在前端运行时覆盖构建时的环境变量，确保前端能够正确连接到后端API。
 
 ## CORS配置
 
@@ -373,5 +376,30 @@ LOG_LEVEL=info
 ### 获取帮助
 
 如有问题，请联系：
-- 技术支持：[support@example.com](mailto:support@example.com)
-- 项目负责人：[lead@example.com](mailto:lead@example.com)
+- 技术支持：科晟智慧技术团队
+- 项目负责人：科晟智慧项目经理
+
+## 部署后检查清单
+
+在完成部署后，请检查以下项目：
+
+1. 确认前端能够正常访问并显示
+2. 确认用户注册和登录功能正常
+3. 确认番茄钟功能正常工作
+4. 确认任务记录能够正确保存
+5. 确认统计页面能够正确显示数据
+6. 确认成就系统正常工作
+7. 确认海报生成功能正常
+8. 检查所有API端点的响应时间
+9. 确认系统在移动设备上的响应式布局
+10. 确认数据库备份机制正常工作
+
+## 定期维护
+
+建议每月执行以下维护任务：
+
+1. 检查系统日志，查找潜在问题
+2. 更新依赖包以修复安全漏洞
+3. 执行数据库备份
+4. 检查磁盘空间使用情况
+5. 监控系统性能指标

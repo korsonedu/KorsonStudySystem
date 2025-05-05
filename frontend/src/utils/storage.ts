@@ -77,7 +77,7 @@ export class HybridStorage {
       if (!itemStr) return defaultValue;
 
       const item: StorageItem = JSON.parse(itemStr);
-      
+
       // 检查是否过期
       if (item.expiry && item.expiry < Date.now()) {
         localStorage.removeItem(fullKey);
@@ -139,7 +139,7 @@ export class HybridStorage {
   getAllItems<T = any>(keyPrefix: string = ''): Record<string, T> {
     const result: Record<string, T> = {};
     const fullPrefix = this.getFullKey(keyPrefix);
-    
+
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const fullKey = localStorage.key(i);
@@ -148,25 +148,31 @@ export class HybridStorage {
           if (itemStr) {
             try {
               const item: StorageItem = JSON.parse(itemStr);
-              
+
               // 检查是否过期
               if (item.expiry && item.expiry < Date.now()) {
                 localStorage.removeItem(fullKey);
                 continue;
               }
-              
+
               // 提取原始键（移除前缀）
               const originalKey = fullKey.substring(this.config.prefix!.length);
               result[originalKey] = item.value as T;
             } catch (e) {
-              console.warn(`Failed to parse item ${fullKey}:`, e);
+              // 只在开发环境输出警告
+              if (process.env.NODE_ENV !== 'production') {
+                console.warn(`Failed to parse item ${fullKey}:`, e);
+              }
             }
           }
         }
       }
       return result;
     } catch (error) {
-      console.error(`Error getting all items: ${error}`);
+      // 只在开发环境输出错误
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(`Error getting all items: ${error}`);
+      }
       return {};
     }
   }

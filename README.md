@@ -1,6 +1,8 @@
-# Korson Study System
+# 科晟智慧学习系统
 
 一个综合性学习平台，包含多个子系统。
+
+**状态**: 生产就绪
 
 ## 子系统说明
 
@@ -32,17 +34,20 @@
 
 ## 快速开始
 
-### 前端启动
+### 开发环境
+
+#### 前端启动
 
 ```bash
 # 安装依赖
+cd frontend
 npm install
 
 # 启动开发服务器
 npm run dev
 ```
 
-### 后端启动
+#### 后端启动
 
 ```bash
 # 切换到后端目录
@@ -60,6 +65,12 @@ pip install -r requirements.txt
 # 启动服务器
 uvicorn app.main:app --reload
 ```
+
+### 生产环境
+
+生产环境部署请参考 [DEPLOYMENT.md](DEPLOYMENT.md) 文件，其中包含了详细的部署步骤和最佳实践。
+
+生产环境准备清单请参考 [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) 文件，其中总结了为生产环境部署所做的准备工作。
 
 ## 项目结构
 
@@ -116,3 +127,27 @@ uvicorn app.main:app --reload
 - 课程系统：`course_*`
 - 排行榜系统：`rank_*`
 - 题库系统：`quiz_*`
+
+## 环境变量
+
+项目使用统一的环境变量文件 `.env`，包含前后端共享的配置。详细配置说明请参考该文件中的注释。
+
+## 生产环境优化
+
+为了准备生产环境部署，我们进行了以下优化：
+
+1. 删除了所有调试代码和日志输出
+2. 移除了冗余文件和重复配置
+3. 优化了前端构建配置，启用了代码分割和压缩
+4. 配置了生产环境特定的设置
+5. 提供了详细的部署文档
+
+## 贡献指南
+
+如需贡献代码，请遵循以下步骤：
+
+1. Fork 本仓库
+2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'Add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 创建 Pull Request

@@ -17,8 +17,16 @@ export const authService = {
         try {
             const response = await apiService.post(API_CONFIG.ENDPOINTS.AUTH.LOGIN, credentials);
             // 保存token和用户信息
-            localStorage.setItem(STORAGE_CONFIG.TOKEN_KEY, response.data.access_token);
+            let token = response.data.access_token;
+            // 确保令牌格式正确 - 检查是否已经包含 Bearer 前缀
+            if (token && !token.startsWith('Bearer ')) {
+                token = `Bearer ${token}`;
+            }
+            localStorage.setItem(STORAGE_CONFIG.TOKEN_KEY, token);
             localStorage.setItem(STORAGE_CONFIG.USERNAME_KEY, credentials.username);
+
+            // 记录登录时间，用于防止立即重定向
+            localStorage.setItem('lastLoginTime', Date.now().toString());
             return response.data.user;
         }
         catch (error) {

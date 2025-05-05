@@ -3,9 +3,9 @@ import pytz
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import tasks, plans, achievements, auth, statistics
+from .routers import tasks, plans, achievements, auth, statistics, users
 from .database import engine, Base
-from .config import (
+from .core.config import (
     ENVIRONMENT, FRONTEND_URL, APP_NAME, APP_DESCRIPTION, APP_VERSION,
     CORS_ORIGINS, CORS_ALLOW_CREDENTIALS, CORS_ALLOW_METHODS, CORS_ALLOW_HEADERS,
     TIMEZONE
@@ -16,9 +16,8 @@ os.environ['TZ'] = TIMEZONE
 try:
     # 尝试设置系统时区
     time_zone = pytz.timezone(TIMEZONE)
-    print(f"Timezone set to: {TIMEZONE}")
-except Exception as e:
-    print(f"Error setting timezone: {e}")
+except Exception:
+    pass
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -40,8 +39,6 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-print(f"Running in {ENVIRONMENT} mode. CORS configured for: {CORS_ORIGINS}")
-
 # 健康检查路由
 @app.get("/api/health")
 def health_check():
@@ -54,6 +51,9 @@ def health_check():
 
 # 注册路由
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+
+# 注册用户路由
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 
 # 注册任务路由
 app.include_router(tasks.router, prefix="/api/study/tasks", tags=["tasks"])

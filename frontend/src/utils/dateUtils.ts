@@ -5,17 +5,17 @@
 
 /**
  * 将日期转换为中国时区（UTC+8）
- * @param dateString ISO格式的日期字符串
+ * @param date ISO格式的日期字符串或Date对象
  * @returns 调整为中国时区的Date对象
  */
-export const toChineseTimezone = (dateString: string): Date => {
-  if (!dateString) return new Date();
+export const toChineseTimezone = (date: string | Date): Date => {
+  if (!date) return new Date();
 
   // 创建一个新的Date对象
-  const date = new Date(dateString);
+  const inputDate = typeof date === 'string' ? new Date(date) : date;
 
   // 获取UTC时间
-  const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+  const utcDate = new Date(inputDate.getTime() + inputDate.getTimezoneOffset() * 60000);
 
   // 调整为中国时区（UTC+8）
   return new Date(utcDate.getTime() + 8 * 60 * 60000);
@@ -23,24 +23,60 @@ export const toChineseTimezone = (dateString: string): Date => {
 
 /**
  * 格式化日期为简单的月/日 时:分格式
- * @param dateString ISO格式的日期字符串
+ * @param date ISO格式的日期字符串或Date对象
  * @returns 格式化后的日期字符串，如 "5/1 14:30"
  */
-export const formatDate = (dateString: string): string => {
-  if (!dateString) return '';
-  const date = toChineseTimezone(dateString);
-  return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+export const formatDate = (date: string | Date): string => {
+  if (!date) return '';
+  const chinaDate = toChineseTimezone(date);
+  return `${chinaDate.getMonth() + 1}/${chinaDate.getDate()} ${chinaDate.getHours()}:${chinaDate.getMinutes().toString().padStart(2, '0')}`;
 };
 
 /**
  * 格式化日期为详细的月/日 时:分格式，确保小时和分钟都是两位数
- * @param dateString ISO格式的日期字符串
+ * @param date ISO格式的日期字符串或Date对象
  * @returns 格式化后的日期字符串，如 "5/1 14:30"
  */
-export const formatTime = (dateString: string): string => {
-  if (!dateString) return '';
-  const date = toChineseTimezone(dateString);
-  return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+export const formatTime = (date: string | Date): string => {
+  if (!date) return '';
+  const chinaDate = toChineseTimezone(date);
+  return `${chinaDate.getMonth() + 1}/${chinaDate.getDate()} ${chinaDate.getHours().toString().padStart(2, '0')}:${chinaDate.getMinutes().toString().padStart(2, '0')}`;
+};
+
+/**
+ * 格式化日期为中文格式
+ * @param date ISO格式的日期字符串或Date对象
+ * @param includeTime 是否包含时间
+ * @returns 格式化后的日期字符串，如 "2023年5月1日 14:30"
+ */
+export const formatChineseDate = (date: string | Date, includeTime = true): string => {
+  if (!date) return '';
+  const chinaDate = toChineseTimezone(date);
+
+  const year = chinaDate.getFullYear();
+  const month = chinaDate.getMonth() + 1;
+  const day = chinaDate.getDate();
+
+  let result = `${year}年${month}月${day}日`;
+
+  if (includeTime) {
+    const hours = chinaDate.getHours().toString().padStart(2, '0');
+    const minutes = chinaDate.getMinutes().toString().padStart(2, '0');
+    result += ` ${hours}:${minutes}`;
+  }
+
+  return result;
+};
+
+/**
+ * 格式化时间为 HH:MM 格式
+ * @param date ISO格式的日期字符串或Date对象
+ * @returns 格式化后的时间字符串，如 "14:30"
+ */
+export const formatTimeOnly = (date: string | Date): string => {
+  if (!date) return '';
+  const chinaDate = toChineseTimezone(date);
+  return `${chinaDate.getHours().toString().padStart(2, '0')}:${chinaDate.getMinutes().toString().padStart(2, '0')}`;
 };
 
 /**
@@ -79,18 +115,18 @@ export const getTodayEnd = (): Date => {
 
 /**
  * 检查日期是否是今天，使用中国时区
- * @param dateString ISO格式的日期字符串
+ * @param date ISO格式的日期字符串或Date对象
  * @returns 是否是今天
  */
-export const isToday = (dateString: string): boolean => {
-  if (!dateString) return false;
+export const isToday = (date: string | Date): boolean => {
+  if (!date) return false;
 
   // 转换为中国时区
-  const date = toChineseTimezone(dateString);
-  date.setHours(0, 0, 0, 0);
+  const chinaDate = toChineseTimezone(date);
+  chinaDate.setHours(0, 0, 0, 0);
 
   const today = getTodayStart();
-  return date.getTime() === today.getTime();
+  return chinaDate.getTime() === today.getTime();
 };
 
 /**
@@ -102,4 +138,37 @@ export const isToday = (dateString: string): boolean => {
 export const parseISODate = (isoString: string): Date => {
   if (!isoString) return new Date();
   return toChineseTimezone(isoString);
+};
+
+/**
+ * 格式化持续时间（分钟）为可读格式
+ * @param minutes 持续时间（分钟）
+ * @returns 格式化后的字符串，如：2小时30分钟
+ */
+export const formatDuration = (minutes: number): string => {
+  if (!minutes || minutes <= 0) return '0分钟';
+
+  if (minutes < 60) {
+    return `${minutes}分钟`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) {
+    return `${hours}小时`;
+  }
+
+  return `${hours}小时${remainingMinutes}分钟`;
+};
+
+/**
+ * 获取星期几的中文名称
+ * @param date 日期
+ * @returns 星期几的中文名称
+ */
+export const getChineseWeekday = (date: string | Date): string => {
+  const chinaDate = toChineseTimezone(date);
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  return weekdays[chinaDate.getDay()];
 };

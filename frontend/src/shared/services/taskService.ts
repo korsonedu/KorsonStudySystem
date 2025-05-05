@@ -242,8 +242,8 @@ export const taskService = {
     error.value = '';
 
     try {
-      const response = await apiService.get(`${API_CONFIG.ENDPOINTS.STATISTICS.BASE}`);
-      console.log('Total stats raw response:', response.data);
+      // 使用正确的统计端点
+      const response = await apiService.get(`${API_CONFIG.ENDPOINTS.STATISTICS.TOTAL}`);
 
       // 处理不同格式的响应
       if (response.data) {
@@ -276,7 +276,9 @@ export const taskService = {
       // 默认返回
       return { hours: 0 };
     } catch (err: any) {
-      console.error('获取总体统计数据失败:', err);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('获取总体统计数据失败');
+      }
       error.value = err.response?.data?.detail || '获取总体统计数据失败';
       // 返回默认值，避免前端出错
       return { hours: 0 };

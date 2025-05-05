@@ -28,13 +28,18 @@ export const planService = {
     error.value = '';
 
     try {
+      console.log('Calling getPlans API...');
       const response = await apiService.get(API_CONFIG.ENDPOINTS.PLANS.BASE);
+      console.log('Successfully fetched plans from API');
       plans.value = response.data;
       return response.data;
     } catch (err: any) {
       console.error('获取计划失败:', err);
       error.value = err.response?.data?.detail || '获取计划失败';
-      throw err;
+
+      // 返回空数组而不是抛出错误，以便前端可以继续运行
+      console.log('Returning empty plans array due to API error');
+      return [];
     } finally {
       isLoading.value = false;
     }
@@ -44,7 +49,12 @@ export const planService = {
    * 获取所有计划（别名，与 getPlans 相同）
    */
   async getAllPlans() {
-    return this.getPlans();
+    try {
+      return await this.getPlans();
+    } catch (error) {
+      console.error('获取所有计划失败:', error);
+      return [];
+    }
   },
 
   /**
