@@ -165,7 +165,8 @@ def send_verification_email(user_email: str, username: str, user_id: int) -> boo
     """
     try:
         # 创建验证令牌 (有效期7天)
-        expires = datetime.now(datetime.timezone.utc) + timedelta(days=7)
+        # Fix: Use datetime.utcnow() instead of datetime.now(datetime.timezone.utc)
+        expires = datetime.utcnow() + timedelta(days=7)
         jwt_payload = {
             "sub": str(user_id),
             "exp": expires.timestamp(),
