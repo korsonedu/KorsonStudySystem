@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, date, timedelta
-from app.models.task import Task
-from app.models.user import User
+from app.modules.study.models import Task
+from app.modules.common.models import User
 from app.auth import get_current_active_user
 from app.database import get_db
 import pytz

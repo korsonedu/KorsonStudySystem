@@ -3,10 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, distinct
 from datetime import datetime, time, timedelta
-from app.models.achievement import Achievement
-from app.models.user import User
-from app.models.task import Task
-from app.models.plan import Plan
+from app.modules.study.models import Achievement, Task, Plan
+from app.modules.common.models import User
 from app.schemas.achievement import AchievementCreate, AchievementUpdate, AchievementResponse
 from app.auth import get_current_superuser, get_current_active_user
 from app.database import get_db

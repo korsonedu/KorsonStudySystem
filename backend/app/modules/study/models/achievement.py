@@ -1,4 +1,4 @@
-# backend/app/models/achievement.py
+# backend/app/modules/study/models/achievement.py
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base

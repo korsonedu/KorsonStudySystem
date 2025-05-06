@@ -1,8 +1,8 @@
 # backend/app/routers/plans.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models.plan import Plan
-from app.models.user import User
+from app.modules.study.models import Plan
+from app.modules.common.models import User
 from app.schemas.plan import PlanCreate, PlanUpdate, PlanResponse
 from app.auth import get_current_active_user
 from datetime import datetime, timezone
@@ -51,11 +51,11 @@ def update_plan(plan_id: int, plan: PlanUpdate, db: Session = Depends(get_db), c
     db_plan = db.query(Plan).filter(Plan.id == plan_id, Plan.user_id == current_user.id).first()
     if not db_plan:
         raise HTTPException(status_code=404, detail="计划未找到")
-    
+
     plan_data = plan.model_dump(exclude_unset=True)
     for key, value in plan_data.items():
         setattr(db_plan, key, value)
-        
+
     db.commit()
     db.refresh(db_plan)
 
@@ -77,7 +77,7 @@ def start_plan(plan_id: int, db: Session = Depends(get_db), current_user: User =
         raise HTTPException(status_code=404, detail="计划未找到")
     if db_plan.started:
         raise HTTPException(status_code=400, detail="计划已经开始")
-        
+
     db_plan.started = True
     db_plan.start_time = datetime.now(timezone.utc)
     db.commit()
@@ -101,12 +101,12 @@ def complete_plan(plan_id: int, db: Session = Depends(get_db), current_user: Use
         raise HTTPException(status_code=404, detail="计划未找到")
     if not db_plan.started:
         raise HTTPException(status_code=400, detail="计划尚未开始")
-        
+
     db_plan.completed = True
     db_plan.end_time = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_plan)
-    
+
     # 转换日期时间为字符串
     if db_plan.created_at:
         db_plan.created_at = db_plan.created_at.isoformat()
@@ -114,7 +114,7 @@ def complete_plan(plan_id: int, db: Session = Depends(get_db), current_user: Use
         db_plan.start_time = db_plan.start_time.isoformat()
     if db_plan.end_time:
         db_plan.end_time = db_plan.end_time.isoformat()
-        
+
     return db_plan
 
 # 删除计划

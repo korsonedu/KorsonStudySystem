@@ -1,4 +1,4 @@
-# backend/app/models/plan.py
+# backend/app/modules/study/models/plan.py
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
