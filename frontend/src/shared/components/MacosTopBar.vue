@@ -10,7 +10,10 @@
             <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-        <span>科晟智慧</span>
+        <div class="logo-text">
+          <span class="logo-text-cn">科晟智慧</span>
+          <span class="logo-text-en">KORSON ACADEMY</span>
+        </div>
       </a>
 
       <!-- App Menu Items -->
@@ -290,7 +293,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   height: 38px;
-  background: #0a3d62; /* 深海军蓝 */
+  background: #0a3d62; /* 深海军蓝 - 按用户要求 */
   color: white;
   font-size: 13px;
   padding: 0 20px;
@@ -313,8 +316,6 @@ onUnmounted(() => {
   align-items: center;
   font-weight: 600;
   margin-right: 24px;
-  font-size: 15px;
-  letter-spacing: 0.5px;
   color: white;
   position: relative;
   padding-right: 2px;
@@ -324,6 +325,25 @@ onUnmounted(() => {
 
 .app-logo:hover {
   opacity: 0.9;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.logo-text-cn {
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.logo-text-en {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  opacity: 0.85;
+  margin-top: 2px;
 }
 
 .logo-icon {
@@ -568,7 +588,7 @@ onUnmounted(() => {
     padding: 0 10px;
   }
 
-  .app-logo span {
+  .logo-text-en {
     display: none;
   }
 

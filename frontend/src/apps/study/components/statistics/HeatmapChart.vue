@@ -133,20 +133,18 @@ watch(() => props.data, () => {
 
 // 热力图数据计算
 const heatmapData = computed(() => {
-  // 使用用户注册日期作为开始日期，没有则默认为一年前
+  // 使用用户注册日期作为开始日期，没有注册日期则不显示任何数据
   let startDate: Date;
   if (props.registrationDate && props.registrationDate.trim()) {
     startDate = new Date(props.registrationDate);
     // 确保日期有效
     if (isNaN(startDate.getTime())) {
-      // 默认为一年前
-      startDate = new Date(today);
-      startDate.setFullYear(startDate.getFullYear() - 1);
+      console.log('注册日期无效，不显示热力图数据');
+      return []; // 返回空数组，不显示任何数据
     }
   } else {
-    // 默认为一年前
-    startDate = new Date(today);
-    startDate.setFullYear(startDate.getFullYear() - 1);
+    console.log('未提供注册日期，不显示热力图数据');
+    return []; // 返回空数组，不显示任何数据
   }
 
   console.log('热力图开始日期（注册日期）:', startDate.toISOString());

@@ -396,11 +396,11 @@ const calculatePosterHeight = () => {
   // 名言高度
   baseHeight += 100; // quote-section
 
-  // 底部信息高度 (增加高度确保logo和slogan完全显示)
-  baseHeight += 200; // poster-footer
+  // 底部信息高度 (更紧凑的设计)
+  baseHeight += 120; // poster-footer - 减少高度
 
   // 内边距
-  baseHeight += 60; // 上下padding各30px，增加底部空间
+  baseHeight += 50; // 上下padding各25px，减少底部空间
 
   return baseHeight;
 };
@@ -488,18 +488,18 @@ const generatePoster = async () => {
       taskItem.style.gap = '10px';
     });
 
-    // 底部样式
+    // 底部样式 - 更紧凑的设计
     const footer = posterClone.querySelector('.poster-footer') as HTMLElement;
     if (footer) {
       footer.style.background = 'linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4))';
       footer.style.margin = '0 -20px -20px -20px';
-      footer.style.padding = '30px 20px';
+      footer.style.padding = '20px 15px';
       footer.style.borderRadius = '0 0 16px 16px';
       footer.style.marginTop = 'auto';
       footer.style.display = 'flex';
-      footer.style.flexDirection = 'column';
-      footer.style.justifyContent = 'center';
-      footer.style.minHeight = '180px'; // 确保底部有足够的高度
+      footer.style.flexDirection = 'row';
+      footer.style.justifyContent = 'space-between';
+      footer.style.minHeight = '120px'; // 减少底部高度
     }
 
     // 确保slogan样式正确
@@ -863,18 +863,18 @@ const posterText = POSTER_CONFIG.TEXT;
               <p v-if="selectedQuote" class="quote-author">—— {{ selectedQuote.author }}</p>
             </div>
 
-            <!-- 底部信息 -->
+            <!-- 底部信息 - 更紧凑的布局 -->
             <div class="poster-footer">
               <div class="footer-content">
                 <div class="company-info">
                   <h3 class="company-name">科晟智慧</h3>
                   <p class="company-name-en">KORSON ACADEMY</p>
-                  <div class="company-logo">
-                    <img src="../../../assets/kslogo.png" width="50" height="50" alt="科晟智慧" />
-                  </div>
+                </div>
+                <div class="company-logo">
+                  <img src="../../../assets/kslogo.png" width="40" height="40" alt="科晟智慧" />
                 </div>
                 <div class="slogan">
-                  <p>探索 · 学习 · 创造</p>
+                  <p>探索·学习·创造</p>
                 </div>
               </div>
             </div>
@@ -1230,57 +1230,57 @@ const posterText = POSTER_CONFIG.TEXT;
   font-weight: 500;
 }
 
-/* 美化底部样式 */
+/* 美化底部样式 - 更紧凑的设计 */
 .poster-footer {
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4));
   margin: 0 -20px -20px;
-  padding: 30px 20px;
+  padding: 20px 15px;
   border-radius: 0 0 16px 16px;
   backdrop-filter: blur(10px);
   margin-top: auto; /* 将底部推到最下方 */
-  min-height: 180px; /* 确保底部有足够的高度 */
+  min-height: 120px; /* 减少底部高度 */
 }
 
 .footer-content {
   display: flex;
-  flex-direction: column;
+  flex-direction: row; /* 改为横向布局 */
   align-items: center;
-  gap: 20px;
-  height: 100%; /* 使内容填充整个高度 */
+  justify-content: space-between; /* 两侧对齐 */
+  height: 100%;
 }
 
 .company-info {
-  text-align: center;
+  text-align: left;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  margin-bottom: 10px;
+  align-items: flex-start;
+  margin-bottom: 0;
 }
 
 .company-name {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
   margin: 0;
   color: #ffffff;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .company-name-en {
-  font-size: 14px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.9);
-  margin: 5px 0 10px 0;
+  margin: 2px 0 0 0;
   letter-spacing: 1px;
   font-weight: 500;
 }
 
 .company-logo {
-  margin-top: 10px;
-  display: flex;
-  justify-content: center;
+  margin-left: 10px;
 }
 
 .company-logo img {
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
@@ -1288,7 +1288,7 @@ const posterText = POSTER_CONFIG.TEXT;
 .slogan {
   display: flex;
   align-items: center;
-  gap: 15px;
+  font-size: 14px;
 }
 
 .slogan-item {
@@ -1518,20 +1518,36 @@ button:disabled {
     font-size: 12px;
   }
 
+  /* 移动端底部样式优化 */
+  .poster-footer {
+    padding: 15px 10px;
+    min-height: 100px;
+  }
+
+  .footer-content {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
   .company-name {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .company-name-en {
-    font-size: 12px;
-  }
-
-  .slogan-cn {
-    font-size: 14px;
-  }
-
-  .slogan-en {
     font-size: 10px;
+  }
+
+  .company-logo img {
+    width: 35px;
+    height: 35px;
+  }
+
+  .slogan {
+    font-size: 12px;
+    width: 100%;
+    justify-content: center;
+    margin-top: 5px;
   }
 }
 </style>
