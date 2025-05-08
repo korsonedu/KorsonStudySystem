@@ -4,7 +4,10 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from app.database import Base
 from alembic import context
-from app.models import *
+
+# Import all models to ensure they are registered with Base.metadata
+# Import the database models from all modules
+from app.routers import tasks, plans, achievements, auth, statistics, users
 
 # 配置日志
 config = context.config

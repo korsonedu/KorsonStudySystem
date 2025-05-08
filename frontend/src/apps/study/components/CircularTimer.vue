@@ -129,6 +129,27 @@ onBeforeUnmount(clearTimer)
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
+@media (max-width: 480px) {
+  .edu-timer {
+    padding: 10px;
+  }
+
+  .timer-container {
+    width: 280px;
+    height: 140px;
+  }
+
+  .time-display {
+    font-size: 3rem;
+    margin-bottom: 8px;
+  }
+
+  .timer-status {
+    font-size: 0.7rem;
+    margin-top: 2px;
+  }
+}
+
 /* 移除悬停效果 */
 
 .timer-inner {

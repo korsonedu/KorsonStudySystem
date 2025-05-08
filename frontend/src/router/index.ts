@@ -23,6 +23,7 @@ function checkToken() {
 import Login from '../shared/views/Login.vue'
 import Register from '../shared/views/Register.vue'
 import VerifyEmail from '../shared/views/VerifyEmail.vue'
+import AntTest from '../shared/components/AntTest.vue'
 
 // 导入学习追踪系统视图
 import StudyHome from '../apps/study/views/Home.vue'
@@ -112,6 +113,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../shared/views/Profile.vue'),
     name: 'profile',
     meta: { requiresAuth: true }
+  },
+  // Ant Design测试路由
+  {
+    path: '/ant-test',
+    component: AntTest,
+    name: 'ant-test'
   }
 ]
 

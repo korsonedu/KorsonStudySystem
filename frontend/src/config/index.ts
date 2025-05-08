@@ -37,9 +37,8 @@ export const SERVER_CONFIG = {
 
 // API配置
 export const API_CONFIG = {
-  // 基础URL，根据环境自动选择
-  // 开发环境下使用完整的后端URL，生产环境使用相对路径
-  BASE_URL: env.API_BASE_URL || (env.IS_DEV ? SERVER_CONFIG.BACKEND.URL : ''),
+  // 基础URL，使用相对路径避免混合内容问题
+  BASE_URL: '',
 
   // 请求配置
   REQUEST: {
@@ -74,7 +73,8 @@ export const API_CONFIG = {
       LOGIN: '/api/auth/login',
       LOGOUT: '/api/auth/logout',
       CURRENT_USER: '/api/auth/me',
-      VERIFY_EMAIL: '/api/auth/verify-email'
+      VERIFY_EMAIL: '/api/auth/verify-email',
+      RESEND_VERIFICATION: '/api/auth/resend-verification'
     },
 
     // 任务相关

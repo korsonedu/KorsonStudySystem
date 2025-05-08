@@ -1,5 +1,5 @@
 # backend/app/routers/auth.py
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.modules.common.models import User
@@ -11,6 +11,10 @@ from datetime import timedelta
 from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
 from jose import jwt, JWTError
 from app.services.email import send_verification_email
+import logging
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -36,6 +40,14 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # 强制检查用户邮箱是否已验证 - 如果有邮箱但未验证，则不允许登录
+    if user.email and not user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="邮箱未验证，请检查您的邮箱并点击验证链接",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # 创建访问令牌
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -51,7 +63,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             "username": user.username,
             "email": user.email,
             "is_active": user.is_active,
-            "is_superuser": user.is_superuser
+            "is_superuser": user.is_superuser,
+            "email_verified": user.email_verified  # 添加邮箱验证状态到返回信息中
         }
     }
 
@@ -69,7 +82,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     }
 
 @router.post("/register", response_model=UserResponse)
-async def register_user(user_data: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     """用户注册接口"""
     # 检查用户名是否已存在
     existing_user = db.query(User).filter(User.username == user_data.username).first()
@@ -96,7 +109,7 @@ async def register_user(user_data: UserCreate, background_tasks: BackgroundTasks
         password=hashed_password,
         is_active=True,
         is_superuser=False,
-        email_verified=False
+        email_verified=False  # 确保新用户的邮箱验证状态为False
     )
 
     db.add(new_user)
@@ -104,15 +117,24 @@ async def register_user(user_data: UserCreate, background_tasks: BackgroundTasks
     db.refresh(new_user)
 
     # 发送验证邮件
+    email_sent = False
     if user_data.email:
-        # 在后台任务中发送邮件
-        background_tasks.add_task(
-            send_verification_email,
-            user_email=new_user.email,
-            username=new_user.username,
-            user_id=new_user.id
-        )
+        try:
+            # 直接发送邮件，而不是使用后台任务，以便捕获错误
+            email_sent = send_verification_email(
+                user_email=new_user.email,
+                username=new_user.username,
+                user_id=new_user.id
+            )
 
+            if not email_sent:
+                # 记录邮件发送失败，但不影响用户注册
+                logger.warning(f"验证邮件发送失败: {new_user.email}")
+        except Exception as e:
+            logger.error(f"发送验证邮件时出错: {str(e)}")
+            # 不影响用户注册流程，但记录错误
+
+    # 返回用户信息
     return new_user
 
 @router.post("/verify-email")
@@ -125,23 +147,76 @@ async def verify_email(token_data: dict, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="缺少验证令牌")
 
         # 解码令牌获取用户ID
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        except JWTError as e:
+            logger.error(f"JWT解码错误: {str(e)}")
+            raise HTTPException(status_code=400, detail="验证令牌无效或已过期")
 
+        # 检查令牌类型
+        token_type = payload.get("type")
+        if token_type != "email_verification":
+            logger.warning(f"无效的令牌类型: {token_type}")
+            raise HTTPException(status_code=400, detail="无效的验证令牌类型")
+
+        user_id = payload.get("sub")
         if not user_id:
+            logger.warning("令牌中缺少用户ID")
             raise HTTPException(status_code=400, detail="无效的验证令牌")
 
         # 更新用户邮箱验证状态
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
+            logger.warning(f"用户不存在: {user_id}")
             raise HTTPException(status_code=404, detail="用户不存在")
 
+        # 如果已经验证过，直接返回成功
+        if user.email_verified:
+            return {"status": "success", "message": "邮箱已验证"}
+
+        # 更新验证状态
         user.email_verified = True
         db.commit()
+        logger.info(f"用户 {user.username} (ID: {user.id}) 邮箱验证成功")
 
         return {"status": "success", "message": "邮箱验证成功"}
-    except JWTError:
-        raise HTTPException(status_code=400, detail="验证令牌无效或已过期")
+    except Exception as e:
+        logger.error(f"邮箱验证过程中出错: {str(e)}")
+        raise HTTPException(status_code=500, detail="验证过程中出错，请稍后再试")
+
+@router.post("/resend-verification")
+async def resend_verification(email: str = Body(...), db: Session = Depends(get_db)):
+    """重新发送邮箱验证邮件"""
+    # 查找用户
+    user = db.query(User).filter(User.email == email).first()
+
+    # 不管用户是否存在，都返回相同的消息，避免泄露用户信息
+    if not user:
+        logger.info(f"尝试重新发送验证邮件到不存在的邮箱: {email}")
+        return {"message": "如果邮箱存在，验证邮件已发送"}
+
+    # 如果邮箱已验证，返回提示
+    if user.email_verified:
+        logger.info(f"尝试重新发送验证邮件到已验证的邮箱: {email}")
+        return {"message": "邮箱已验证，无需重新发送"}
+
+    # 直接发送验证邮件
+    try:
+        email_sent = send_verification_email(
+            user_email=user.email,
+            username=user.username,
+            user_id=user.id
+        )
+
+        if email_sent:
+            logger.info(f"重新发送验证邮件成功: {email}")
+            return {"message": "验证邮件已发送，请检查您的邮箱"}
+        else:
+            logger.warning(f"重新发送验证邮件失败: {email}")
+            return {"message": "验证邮件发送失败，请稍后再试"}
+    except Exception as e:
+        logger.error(f"重新发送验证邮件时出错: {str(e)}")
+        return {"message": "验证邮件发送失败，请稍后再试"}
 
 @router.post("/logout")
 async def logout():

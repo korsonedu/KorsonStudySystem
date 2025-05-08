@@ -26,6 +26,13 @@ const register = async () => {
       return
     }
 
+    // 验证密码长度至少为8个字符
+    if (password.value.length < 8) {
+      errorMessage.value = '密码长度必须至少为8个字符'
+      loading.value = false
+      return
+    }
+
     if (password.value !== confirmPassword.value) {
       errorMessage.value = '两次输入的密码不一致'
       loading.value = false
@@ -44,8 +51,8 @@ const register = async () => {
     const success = await authService.register(userData)
 
     if (success) {
-      // 注册成功，显示成功消息
-      successMessage.value = '注册成功！正在跳转到登录页面...'
+      // 注册成功，显示成功消息和邮箱验证提示
+      successMessage.value = '注册成功！我们已向您的邮箱发送了验证链接，请查收并点击链接完成验证。验证后即可登录。'
       // 清空表单
       username.value = ''
       email.value = ''
@@ -53,10 +60,10 @@ const register = async () => {
       confirmPassword.value = ''
       invitationCode.value = ''
 
-      // 延迟2秒后跳转到登录页，让用户看到成功消息
+      // 延迟5秒后跳转到登录页，让用户有足够时间阅读提示信息
       setTimeout(() => {
         router.push('/login')
-      }, 2000)
+      }, 5000)
     } else {
       // 注册失败，显示错误信息
       errorMessage.value = authService.error.value || '注册失败，请稍后再试'
@@ -76,106 +83,119 @@ const goToLogin = () => {
 
 <template>
   <div class="register-container">
-    <div class="register-card">
+    <a-card class="register-card">
       <div class="register-header">
         <h2>创建新账号</h2>
         <p class="subtitle">加入我们，开启您的学习之旅</p>
       </div>
 
-      <div v-if="errorMessage" class="error-message">
-        <i class="error-icon">⚠️</i>
-        {{ errorMessage }}
-      </div>
+      <a-alert
+        v-if="errorMessage"
+        type="error"
+        :message="errorMessage"
+        show-icon
+        class="message-alert"
+      />
 
-      <div v-if="successMessage" class="success-message">
-        <i class="success-icon">✅</i>
-        {{ successMessage }}
-      </div>
+      <a-alert
+        v-if="successMessage"
+        type="success"
+        :message="successMessage"
+        show-icon
+        class="message-alert"
+      />
 
-      <div class="form-group">
-        <label for="username">用户名</label>
-        <div class="input-wrapper">
-          <i class="input-icon">👤</i>
-          <input
-            type="text"
-            id="username"
-            v-model="username"
+      <a-form layout="vertical">
+        <a-form-item label="用户名">
+          <a-input
+            v-model:value="username"
             placeholder="请输入用户名"
             :disabled="loading"
           >
-        </div>
-      </div>
+            <template #prefix>
+              <user-outlined />
+            </template>
+          </a-input>
+        </a-form-item>
 
-      <div class="form-group">
-        <label for="email">邮箱</label>
-        <div class="input-wrapper">
-          <i class="input-icon">📧</i>
-          <input
-            type="email"
-            id="email"
-            v-model="email"
+        <a-form-item label="邮箱">
+          <a-input
+            v-model:value="email"
             placeholder="请输入邮箱"
             :disabled="loading"
-            required
           >
-        </div>
-      </div>
+            <template #prefix>
+              <mail-outlined />
+            </template>
+          </a-input>
+        </a-form-item>
 
-      <div class="form-group">
-        <label for="password">密码</label>
-        <div class="input-wrapper">
-          <i class="input-icon">🔒</i>
-          <input
-            type="password"
-            id="password"
-            v-model="password"
+        <a-form-item label="密码">
+          <a-input-password
+            v-model:value="password"
             placeholder="请输入密码"
             :disabled="loading"
           >
-        </div>
-      </div>
+            <template #prefix>
+              <lock-outlined />
+            </template>
+          </a-input-password>
+          <div class="password-hint">
+            <info-circle-outlined />
+            <span>密码长度必须至少为8个字符</span>
+          </div>
+        </a-form-item>
 
-      <div class="form-group">
-        <label for="confirm-password">确认密码</label>
-        <div class="input-wrapper">
-          <i class="input-icon">🔐</i>
-          <input
-            type="password"
-            id="confirm-password"
-            v-model="confirmPassword"
+        <a-form-item label="确认密码">
+          <a-input-password
+            v-model:value="confirmPassword"
             placeholder="请再次输入密码"
-            @keyup.enter="register"
             :disabled="loading"
+            @keyup.enter="register"
           >
-        </div>
-      </div>
+            <template #prefix>
+              <safety-outlined />
+            </template>
+          </a-input-password>
+        </a-form-item>
 
-      <div class="form-group">
-        <label for="invitation-code">邀请码</label>
-        <div class="input-wrapper">
-          <i class="input-icon">🎟️</i>
-          <input
-            type="text"
-            id="invitation-code"
-            v-model="invitationCode"
+        <a-form-item label="邀请码">
+          <a-input
+            v-model:value="invitationCode"
             placeholder="请输入邀请码（仅支持邀请注册）"
             :disabled="loading"
-            required
           >
+            <template #prefix>
+              <gift-outlined />
+            </template>
+          </a-input>
+        </a-form-item>
+
+        <div class="actions">
+          <a-button
+            type="primary"
+            @click="register"
+            :loading="loading"
+            block
+            class="register-button"
+          >
+            创建账号
+          </a-button>
+          <a-button
+            @click="goToLogin"
+            :disabled="loading"
+            block
+            class="login-button"
+          >
+            返回登录
+          </a-button>
         </div>
-      </div>
 
-      <div class="actions">
-        <button class="primary-btn" @click="register" :disabled="loading">
-          {{ loading ? '注册中...' : '创建账号' }}
-        </button>
-        <button class="secondary-btn" @click="goToLogin" :disabled="loading">返回登录</button>
-      </div>
-
-      <div class="login-link">
-        已有账号？<a href="#" @click.prevent="goToLogin">立即登录</a>
-      </div>
-    </div>
+        <div class="login-link">
+          已有账号？<a href="#" @click.prevent="goToLogin">立即登录</a>
+        </div>
+      </a-form>
+    </a-card>
   </div>
 </template>
 
@@ -185,211 +205,120 @@ const goToLogin = () => {
   justify-content: center;
   align-items: center;
   min-height: 80vh;
-  background: linear-gradient(135deg, rgba(240, 247, 255, 0.5), rgba(240, 247, 255, 0.8));
+  background: #f5f7fa;
   padding: 20px;
 }
 
 .register-card {
-  background: var(--card-bg);
-  padding: 35px;
-  border-radius: 20px;
-  box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.05);
   width: 100%;
-  max-width: 600px;
-  transition: transform 0.3s, box-shadow 0.3s;
-  border: 1px solid rgba(255, 255, 255, 0.8);
-}
-
-.register-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 10px 20px rgba(0,0,0,0.1);
+  max-width: 500px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .register-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 h2 {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   color: var(--primary-color);
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .subtitle {
-  color: #666;
+  color: rgba(0, 0, 0, 0.45);
   font-size: 16px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
   margin-bottom: 8px;
-  font-weight: 600;
-  color: #444;
-  font-size: 15px;
 }
 
-.input-wrapper {
-  position: relative;
+.message-alert {
+  margin-bottom: 16px;
 }
 
-.input-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-style: normal;
-  color: #888;
-}
-
-input {
-  width: 100%;
-  padding: 14px 14px 14px 40px;
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
-  font-size: 16px;
-  transition: all 0.3s;
-  background-color: rgba(255, 255, 255, 0.8);
-}
-
-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-  outline: none;
+.password-hint {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.55);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(0, 0, 0, 0.02);
+  padding: 8px 12px;
+  border-radius: 4px;
+  border-left: 3px solid var(--primary-color);
 }
 
 .actions {
   display: flex;
-  justify-content: space-between;
-  margin-top: 35px;
-  gap: 15px;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
 }
 
-.primary-btn {
-  flex: 1;
-  background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-  color: white;
-  padding: 14px 20px;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
+.register-button {
+  height: 44px;
   font-size: 16px;
-  font-weight: 600;
-  transition: all 0.3s;
-  box-shadow: 0 4px 10px rgba(52, 152, 219, 0.2);
+  font-weight: 500;
+  border-radius: 6px;
 }
 
-.secondary-btn {
-  flex: 1;
-  background: transparent;
-  color: var(--secondary-color);
-  padding: 14px 20px;
-  border: 2px solid var(--secondary-color);
-  border-radius: 12px;
-  cursor: pointer;
+.login-button {
+  height: 44px;
   font-size: 16px;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.primary-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 15px rgba(52, 152, 219, 0.3);
-  background: linear-gradient(135deg, #2980b9, #3498db);
-}
-
-.secondary-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 15px rgba(52, 152, 219, 0.15);
-  background: rgba(52, 152, 219, 0.05);
-}
-
-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-.error-message {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
-  padding: 12px 15px;
-  border-radius: 10px;
-  margin-bottom: 25px;
-  text-align: center;
-  border-left: 4px solid #e74c3c;
-}
-
-.error-icon {
-  margin-right: 10px;
-  font-style: normal;
-}
-
-.success-message {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(46, 204, 113, 0.1);
-  color: #2ecc71;
-  padding: 12px 15px;
-  border-radius: 10px;
-  margin-bottom: 25px;
-  text-align: center;
-  border-left: 4px solid #2ecc71;
-}
-
-.success-icon {
-  margin-right: 10px;
-  font-style: normal;
-}
-
-.form-text {
-  display: block;
-  margin-top: 5px;
-  font-size: 14px;
-  color: #777;
+  font-weight: 500;
+  border-radius: 6px;
+  margin-top: 4px;
 }
 
 .login-link {
   text-align: center;
-  margin-top: 25px;
-  font-size: 15px;
-  color: #666;
+  margin-top: 16px;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.45);
 }
 
 .login-link a {
   color: var(--primary-color);
   text-decoration: none;
-  font-weight: 600;
-  transition: all 0.3s;
+  font-weight: 500;
 }
 
 .login-link a:hover {
-  color: var(--secondary-color);
   text-decoration: underline;
 }
 
 /* 响应式设计 */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .register-card {
-    padding: 25px;
+    max-width: 100%;
+    margin: 0 10px;
   }
 
-  .actions {
-    flex-direction: column;
+  h2 {
+    font-size: 22px;
   }
 
-  .primary-btn, .secondary-btn {
-    width: 100%;
+  .subtitle {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .register-header {
+    margin-bottom: 16px;
+  }
+
+  .register-button, .login-button {
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .password-hint {
+    font-size: 12px;
   }
 }
 </style>

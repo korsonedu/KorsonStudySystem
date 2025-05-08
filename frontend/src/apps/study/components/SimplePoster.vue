@@ -363,6 +363,48 @@ const chartOptions = {
   }
 };
 
+// 获取实际海报高度
+const getActualPosterHeight = () => {
+  // 如果海报元素存在，直接获取其实际高度
+  if (posterRef.value) {
+    return posterRef.value.offsetHeight;
+  }
+
+  // 如果无法获取实际高度，使用计算的高度作为备选
+  return calculatePosterHeight();
+};
+
+// 计算海报高度（备选方法）
+const calculatePosterHeight = () => {
+  // 基础高度
+  let baseHeight = 0;
+
+  // 顶部信息高度
+  baseHeight += 60; // poster-top
+
+  // 用户信息高度
+  baseHeight += 80; // poster-user
+
+  // 统计数据高度 (2行)
+  baseHeight += 180; // poster-stats
+
+  // 任务列表高度 (标题 + 每个任务30px)
+  const tasksCount = userData.value.tasksList.length;
+  const tasksHeight = 50 + Math.min(tasksCount, 5) * 40 + (tasksCount > 5 ? 30 : 0);
+  baseHeight += tasksHeight;
+
+  // 名言高度
+  baseHeight += 100; // quote-section
+
+  // 底部信息高度 (增加高度确保logo和slogan完全显示)
+  baseHeight += 200; // poster-footer
+
+  // 内边距
+  baseHeight += 60; // 上下padding各30px，增加底部空间
+
+  return baseHeight;
+};
+
 // 生成海报
 const generatePoster = async () => {
   if (!posterRef.value) return;
@@ -371,149 +413,325 @@ const generatePoster = async () => {
   error.value = '';
 
   try {
-    // 获取海报元素的宽高比
-    const posterElement = posterRef.value;
-    const posterWidth = posterElement.offsetWidth;
-    const posterHeight = posterElement.offsetHeight;
-    const aspectRatio = posterHeight / posterWidth;
+    // 检测是否为移动设备
+    const isMobile = window.innerWidth <= 768;
 
-    // 使用固定宽度和计算的高度
-    const fixedWidth = 400;
-    const fixedHeight = Math.round(fixedWidth * aspectRatio);
+    // 计算合适的海报宽度和高度
+    const posterWidth = isMobile ? 320 : 400;
+    const posterHeight = getActualPosterHeight(); // 使用实际高度
 
-    // 使用更高的缩放比例以获得更清晰的图像
-    const canvas = await html2canvas(posterRef.value, {
+    // 创建一个临时的海报容器，用于生成图像
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '-9999px';
+    document.body.appendChild(tempContainer);
+
+    // 克隆原始海报
+    const posterClone = posterRef.value.cloneNode(true) as HTMLElement;
+
+    // 设置克隆海报的样式
+    posterClone.style.width = `${posterWidth}px`;
+    posterClone.style.height = `${posterHeight}px`;
+    posterClone.style.minHeight = 'auto';
+    posterClone.style.background = 'linear-gradient(135deg, #2c3e50, #3498db)';
+    posterClone.style.position = 'relative';
+    posterClone.style.display = 'flex';
+    posterClone.style.flexDirection = 'column';
+    posterClone.style.padding = '20px';
+    posterClone.style.boxSizing = 'border-box';
+    posterClone.style.borderRadius = '16px';
+    posterClone.style.overflow = 'hidden';
+
+    // 添加到临时容器
+    tempContainer.appendChild(posterClone);
+
+    // 应用样式到克隆元素的子元素
+    // 统计数据样式
+    const statItems = posterClone.querySelectorAll('.stat-item');
+    statItems.forEach((item: Element) => {
+      const statItem = item as HTMLElement;
+      statItem.style.background = 'rgba(255, 255, 255, 0.15)';
+      statItem.style.backdropFilter = 'blur(5px)';
+      statItem.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+      statItem.style.borderRadius = '12px';
+      statItem.style.padding = '15px';
+      statItem.style.display = 'flex';
+      statItem.style.flexDirection = 'column';
+      statItem.style.alignItems = 'center';
+      statItem.style.justifyContent = 'center';
+      statItem.style.transition = 'all 0.3s ease';
+    });
+
+    // 统计数值样式
+    const statValues = posterClone.querySelectorAll('.stat-value');
+    statValues.forEach((item: Element) => {
+      const statValue = item as HTMLElement;
+      statValue.style.color = '#ffffff';
+      statValue.style.fontSize = '24px';
+      statValue.style.fontWeight = 'bold';
+      statValue.style.marginBottom = '5px';
+      statValue.style.textShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+    });
+
+    // 任务列表样式
+    const taskItems = posterClone.querySelectorAll('.task-item');
+    taskItems.forEach((item: Element) => {
+      const taskItem = item as HTMLElement;
+      taskItem.style.background = 'rgba(255, 255, 255, 0.08)';
+      taskItem.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+      taskItem.style.borderRadius = '8px';
+      taskItem.style.padding = '10px 15px';
+      taskItem.style.marginBottom = '8px';
+      taskItem.style.display = 'flex';
+      taskItem.style.alignItems = 'center';
+      taskItem.style.gap = '10px';
+    });
+
+    // 底部样式
+    const footer = posterClone.querySelector('.poster-footer') as HTMLElement;
+    if (footer) {
+      footer.style.background = 'linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4))';
+      footer.style.margin = '0 -20px -20px -20px';
+      footer.style.padding = '30px 20px';
+      footer.style.borderRadius = '0 0 16px 16px';
+      footer.style.marginTop = 'auto';
+      footer.style.display = 'flex';
+      footer.style.flexDirection = 'column';
+      footer.style.justifyContent = 'center';
+      footer.style.minHeight = '180px'; // 确保底部有足够的高度
+    }
+
+    // 确保slogan样式正确
+    const slogan = posterClone.querySelector('.slogan') as HTMLElement;
+    if (slogan) {
+      slogan.style.textAlign = 'center';
+      slogan.style.marginTop = '15px';
+      slogan.style.color = 'white';
+      slogan.style.fontSize = '16px';
+      slogan.style.fontWeight = '500';
+    }
+
+    // 名言样式
+    const quoteText = posterClone.querySelector('.quote-text') as HTMLElement;
+    if (quoteText) {
+      quoteText.style.color = '#ffffff';
+      quoteText.style.fontSize = '18px';
+      quoteText.style.lineHeight = '1.6';
+      quoteText.style.fontStyle = 'italic';
+      quoteText.style.textShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+    }
+
+    // 确保公司logo样式正确
+    const companyLogo = posterClone.querySelector('.company-logo img') as HTMLElement;
+    if (companyLogo) {
+      companyLogo.style.borderRadius = '8px';
+      companyLogo.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+    }
+
+    // 使用html2canvas将临时元素转换为canvas
+    const canvas = await html2canvas(posterClone, {
       scale: 3, // 提高缩放比例，获得更高质量的图像
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#2c3e50',
-      onclone: (clonedDoc) => {
-        // 获取克隆的海报元素
-        const clonedElement = clonedDoc.querySelector('.poster') as HTMLElement;
-        if (clonedElement) {
-          // 确保背景渐变正确应用
-          clonedElement.style.background = 'linear-gradient(135deg, #2c3e50, #3498db)';
-          // 设置固定宽度和高度，保持宽高比
-          clonedElement.style.width = `${fixedWidth}px`;
-          clonedElement.style.height = `${fixedHeight}px`;
-
-          // 确保统计数据样式正确
-          const statItems = clonedElement.querySelectorAll('.stat-item');
-          statItems.forEach((item: Element) => {
-            (item as HTMLElement).style.background = 'rgba(255, 255, 255, 0.15)';
-            (item as HTMLElement).style.backdropFilter = 'blur(5px)';
-            (item as HTMLElement).style.border = '1px solid rgba(255, 255, 255, 0.2)';
-          });
-
-          // 确保统计数值样式正确
-          const statValues = clonedElement.querySelectorAll('.stat-value');
-          statValues.forEach((item: Element) => {
-            (item as HTMLElement).style.color = '#ffffff';
-            (item as HTMLElement).style.textShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
-          });
-
-          // 确保任务列表样式正确
-          const taskItems = clonedElement.querySelectorAll('.task-item');
-          taskItems.forEach((item: Element) => {
-            (item as HTMLElement).style.background = 'rgba(255, 255, 255, 0.08)';
-            (item as HTMLElement).style.border = '1px solid rgba(255, 255, 255, 0.1)';
-          });
-
-          // 确保底部样式正确
-          const footer = clonedElement.querySelector('.poster-footer') as HTMLElement;
-          if (footer) {
-            footer.style.background = 'linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4))';
-          }
-
-          // 确保名言样式正确
-          const quoteText = clonedElement.querySelector('.quote-text') as HTMLElement;
-          if (quoteText) {
-            quoteText.style.color = '#ffffff';
-            quoteText.style.textShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-          }
-        }
-      }
+      width: posterWidth,
+      height: posterHeight
     });
+
+    // 清理临时元素
+    document.body.removeChild(tempContainer);
 
     // 将画布转换为图像URL
     generatedImageUrl.value = canvas.toDataURL('image/png');
     emit('generated', generatedImageUrl.value);
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('生成海报失败');
-    }
+    console.error('生成海报失败:', err);
     error.value = '生成海报失败，请稍后再试';
   } finally {
     isGenerating.value = false;
   }
 };
 
+// 检测设备类型
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+// 检测iOS设备
+const isIOSDevice = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+};
+
 // 下载海报
-const downloadPoster = () => {
+const downloadPoster = async () => {
   if (!generatedImageUrl.value) return;
 
   try {
     // 创建一个新的图片对象，确保图片已完全加载
     const img = new Image();
     img.crossOrigin = 'anonymous'; // 允许跨域
-    img.onload = () => {
-      // 创建canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
 
-      // 在canvas上绘制图片
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('无法获取canvas上下文');
-        }
-        return;
-      }
-      ctx.drawImage(img, 0, 0);
+    // 使用Promise包装图片加载过程
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = generatedImageUrl.value;
+      if (img.complete) resolve();
+    });
 
-      // 将canvas转换为Blob
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.error('无法创建Blob');
+    // 创建canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+
+    // 在canvas上绘制图片
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.error('无法获取canvas上下文');
+      return;
+    }
+    ctx.drawImage(img, 0, 0);
+
+    // 检测是否为移动设备
+    if (isMobileDevice()) {
+      try {
+        // 移动设备：优先使用分享API
+        if (navigator.share && typeof navigator.canShare === 'function') {
+          try {
+            // 将canvas转换为Blob
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            if (!blob) {
+              throw new Error('无法创建图片Blob');
+            }
+
+            // 创建文件对象
+            const file = new File([blob], `学习海报-${formattedDate.value}.png`, { type: 'image/png' });
+
+            // 尝试分享文件
+            const shareData = { files: [file] };
+            if (navigator.canShare(shareData)) {
+              await navigator.share(shareData);
+              return;
+            }
+          } catch (shareError) {
+            console.log('分享失败，回退到其他方法', shareError);
           }
+        }
+
+        // 对于iOS设备，使用特殊处理
+        if (isIOSDevice()) {
+          // 创建一个临时的a标签，打开图片在新窗口
+          const dataUrl = canvas.toDataURL('image/png');
+
+          // 创建一个临时的img元素，设置样式使其填满屏幕
+          const tempImg = document.createElement('img');
+          tempImg.src = dataUrl;
+          tempImg.style.position = 'fixed';
+          tempImg.style.top = '0';
+          tempImg.style.left = '0';
+          tempImg.style.width = '100%';
+          tempImg.style.height = '100%';
+          tempImg.style.objectFit = 'contain';
+          tempImg.style.backgroundColor = 'rgba(0,0,0,0.8)';
+          tempImg.style.zIndex = '10000';
+
+          // 添加关闭按钮
+          const closeBtn = document.createElement('button');
+          closeBtn.textContent = '关闭';
+          closeBtn.style.position = 'fixed';
+          closeBtn.style.top = '20px';
+          closeBtn.style.right = '20px';
+          closeBtn.style.zIndex = '10001';
+          closeBtn.style.padding = '8px 16px';
+          closeBtn.style.backgroundColor = '#fff';
+          closeBtn.style.border = 'none';
+          closeBtn.style.borderRadius = '4px';
+          closeBtn.style.fontSize = '16px';
+
+          // 添加提示文本
+          const helpText = document.createElement('div');
+          helpText.textContent = '长按图片保存到相册';
+          helpText.style.position = 'fixed';
+          helpText.style.bottom = '40px';
+          helpText.style.left = '0';
+          helpText.style.width = '100%';
+          helpText.style.textAlign = 'center';
+          helpText.style.color = '#fff';
+          helpText.style.fontSize = '16px';
+          helpText.style.zIndex = '10001';
+
+          // 添加到文档
+          document.body.appendChild(tempImg);
+          document.body.appendChild(closeBtn);
+          document.body.appendChild(helpText);
+
+          // 点击关闭按钮移除元素
+          closeBtn.onclick = () => {
+            document.body.removeChild(tempImg);
+            document.body.removeChild(closeBtn);
+            document.body.removeChild(helpText);
+          };
+
           return;
         }
-        // 创建一个临时URL
-        const url = URL.createObjectURL(blob);
 
-        // 创建下载链接
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `学习海报-${formattedDate.value}.png`;
-        link.style.display = 'none';
-
-        // 添加到文档并触发点击
-        document.body.appendChild(link);
-        link.click();
-
-        // 清理
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }, 100);
-      }, 'image/png');
-    };
-
-    // 设置图片源
-    img.src = generatedImageUrl.value;
-
-    // 如果图片已经加载完成，手动触发onload事件
-    if (img.complete) {
-      img.dispatchEvent(new Event('load'));
+        // 对于Android设备，尝试使用下载API
+        try {
+          const dataUrl = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = `学习海报-${formattedDate.value}.png`;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            document.body.removeChild(link);
+          }, 100);
+        } catch (downloadErr) {
+          console.error('Android下载失败:', downloadErr);
+          fallbackDownload(canvas);
+        }
+      } catch (err) {
+        console.error('移动设备保存失败:', err);
+        fallbackDownload(canvas);
+      }
+    } else {
+      // 桌面设备：使用传统下载方法
+      fallbackDownload(canvas);
     }
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('下载海报失败');
-    }
+    console.error('下载海报失败:', err);
     alert('下载海报失败，请稍后再试');
   }
+};
+
+// 传统下载方法
+const fallbackDownload = (canvas) => {
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      console.error('无法创建Blob');
+      return;
+    }
+    // 创建一个临时URL
+    const url = URL.createObjectURL(blob);
+
+    // 创建下载链接
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `学习海报-${formattedDate.value}.png`;
+    link.style.display = 'none';
+
+    // 添加到文档并触发点击
+    document.body.appendChild(link);
+    link.click();
+
+    // 清理
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+  }, 'image/png');
 };
 
 // 关闭模态框
@@ -650,8 +868,10 @@ const posterText = POSTER_CONFIG.TEXT;
               <div class="footer-content">
                 <div class="company-info">
                   <h3 class="company-name">科晟智慧</h3>
-                  <h3 class="company-name">KORSON ACADEMY</h3>
-
+                  <p class="company-name-en">KORSON ACADEMY</p>
+                  <div class="company-logo">
+                    <img src="../../../assets/kslogo.png" width="50" height="50" alt="科晟智慧" />
+                  </div>
                 </div>
                 <div class="slogan">
                   <p>探索 · 学习 · 创造</p>
@@ -674,7 +894,7 @@ const posterText = POSTER_CONFIG.TEXT;
 
           <div v-else class="download-options">
             <button class="download-btn" @click="downloadPoster">
-              <span>💾</span> 保存到设备
+              <span>💾</span> {{ isMobileDevice() ? '保存到相册' : '下载海报' }}
             </button>
             <button class="regenerate-btn" @click="generatedImageUrl = ''">
               <span>🔄</span> 重新生成
@@ -752,7 +972,7 @@ const posterText = POSTER_CONFIG.TEXT;
 .poster {
   width: 100%;
   max-width: 400px;
-  min-height: 700px;
+  min-height: 800px; /* 增加最小高度，确保底部显示 */
   background: linear-gradient(135deg, #2c3e50, #3498db);
   border-radius: 16px;
   padding: 20px;
@@ -1017,6 +1237,8 @@ const posterText = POSTER_CONFIG.TEXT;
   padding: 30px 20px;
   border-radius: 0 0 16px 16px;
   backdrop-filter: blur(10px);
+  margin-top: auto; /* 将底部推到最下方 */
+  min-height: 180px; /* 确保底部有足够的高度 */
 }
 
 .footer-content {
@@ -1024,10 +1246,15 @@ const posterText = POSTER_CONFIG.TEXT;
   flex-direction: column;
   align-items: center;
   gap: 20px;
+  height: 100%; /* 使内容填充整个高度 */
 }
 
 .company-info {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
 .company-name {
@@ -1042,9 +1269,20 @@ const posterText = POSTER_CONFIG.TEXT;
 .company-name-en {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.9);
-  margin: 5px 0 0 0;
+  margin: 5px 0 10px 0;
   letter-spacing: 1px;
   font-weight: 500;
+}
+
+.company-logo {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.company-logo img {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .slogan {
@@ -1092,6 +1330,8 @@ const posterText = POSTER_CONFIG.TEXT;
   border-radius: 16px; /* 与预览海报圆角一致 */
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); /* 与预览海报阴影一致 */
   object-fit: contain; /* 确保图片不会被拉伸或压缩 */
+  max-width: 100%; /* 确保在小屏幕上不会溢出 */
+  display: block; /* 防止底部出现额外空间 */
 }
 
 /* 按钮样式 */
@@ -1150,5 +1390,148 @@ const posterText = POSTER_CONFIG.TEXT;
 button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .poster-container {
+    padding: 16px;
+    width: 95%;
+  }
+
+  .poster {
+    max-width: 350px;
+    min-height: auto; /* 移除最小高度限制 */
+  }
+
+  .poster-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .stat-item {
+    padding: 12px;
+  }
+
+  .generated-poster img {
+    width: 350px;
+  }
+
+  .download-options {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .download-btn, .regenerate-btn, .generate-btn {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 15px;
+  }
+
+  .quote-section {
+    padding: 20px 15px;
+  }
+
+  .quote-section::before {
+    left: 10px;
+    top: 5px;
+    font-size: 50px;
+  }
+
+  .quote-section::after {
+    right: 10px;
+    bottom: -15px;
+    font-size: 50px;
+  }
+}
+
+@media (max-width: 480px) {
+  .poster-container {
+    padding: 12px;
+    width: 100%;
+  }
+
+  .poster-header h2 {
+    font-size: 18px;
+  }
+
+  .poster {
+    max-width: 320px;
+    padding: 15px;
+  }
+
+  .poster-top {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .poster-user {
+    margin-top: 15px;
+  }
+
+  .poster-user h1 {
+    font-size: 20px;
+  }
+
+  .poster-user p {
+    font-size: 12px;
+  }
+
+  .poster-stats {
+    margin-top: 15px;
+    gap: 8px;
+  }
+
+  .stat-item {
+    padding: 10px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+  }
+
+  .tasks-section {
+    margin-top: 15px;
+  }
+
+  .tasks-header {
+    font-size: 16px;
+    margin-bottom: 10px;
+  }
+
+  .task-item {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .quote-text {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .quote-author {
+    font-size: 12px;
+  }
+
+  .company-name {
+    font-size: 18px;
+  }
+
+  .company-name-en {
+    font-size: 12px;
+  }
+
+  .slogan-cn {
+    font-size: 14px;
+  }
+
+  .slogan-en {
+    font-size: 10px;
+  }
 }
 </style>

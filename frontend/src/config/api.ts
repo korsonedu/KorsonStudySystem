@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8000',
+  BASE_URL: '',
   ENDPOINTS: {
     AUTH: {
       REGISTER: '/api/auth/register',

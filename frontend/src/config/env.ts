@@ -40,16 +40,16 @@ export function loadRootEnv(): Record<string, string> {
 // 导出环境变量对象
 export const env = {
   // 后端配置
-  BACKEND_PROTOCOL: getEnvVariable('BACKEND_PROTOCOL', 'http'),
+  BACKEND_PROTOCOL: getEnvVariable('BACKEND_PROTOCOL', 'https'),
   BACKEND_HOST: getEnvVariable('BACKEND_HOST', 'localhost'),
-  BACKEND_PORT: getEnvVariable('BACKEND_PORT', '8000'),
+  BACKEND_PORT: getEnvVariable('BACKEND_PORT', ''),
   BACKEND_BASE_PATH: getEnvVariable('BACKEND_BASE_PATH', ''),
-  API_BASE_URL: getEnvVariable('API_BASE_URL', 'http://localhost:8000'),
+  API_BASE_URL: getEnvVariable('API_BASE_URL', ''),
 
   // 前端配置
-  FRONTEND_PROTOCOL: getEnvVariable('FRONTEND_PROTOCOL', 'http'),
-  FRONTEND_HOST: getEnvVariable('FRONTEND_HOST', 'localhost'),
-  FRONTEND_PORT: getEnvVariable('FRONTEND_PORT', '5173'),
+  FRONTEND_PROTOCOL: getEnvVariable('FRONTEND_PROTOCOL', 'https'),
+  FRONTEND_HOST: getEnvVariable('FRONTEND_HOST', 'plt.korsonedu.com'),
+  FRONTEND_PORT: getEnvVariable('FRONTEND_PORT', ''),
   FRONTEND_BASE_PATH: getEnvVariable('FRONTEND_BASE_PATH', ''),
 
   // API配置

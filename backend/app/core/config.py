@@ -35,9 +35,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 # CORS配置
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://plt.korsonedu.com")
 # 确保允许前端开发服务器的请求
-CORS_ORIGINS = [FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"]
+CORS_ORIGINS = [FRONTEND_URL, "https://plt.korsonedu.com"]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["*"]
 CORS_ALLOW_HEADERS = ["*"]

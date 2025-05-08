@@ -152,4 +152,17 @@ body {
   background: var(--primary-color);
   color: white;
 }
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .container {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 10px;
+  }
+}
 </style>

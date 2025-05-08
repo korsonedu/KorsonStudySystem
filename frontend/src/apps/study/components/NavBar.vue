@@ -188,52 +188,51 @@ nav {
   .navbar {
     flex-direction: column;
     align-items: flex-start;
-    gap: 15px;
+    gap: 12px;
+    margin-bottom: 20px;
   }
 
   .nav-container {
     width: 100%;
-    justify-content: space-between;
   }
 
   nav {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
-    flex-wrap: wrap;
   }
 
   .nav-btn {
-    padding: 6px 12px;
+    padding: 8px 12px;
     font-size: 0.9rem;
-    height: 34px;
+    height: 36px;
+    text-align: center;
+    justify-content: center;
   }
 }
 
 /* 小屏幕设备 */
 @media (max-width: 480px) {
+  .navbar {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 1.5em;
+  }
+
   nav {
-    width: 100%;
-    justify-content: space-between;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
   }
 
   .nav-btn {
-    padding: 6px 10px;
-    font-size: 0.85rem;
-  }
-
-  .user-container {
-    margin-top: 10px;
-    margin-left: 0;
-  }
-
-  .auth-buttons {
-    margin-top: 10px;
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .auth-buttons .nav-btn {
-    flex: 1;
-    text-align: center;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    height: 34px;
+    border-radius: 16px;
   }
 }
 </style>

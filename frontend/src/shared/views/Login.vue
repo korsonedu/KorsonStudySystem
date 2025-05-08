@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '../services/authService'
 import { userService } from '../services/userService'
+import { apiService } from '../services/apiService'
+import { API_CONFIG } from '../../config'
 
 // 检查本地存储中的令牌
 const token = localStorage.getItem('auth_token')
@@ -33,8 +35,12 @@ onMounted(() => {
 
 const username = ref('')
 const password = ref('')
+const email = ref('')
 const errorMessage = ref('')
+const successMessage = ref('')
 const loading = ref(false)
+const showResendVerification = ref(false)
+const resendLoading = ref(false)
 const router = useRouter()
 
 const login = async () => {
@@ -88,7 +94,16 @@ const login = async () => {
     console.error('Login.vue - 登录异常:', error)
     if (error.response) {
       console.error('Login.vue - 错误详情:', error.response.data)
-      errorMessage.value = error.response.data.detail || '登录失败，请检查用户名和密码'
+
+      // 检查是否是邮箱未验证的错误
+      if (error.response.data.detail === "邮箱未验证，请检查您的邮箱并点击验证链接") {
+        errorMessage.value = "邮箱未验证，请检查您的邮箱并点击验证链接"
+        showResendVerification.value = true
+        // 保存用户名，用于重新发送验证邮件
+        email.value = username.value
+      } else {
+        errorMessage.value = error.response.data.detail || '登录失败，请检查用户名和密码'
+      }
     } else {
       errorMessage.value = '登录失败，请检查网络连接'
     }
@@ -100,62 +115,140 @@ const login = async () => {
 const goToRegister = () => {
   router.push('/register')
 }
+
+// 重新发送验证邮件
+const resendVerificationEmail = async () => {
+  try {
+    resendLoading.value = true
+    errorMessage.value = ''
+    successMessage.value = ''
+
+    // 确保有邮箱地址
+    if (!email.value) {
+      errorMessage.value = '请输入您的邮箱地址'
+      return
+    }
+
+    // 调用重新发送验证邮件API
+    const response = await apiService.post(
+      API_CONFIG.ENDPOINTS.AUTH.RESEND_VERIFICATION,
+      { email: email.value }
+    )
+
+    // 显示成功消息
+    successMessage.value = response.data.message || '验证邮件已重新发送，请查收'
+    showResendVerification.value = false
+  } catch (error: any) {
+    console.error('重新发送验证邮件失败:', error)
+    errorMessage.value = error.response?.data?.detail || '重新发送验证邮件失败，请稍后再试'
+  } finally {
+    resendLoading.value = false
+  }
+}
 </script>
 
 <template>
   <div class="login-container">
-    <div class="login-card">
+    <a-card class="login-card">
       <div class="login-header">
         <h2>欢迎回来</h2>
         <p class="subtitle">登录您的账号继续学习之旅</p>
       </div>
 
-      <div v-if="errorMessage" class="error-message">
-        <i class="error-icon">⚠️</i>
-        {{ errorMessage }}
-      </div>
+      <a-alert
+        v-if="errorMessage"
+        type="error"
+        :message="errorMessage"
+        show-icon
+        class="message-alert"
+      />
 
-      <div class="form-group">
-        <label for="username">用户名</label>
-        <div class="input-wrapper">
-          <i class="input-icon">👤</i>
-          <input
-            type="text"
-            id="username"
-            v-model="username"
+      <a-alert
+        v-if="successMessage"
+        type="success"
+        :message="successMessage"
+        show-icon
+        class="message-alert"
+      />
+
+      <!-- 重新发送验证邮件表单 -->
+      <a-card v-if="showResendVerification" class="resend-verification">
+        <p>没有收到验证邮件？请输入您的邮箱地址，我们将重新发送验证链接。</p>
+        <a-form layout="vertical">
+          <a-form-item label="邮箱">
+            <a-input
+              v-model:value="email"
+              placeholder="请输入您的邮箱"
+              :disabled="resendLoading"
+            >
+              <template #prefix>
+                <mail-outlined />
+              </template>
+            </a-input>
+          </a-form-item>
+          <a-button
+            type="default"
+            @click="resendVerificationEmail"
+            :loading="resendLoading"
+            block
+          >
+            重新发送验证邮件
+          </a-button>
+        </a-form>
+      </a-card>
+
+      <a-form layout="vertical" v-if="!showResendVerification">
+        <a-form-item label="用户名">
+          <a-input
+            v-model:value="username"
             placeholder="请输入用户名"
-            @keyup.enter="login"
             :disabled="loading"
+            @keyup.enter="login"
           >
-        </div>
-      </div>
+            <template #prefix>
+              <user-outlined />
+            </template>
+          </a-input>
+        </a-form-item>
 
-      <div class="form-group">
-        <label for="password">密码</label>
-        <div class="input-wrapper">
-          <i class="input-icon">🔒</i>
-          <input
-            type="password"
-            id="password"
-            v-model="password"
+        <a-form-item label="密码">
+          <a-input-password
+            v-model:value="password"
             placeholder="请输入密码"
-            @keyup.enter="login"
             :disabled="loading"
+            @keyup.enter="login"
           >
+            <template #prefix>
+              <lock-outlined />
+            </template>
+          </a-input-password>
+        </a-form-item>
+
+        <div class="actions">
+          <a-button
+            type="primary"
+            @click="login"
+            :loading="loading"
+            block
+            class="login-button"
+          >
+            登录
+          </a-button>
+          <a-button
+            @click="goToRegister"
+            :disabled="loading"
+            block
+            class="register-button"
+          >
+            注册新账号
+          </a-button>
         </div>
-      </div>
 
-      <div class="actions">
-        <button class="primary-btn" @click="login" :disabled="loading">
-          {{ loading ? '登录中...' : '登录' }}
-        </button>
-        <button class="secondary-btn" @click="goToRegister" :disabled="loading">注册新账号</button>
-      </div>
-
-      <div class="register-link">
-        还没有账号？<a href="#" @click.prevent="goToRegister">立即注册</a>
-      </div>
-    </div>
+        <div class="register-link">
+          还没有账号？<a href="#" @click.prevent="goToRegister">立即注册</a>
+        </div>
+      </a-form>
+    </a-card>
   </div>
 </template>
 
@@ -165,186 +258,114 @@ const goToRegister = () => {
   justify-content: center;
   align-items: center;
   min-height: 80vh;
-  background: linear-gradient(135deg, rgba(240, 247, 255, 0.5), rgba(240, 247, 255, 0.8));
+  background: #f5f7fa;
   padding: 20px;
 }
 
 .login-card {
-  background: var(--card-bg);
-  padding: 35px;
-  border-radius: 20px;
-  box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.05);
   width: 100%;
   max-width: 420px;
-  transition: transform 0.3s, box-shadow 0.3s;
-  border: 1px solid rgba(255, 255, 255, 0.8);
-}
-
-.login-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 10px 20px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 h2 {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   color: var(--primary-color);
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .subtitle {
-  color: #666;
+  color: rgba(0, 0, 0, 0.45);
   font-size: 16px;
-}
-
-.form-group {
-  margin-bottom: 25px;
-}
-
-label {
-  display: block;
   margin-bottom: 8px;
-  font-weight: 600;
-  color: #444;
-  font-size: 15px;
 }
 
-.input-wrapper {
-  position: relative;
+.message-alert {
+  margin-bottom: 16px;
 }
 
-.input-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-style: normal;
-  color: #888;
+.resend-verification {
+  margin-bottom: 16px;
+  background-color: #f6f6f6;
+  border: none;
 }
 
-input {
-  width: 100%;
-  padding: 14px 14px 14px 40px;
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
-  font-size: 16px;
-  transition: all 0.3s;
-  background-color: rgba(255, 255, 255, 0.8);
-}
-
-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-  outline: none;
+.resend-verification p {
+  margin-bottom: 16px;
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .actions {
   display: flex;
-  justify-content: space-between;
-  margin-top: 35px;
-  gap: 15px;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
 }
 
-.primary-btn {
-  flex: 1;
-  background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-  color: white;
-  padding: 14px 20px;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
+.login-button {
+  height: 44px;
   font-size: 16px;
-  font-weight: 600;
-  transition: all 0.3s;
-  box-shadow: 0 4px 10px rgba(52, 152, 219, 0.2);
+  font-weight: 500;
+  border-radius: 6px;
 }
 
-.secondary-btn {
-  flex: 1;
-  background: transparent;
-  color: var(--secondary-color);
-  padding: 14px 20px;
-  border: 2px solid var(--secondary-color);
-  border-radius: 12px;
-  cursor: pointer;
+.register-button {
+  height: 44px;
   font-size: 16px;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.primary-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 15px rgba(52, 152, 219, 0.3);
-  background: linear-gradient(135deg, #2980b9, #3498db);
-}
-
-.secondary-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 15px rgba(52, 152, 219, 0.15);
-  background: rgba(52, 152, 219, 0.05);
-}
-
-button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-.error-message {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
-  padding: 12px 15px;
-  border-radius: 10px;
-  margin-bottom: 25px;
-  text-align: center;
-  border-left: 4px solid #e74c3c;
-}
-
-.error-icon {
-  margin-right: 10px;
-  font-style: normal;
+  font-weight: 500;
+  border-radius: 6px;
+  margin-top: 4px;
 }
 
 .register-link {
   text-align: center;
-  margin-top: 25px;
-  font-size: 15px;
-  color: #666;
+  margin-top: 16px;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.45);
 }
 
 .register-link a {
   color: var(--primary-color);
   text-decoration: none;
-  font-weight: 600;
-  transition: all 0.3s;
+  font-weight: 500;
 }
 
 .register-link a:hover {
-  color: var(--secondary-color);
   text-decoration: underline;
 }
 
 /* 响应式设计 */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .login-card {
-    padding: 25px;
+    max-width: 100%;
+    margin: 0 10px;
   }
 
-  .actions {
-    flex-direction: column;
+  h2 {
+    font-size: 22px;
   }
 
-  .primary-btn, .secondary-btn {
-    width: 100%;
+  .subtitle {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-header {
+    margin-bottom: 16px;
+  }
+
+  .login-button, .register-button {
+    height: 36px;
+    font-size: 14px;
   }
 }
 </style>

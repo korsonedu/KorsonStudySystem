@@ -6,7 +6,7 @@ from email.mime.multipart import MIMEMultipart
 from ..core.config import (
     MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD,
     MAIL_FROM, MAIL_TLS, MAIL_SSL, SECRET_KEY, ALGORITHM,
-    ENVIRONMENT
+    ENVIRONMENT, FRONTEND_URL
 )
 from datetime import datetime, timedelta
 from jose import jwt
@@ -35,6 +35,16 @@ class EmailService:
         Returns:
             bool: 是否发送成功
         """
+        # 检查必要参数
+        if not to_email:
+            logger.error("邮件发送失败: 收件人邮箱为空")
+            return False
+
+        # 检查邮件配置
+        if not MAIL_SERVER or not MAIL_PORT:
+            logger.error(f"邮件发送失败: SMTP服务器配置不完整 (server: {MAIL_SERVER}, port: {MAIL_PORT})")
+            return False
+
         # 如果没有设置邮箱密码，则不发送邮件
         if not MAIL_PASSWORD and ENVIRONMENT != "test":
             logger.warning(f"邮件未发送 (to: {to_email}, subject: {subject})，因为 MAIL_PASSWORD 未设置")
@@ -60,14 +70,24 @@ class EmailService:
                         logger.debug("SMTP连接成功，启用TLS...")
                         server.starttls()  # 启用TLS加密
 
-                    logger.debug("尝试登录SMTP服务器...")
+                    logger.debug(f"尝试登录SMTP服务器 (username: {MAIL_USERNAME})...")
                     server.login(MAIL_USERNAME, MAIL_PASSWORD)
 
+                    logger.debug(f"发送邮件 (from: {MAIL_FROM}, to: {to_email})...")
                     server.sendmail(MAIL_FROM, to_email, message.as_string())
                     logger.debug("邮件发送完成")
             except smtplib.SMTPAuthenticationError as auth_error:
                 logger.error(f"SMTP认证失败: {auth_error}")
+                logger.error(f"使用的用户名: {MAIL_USERNAME}")
                 logger.error("如果使用Gmail，请确保已启用两步验证并使用应用密码")
+                raise
+            except smtplib.SMTPRecipientsRefused as recipients_error:
+                logger.error(f"收件人被拒绝: {recipients_error}")
+                logger.error(f"收件人邮箱: {to_email}")
+                raise
+            except smtplib.SMTPSenderRefused as sender_error:
+                logger.error(f"发件人被拒绝: {sender_error}")
+                logger.error(f"发件人邮箱: {MAIL_FROM}")
                 raise
             except smtplib.SMTPException as smtp_error:
                 logger.error(f"SMTP错误: {smtp_error}")
@@ -81,7 +101,7 @@ class EmailService:
             logger.error(f"错误类型: {type(e).__name__}")
             if ENVIRONMENT == "development":
                 import traceback
-                logger.debug(f"详细错误信息: {traceback.format_exc()}")
+                logger.error(f"详细错误信息: {traceback.format_exc()}")
             return False
 
     @staticmethod
@@ -98,18 +118,9 @@ class EmailService:
         Returns:
             bool: 是否发送成功
         """
-        # 构建验证链接 - 使用前端URL
-        # 从base_url中提取协议和主机部分
-        import re
-        protocol_host_match = re.match(r'(https?://[^:/]+)(:\d+)?', base_url)
-        if protocol_host_match:
-            protocol_host = protocol_host_match.group(1)
-            # 假设前端运行在5173端口
-            frontend_url = f"{protocol_host}:5173"
-            verification_link = f"{frontend_url}/verify-email?token={verification_token}"
-        else:
-            # 如果无法解析，则使用默认的前端URL
-            verification_link = f"http://localhost:5173/verify-email?token={verification_token}"
+        # 直接使用传入的 base_url 构建验证链接
+        # base_url 应该是完整的前端 URL，如 https://plt.korsonedu.com
+        verification_link = f"{base_url}/verify-email?token={verification_token}"
 
         # 邮件主题
         subject = "请验证您的邮箱 - 科晟智慧金融学习平台"
@@ -164,8 +175,13 @@ def send_verification_email(user_email: str, username: str, user_id: int) -> boo
         bool: 是否发送成功
     """
     try:
+        # 检查邮箱是否为空
+        if not user_email:
+            logger.warning("无法发送验证邮件：用户邮箱为空")
+            return False
+
         # 创建验证令牌 (有效期7天)
-        # Fix: Use datetime.utcnow() instead of datetime.now(datetime.timezone.utc)
+        # 使用 UTC 时间
         expires = datetime.utcnow() + timedelta(days=7)
         jwt_payload = {
             "sub": str(user_id),
@@ -174,8 +190,11 @@ def send_verification_email(user_email: str, username: str, user_id: int) -> boo
         }
         verification_token = jwt.encode(jwt_payload, SECRET_KEY, algorithm=ALGORITHM)
 
-        # 获取基础URL (这里使用本地开发环境URL)
-        base_url = "http://localhost:8000"
+        # 使用环境变量中的前端 URL
+        base_url = FRONTEND_URL
+        if not base_url:
+            logger.error("无法发送验证邮件：FRONTEND_URL 环境变量未设置")
+            return False
 
         # 调用EmailService发送验证邮件
         success = EmailService.send_verification_email(
@@ -193,4 +212,7 @@ def send_verification_email(user_email: str, username: str, user_id: int) -> boo
         return success
     except Exception as e:
         logger.error(f"创建验证邮件时出错: {str(e)}")
+        if ENVIRONMENT == "development":
+            import traceback
+            logger.error(f"详细错误信息: {traceback.format_exc()}")
         return False

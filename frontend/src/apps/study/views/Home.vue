@@ -1869,60 +1869,154 @@ h2 {
 /* 手机设备 */
 @media (max-width: 480px) {
   .main-content {
-    padding: 0 10px;
+    padding: 0 8px;
   }
 
   .pomodoro-card, .task-list, .plan-sidebar {
-    padding: 15px;
-    border-radius: 12px;
+    padding: 12px;
+    border-radius: 10px;
     width: 100%;
     box-sizing: border-box;
+    margin-bottom: 15px;
   }
 
   .pomodoro-title {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
+    margin-top: 0;
+    margin-bottom: 5px;
   }
 
   .pomodoro-subtitle {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
   }
 
   .timer-container {
-    transform: scale(1);
-    margin: 15px 0;
+    transform: scale(0.9);
+    margin: 0;
+    height: 150px;
   }
 
   .time-setter {
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: row;
+    gap: 6px;
+    margin-bottom: 5px;
   }
 
-  .control-btn {
-    padding: 10px;
+  .input-group {
+    margin-bottom: 5px;
+  }
+
+  .input-group label {
+    font-size: 0.8rem;
+    margin-bottom: 3px;
+  }
+
+  .task-input, .time-input {
+    padding: 8px;
     font-size: 0.9rem;
   }
 
-  .task-record-details {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
+  .control-btn {
+    padding: 8px;
+    font-size: 0.85rem;
+    height: 36px;
+  }
+
+  .control-buttons {
+    margin-top: 5px;
+    gap: 8px;
+  }
+
+  /* 学习记录部分 */
+  .list-header {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+  }
+
+  .list-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .task-records {
+    max-height: 300px;
   }
 
   .task-record-item {
-    padding: 10px;
+    padding: 8px;
+    margin-bottom: 8px;
+  }
+
+  .task-record-header {
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+  }
+
+  .task-name {
+    font-size: 0.95rem;
+  }
+
+  .task-record-details {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .task-time, .task-duration, .task-date {
+    padding: 3px 6px;
+    font-size: 0.75rem;
+    margin-right: 3px;
+    margin-bottom: 3px;
+  }
+
+  /* 计划部分 */
+  .sidebar-header h2 {
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+  }
+
+  .sidebar-subtitle {
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+  }
+
+  .plan-control {
+    margin-bottom: 10px;
+  }
+
+  .plan-control input {
+    padding: 8px;
+    font-size: 0.9rem;
   }
 
   .tech-plan-item {
-    padding: 10px;
+    padding: 8px;
+    margin-bottom: 8px;
+  }
+
+  .tech-plan-text {
+    font-size: 0.9rem;
   }
 
   .study-tips {
-    padding: 12px;
+    padding: 10px;
+    margin-top: 10px;
+  }
+
+  .study-tips h4 {
+    font-size: 0.9rem;
+    margin-bottom: 5px;
   }
 
   .study-tips li {
+    font-size: 0.8rem;
+    margin-bottom: 3px;
+  }
+
+  .empty-message {
+    padding: 15px;
     font-size: 0.85rem;
-    margin-bottom: 5px;
   }
 }
 

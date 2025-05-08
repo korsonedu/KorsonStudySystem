@@ -1,9 +1,11 @@
+@import './assets/theme.css';
+
 :root {
-  --primary-color: #2c3e50;
-  --secondary-color: #3498db;
-  --background: #f5f6fa;
+  --primary-color: #1890ff;
+  --secondary-color: #52c41a;
+  --background: #f5f7fa;
   --card-bg: #ffffff;
-  --text-color: #2d3436;
+  --text-color: rgba(0, 0, 0, 0.65);
 }
 
 * {
@@ -194,7 +196,7 @@ input {
   .main-content {
     flex-direction: column;
   }
-  
+
   .record-grid {
     grid-template-columns: 1fr 1fr;
   }
