@@ -36,19 +36,13 @@ const processContentStats = (contentStats: any[]): any[] => {
 
   if (!Array.isArray(contentStats)) {
     console.log('Content stats is not an array');
-    return [{
-      name: '未分类',
-      duration: 1 // 使用1分钟作为默认值，确保图表能够显示
-    }];
+    return []; // 返回空数组，不再使用默认值
   }
 
   if (contentStats.length === 0) {
     console.log('Content stats array is empty');
-    // 如果没有数据，创建一个默认的"未分类"项
-    return [{
-      name: '未分类',
-      duration: 1 // 使用1分钟作为默认值，确保图表能够显示
-    }];
+    // 如果没有数据，返回空数组，不再使用默认值
+    return [];
   }
 
   // 处理数据，确保有name和duration字段
@@ -76,12 +70,9 @@ const processContentStats = (contentStats: any[]): any[] => {
   // 过滤掉duration为0的项
   let filteredStats = processedStats.filter((item: any) => item.duration > 0);
 
-  // 如果过滤后没有数据，创建一个默认的"未分类"项
+  // 如果过滤后没有数据，返回空数组，不再使用默认值
   if (filteredStats.length === 0) {
-    filteredStats = [{
-      name: '未分类',
-      duration: 1 // 使用1分钟作为默认值，确保图表能够显示
-    }];
+    return [];
   }
 
   // 合并相同名称的项
@@ -119,18 +110,14 @@ const chartData = computed(() => {
   // 打印处理后的内容统计数据，用于调试
   console.log('ContentDistributionChart - 处理后的内容统计数据:', filteredStats);
 
-  // 如果没有有效数据，返回默认数据
+  // 如果没有有效数据，返回空数据集
   if (filteredStats.length === 0) {
-    console.log('ContentDistributionChart - 没有有效数据，使用默认数据');
-    const defaultLabels = ['未分类'];
-    const defaultData = [1];
-    const defaultColors = ['rgba(200, 200, 200, 0.8)'];
-
+    console.log('ContentDistributionChart - 没有有效数据，显示暂无数据');
     return {
-      labels: defaultLabels,
+      labels: [],
       datasets: [{
-        backgroundColor: defaultColors,
-        data: defaultData
+        backgroundColor: [],
+        data: []
       }]
     };
   }

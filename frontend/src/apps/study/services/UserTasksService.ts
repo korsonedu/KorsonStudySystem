@@ -30,12 +30,25 @@ export interface Task {
   [key: string]: any; // 允许其他属性
 }
 
+// 缓存任务数据，避免重复请求
+let cachedTasks: Task[] | null = null;
+let lastFetchTime = 0;
+const CACHE_EXPIRY = 5 * 60 * 1000; // 缓存有效期：5分钟
+
 /**
  * 获取当前登录用户的所有任务
  * @returns 用户任务列表
  */
 export const fetchUserTasks = async (): Promise<Task[]> => {
+  // 检查缓存是否有效
+  const now = Date.now();
+  if (cachedTasks && now - lastFetchTime < CACHE_EXPIRY) {
+    console.log('使用缓存的任务数据，共', cachedTasks.length, '条记录');
+    return cachedTasks;
+  }
+
   try {
+    console.log('缓存过期或不存在，重新获取任务数据');
     // 尝试从用户统计API获取任务数据
     const response = await apiService.get(ensureTrailingSlash(STATISTICS_API.USER_STATS));
 
@@ -88,7 +101,7 @@ export const fetchUserTasks = async (): Promise<Task[]> => {
     }
 
     // 标准化任务数据
-    return tasks.map(task => ({
+    const normalizedTasks = tasks.map(task => ({
       id: task.id || task._id || '',
       name: task.name || task.content || task.title || '未命名任务',
       content: task.content || task.description || '',
@@ -99,19 +112,42 @@ export const fetchUserTasks = async (): Promise<Task[]> => {
       completed: task.completed || task.is_completed || task.isCompleted || false,
       ...task // 保留原始属性
     }));
+
+    // 更新缓存
+    cachedTasks = normalizedTasks;
+    lastFetchTime = now;
+    console.log('成功获取任务数据，共', normalizedTasks.length, '条记录');
+
+    return normalizedTasks;
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('获取用户任务数据失败');
     }
+    // 如果请求失败但有缓存，返回缓存数据
+    if (cachedTasks) {
+      console.log('请求失败，使用缓存数据');
+      return cachedTasks;
+    }
     return [];
   }
 };
+
+// 缓存今日任务
+let cachedTodayTasks: Task[] | null = null;
+let lastTodayFetchTime = 0;
 
 /**
  * 获取今日任务
  * @returns 今日任务列表
  */
 export const fetchTodayTasks = async (): Promise<Task[]> => {
+  // 检查缓存是否有效
+  const now = Date.now();
+  if (cachedTodayTasks && now - lastTodayFetchTime < CACHE_EXPIRY) {
+    console.log('使用缓存的今日任务数据，共', cachedTodayTasks.length, '条记录');
+    return cachedTodayTasks;
+  }
+
   try {
     // 获取所有任务
     const allTasks = await fetchUserTasks();
@@ -125,7 +161,7 @@ export const fetchTodayTasks = async (): Promise<Task[]> => {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     // 过滤今日任务
-    return allTasks.filter(task => {
+    const todayTasks = allTasks.filter(task => {
       try {
         const taskDate = new Date(task.start);
         return taskDate >= today && taskDate < tomorrow;
@@ -133,19 +169,42 @@ export const fetchTodayTasks = async (): Promise<Task[]> => {
         return false;
       }
     });
+
+    // 更新缓存
+    cachedTodayTasks = todayTasks;
+    lastTodayFetchTime = now;
+    console.log('成功获取今日任务数据，共', todayTasks.length, '条记录');
+
+    return todayTasks;
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('获取今日任务失败');
     }
+    // 如果请求失败但有缓存，返回缓存数据
+    if (cachedTodayTasks) {
+      console.log('请求失败，使用缓存的今日任务数据');
+      return cachedTodayTasks;
+    }
     return [];
   }
 };
+
+// 缓存本周任务
+let cachedWeekTasks: Task[] | null = null;
+let lastWeekFetchTime = 0;
 
 /**
  * 获取本周任务
  * @returns 本周任务列表
  */
 export const fetchWeekTasks = async (): Promise<Task[]> => {
+  // 检查缓存是否有效
+  const now = Date.now();
+  if (cachedWeekTasks && now - lastWeekFetchTime < CACHE_EXPIRY) {
+    console.log('使用缓存的本周任务数据，共', cachedWeekTasks.length, '条记录');
+    return cachedWeekTasks;
+  }
+
   try {
     // 获取所有任务
     const allTasks = await fetchUserTasks();
@@ -166,10 +225,8 @@ export const fetchWeekTasks = async (): Promise<Task[]> => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 设置本周日期范围
-
     // 过滤本周任务
-    return allTasks.filter(task => {
+    const weekTasks = allTasks.filter(task => {
       try {
         const taskDate = new Date(task.start);
         return taskDate >= weekStart && taskDate < tomorrow;
@@ -177,19 +234,42 @@ export const fetchWeekTasks = async (): Promise<Task[]> => {
         return false;
       }
     });
+
+    // 更新缓存
+    cachedWeekTasks = weekTasks;
+    lastWeekFetchTime = now;
+    console.log('成功获取本周任务数据，共', weekTasks.length, '条记录');
+
+    return weekTasks;
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('获取本周任务失败');
     }
+    // 如果请求失败但有缓存，返回缓存数据
+    if (cachedWeekTasks) {
+      console.log('请求失败，使用缓存的本周任务数据');
+      return cachedWeekTasks;
+    }
     return [];
   }
 };
+
+// 缓存本月任务
+let cachedMonthTasks: Task[] | null = null;
+let lastMonthFetchTime = 0;
 
 /**
  * 获取本月任务
  * @returns 本月任务列表
  */
 export const fetchMonthTasks = async (): Promise<Task[]> => {
+  // 检查缓存是否有效
+  const now = Date.now();
+  if (cachedMonthTasks && now - lastMonthFetchTime < CACHE_EXPIRY) {
+    console.log('使用缓存的本月任务数据，共', cachedMonthTasks.length, '条记录');
+    return cachedMonthTasks;
+  }
+
   try {
     // 获取所有任务
     const allTasks = await fetchUserTasks();
@@ -206,10 +286,8 @@ export const fetchMonthTasks = async (): Promise<Task[]> => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 设置本月日期范围
-
     // 过滤本月任务
-    return allTasks.filter(task => {
+    const monthTasks = allTasks.filter(task => {
       try {
         const taskDate = new Date(task.start);
         return taskDate >= monthStart && taskDate < tomorrow;
@@ -217,9 +295,21 @@ export const fetchMonthTasks = async (): Promise<Task[]> => {
         return false;
       }
     });
+
+    // 更新缓存
+    cachedMonthTasks = monthTasks;
+    lastMonthFetchTime = now;
+    console.log('成功获取本月任务数据，共', monthTasks.length, '条记录');
+
+    return monthTasks;
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('获取本月任务失败');
+    }
+    // 如果请求失败但有缓存，返回缓存数据
+    if (cachedMonthTasks) {
+      console.log('请求失败，使用缓存的本月任务数据');
+      return cachedMonthTasks;
     }
     return [];
   }
@@ -231,6 +321,11 @@ export const fetchMonthTasks = async (): Promise<Task[]> => {
  * @returns 总时长（分钟）
  */
 export const calculateTotalDuration = (tasks: Task[]): number => {
+  // 如果没有任务，返回实际的0，而不是默认的最小值
+  if (!tasks || tasks.length === 0) {
+    return 0;
+  }
+
   return tasks.reduce((total, task) => {
     // 确保时长至少为1分钟
     const duration = Math.max(parseInt(String(task.duration)) || 0, 1);
@@ -387,12 +482,25 @@ export const calculateMonthlyDistribution = (tasks: Task[]): Array<{ day: string
   }));
 };
 
+// 缓存热力图数据
+let cachedHeatmapData: Array<{ date: string; duration: number }> | null = null;
+let lastHeatmapCalcTime = 0;
+
 /**
  * 计算热力图数据
  * @param tasks 任务列表
  * @returns 热力图数据
  */
 export const calculateHeatmapData = (tasks: Task[]): Array<{ date: string; duration: number }> => {
+  // 检查缓存是否有效
+  const now = Date.now();
+  if (cachedHeatmapData && now - lastHeatmapCalcTime < CACHE_EXPIRY) {
+    console.log('使用缓存的热力图数据，共', cachedHeatmapData.length, '条记录');
+    return cachedHeatmapData;
+  }
+
+  console.log('计算热力图数据，处理', tasks.length, '条任务记录');
+
   // 创建日期到时长的映射
   const dateMap = new Map<string, number>();
 
@@ -425,8 +533,6 @@ export const calculateHeatmapData = (tasks: Task[]): Array<{ date: string; durat
       // 更新日期映射
       const currentDuration = dateMap.get(dateStr) || 0;
       dateMap.set(dateStr, currentDuration + duration);
-
-      // 更新热力图数据
     } catch (e) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('处理任务日期失败');
@@ -434,9 +540,26 @@ export const calculateHeatmapData = (tasks: Task[]): Array<{ date: string; durat
     }
   });
 
+  // 获取今天的日期字符串
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+
+  // 如果今天没有数据，不要添加默认的0值
+  // 这样热力图就不会显示今天的数据点
+
   // 转换为数组格式
-  return Array.from(dateMap.entries()).map(([date, duration]) => ({
+  const heatmapData = Array.from(dateMap.entries()).map(([date, duration]) => ({
     date,
     duration
   }));
+
+  // 更新缓存
+  cachedHeatmapData = heatmapData;
+  lastHeatmapCalcTime = now;
+  console.log('成功计算热力图数据，共', heatmapData.length, '条记录');
+
+  return heatmapData;
 };

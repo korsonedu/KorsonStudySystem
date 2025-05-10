@@ -3,6 +3,13 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '../services/authService'
 
+// Import shadcn-vue components
+import { Button } from '../../components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../components/ui/card'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Alert, AlertTitle, AlertDescription } from '../../components/ui/alert'
+
 const username = ref('')
 const email = ref('')
 const password = ref('')
@@ -83,119 +90,105 @@ const goToLogin = () => {
 
 <template>
   <div class="register-container">
-    <a-card class="register-card">
-      <div class="register-header">
-        <h2>创建新账号</h2>
-        <p class="subtitle">加入我们，开启您的学习之旅</p>
-      </div>
+    <Card class="register-card">
+      <CardHeader>
+        <CardTitle class="text-center">创建新账号</CardTitle>
+        <p class="subtitle text-center">加入我们，开启您的学习之旅</p>
+      </CardHeader>
 
-      <a-alert
-        v-if="errorMessage"
-        type="error"
-        :message="errorMessage"
-        show-icon
-        class="message-alert"
-      />
+      <CardContent>
+        <Alert v-if="errorMessage" variant="destructive" class="mb-4">
+          <AlertTitle>错误</AlertTitle>
+          <AlertDescription>{{ errorMessage }}</AlertDescription>
+        </Alert>
 
-      <a-alert
-        v-if="successMessage"
-        type="success"
-        :message="successMessage"
-        show-icon
-        class="message-alert"
-      />
+        <Alert v-if="successMessage" variant="success" class="mb-4">
+          <AlertTitle>成功</AlertTitle>
+          <AlertDescription>{{ successMessage }}</AlertDescription>
+        </Alert>
 
-      <a-form layout="vertical">
-        <a-form-item label="用户名">
-          <a-input
-            v-model:value="username"
-            placeholder="请输入用户名"
-            :disabled="loading"
-          >
-            <template #prefix>
-              <user-outlined />
-            </template>
-          </a-input>
-        </a-form-item>
-
-        <a-form-item label="邮箱">
-          <a-input
-            v-model:value="email"
-            placeholder="请输入邮箱"
-            :disabled="loading"
-          >
-            <template #prefix>
-              <mail-outlined />
-            </template>
-          </a-input>
-        </a-form-item>
-
-        <a-form-item label="密码">
-          <a-input-password
-            v-model:value="password"
-            placeholder="请输入密码"
-            :disabled="loading"
-          >
-            <template #prefix>
-              <lock-outlined />
-            </template>
-          </a-input-password>
-          <div class="password-hint">
-            <info-circle-outlined />
-            <span>密码长度必须至少为8个字符</span>
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <Label for="username">用户名</Label>
+            <Input
+              id="username"
+              v-model="username"
+              placeholder="请输入用户名"
+              :disabled="loading"
+            />
           </div>
-        </a-form-item>
 
-        <a-form-item label="确认密码">
-          <a-input-password
-            v-model:value="confirmPassword"
-            placeholder="请再次输入密码"
-            :disabled="loading"
-            @keyup.enter="register"
-          >
-            <template #prefix>
-              <safety-outlined />
-            </template>
-          </a-input-password>
-        </a-form-item>
+          <div class="space-y-2">
+            <Label for="email">邮箱</Label>
+            <Input
+              id="email"
+              v-model="email"
+              placeholder="请输入邮箱"
+              :disabled="loading"
+            />
+          </div>
 
-        <a-form-item label="邀请码">
-          <a-input
-            v-model:value="invitationCode"
-            placeholder="请输入邀请码（仅支持邀请注册）"
-            :disabled="loading"
-          >
-            <template #prefix>
-              <gift-outlined />
-            </template>
-          </a-input>
-        </a-form-item>
+          <div class="space-y-2">
+            <Label for="password">密码</Label>
+            <Input
+              id="password"
+              type="password"
+              v-model="password"
+              placeholder="请输入密码"
+              :disabled="loading"
+            />
+            <div class="password-hint">
+              <span>密码长度必须至少为8个字符</span>
+            </div>
+          </div>
 
-        <div class="actions">
-          <a-button
-            type="primary"
-            @click="register"
-            :loading="loading"
-            block
-            class="register-button"
-          >
-            创建账号
-          </a-button>
-          <a-button
-            @click="goToLogin"
-            :disabled="loading"
-            block
-            class="login-button"
-          >
-            返回登录
-          </a-button>
+          <div class="space-y-2">
+            <Label for="confirmPassword">确认密码</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              v-model="confirmPassword"
+              placeholder="请再次输入密码"
+              :disabled="loading"
+              @keyup.enter="register"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <Label for="invitationCode">邀请码</Label>
+            <Input
+              id="invitationCode"
+              v-model="invitationCode"
+              placeholder="请输入邀请码（仅支持邀请注册）"
+              :disabled="loading"
+            />
+          </div>
         </div>
+      </CardContent>
 
-        <div class="login-link">
-          已有账号？<a href="#" @click.prevent="goToLogin">立即登录</a>
+      <CardFooter class="flex flex-col space-y-4">
+        <Button
+          @click="register"
+          :disabled="loading"
+          class="w-full"
+        >
+          {{ loading ? '注册中...' : '创建账号' }}
+        </Button>
+
+        <Button
+          @click="goToLogin"
+          :disabled="loading"
+          variant="outline"
+          class="w-full"
+        >
+          返回登录
+        </Button>
+
+        <div class="login-link text-center text-sm">
+          已有账号？<a href="#" @click.prevent="goToLogin" class="text-primary font-medium">立即登录</a>
         </div>
-      </a-form>
-    </a-card>
+      </CardFooter>
+    </Card>
   </div>
 </template>
 
@@ -216,27 +209,10 @@ const goToLogin = () => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.register-header {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-h2 {
-  margin-bottom: 8px;
-  color: var(--primary-color);
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
 .subtitle {
   color: rgba(0, 0, 0, 0.45);
   font-size: 16px;
   margin-bottom: 8px;
-}
-
-.message-alert {
-  margin-bottom: 16px;
 }
 
 .password-hint {
@@ -252,73 +228,11 @@ h2 {
   border-left: 3px solid var(--primary-color);
 }
 
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.register-button {
-  height: 44px;
-  font-size: 16px;
-  font-weight: 500;
-  border-radius: 6px;
-}
-
-.login-button {
-  height: 44px;
-  font-size: 16px;
-  font-weight: 500;
-  border-radius: 6px;
-  margin-top: 4px;
-}
-
-.login-link {
-  text-align: center;
-  margin-top: 16px;
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.45);
-}
-
-.login-link a {
-  color: var(--primary-color);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.login-link a:hover {
-  text-decoration: underline;
-}
-
 /* 响应式设计 */
 @media (max-width: 768px) {
   .register-card {
     max-width: 100%;
     margin: 0 10px;
-  }
-
-  h2 {
-    font-size: 22px;
-  }
-
-  .subtitle {
-    font-size: 13px;
-  }
-}
-
-@media (max-width: 480px) {
-  .register-header {
-    margin-bottom: 16px;
-  }
-
-  .register-button, .login-button {
-    height: 36px;
-    font-size: 14px;
-  }
-
-  .password-hint {
-    font-size: 12px;
   }
 }
 </style>

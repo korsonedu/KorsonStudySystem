@@ -23,10 +23,8 @@ export const getContentStatsByView = (
   console.log('Weekly content stats:', weeklyContentStats);
   console.log('Monthly content stats:', monthlyContentStats);
 
-  // 创建默认的内容统计数据
-  const defaultStats = [
-    { name: '未分类', duration: 1 }
-  ];
+  // 创建空的内容统计数据 - 不再使用默认值
+  const emptyStats: any[] = [];
 
   // 根据当前视图选择对应的内容统计数据
   let result: any[] = [];
@@ -36,27 +34,27 @@ export const getContentStatsByView = (
     if (Array.isArray(dailyContentStats) && dailyContentStats.length > 0) {
       // 过滤掉duration为0的项
       const filteredStats = dailyContentStats.filter(item => item.duration > 0);
-      result = filteredStats.length > 0 ? filteredStats : defaultStats;
+      result = filteredStats;
     } else {
-      result = defaultStats;
+      result = emptyStats;
     }
   } else if (currentView === 'weekly') {
     // 检查每周内容统计数据
     if (Array.isArray(weeklyContentStats) && weeklyContentStats.length > 0) {
       // 过滤掉duration为0的项
       const filteredStats = weeklyContentStats.filter(item => item.duration > 0);
-      result = filteredStats.length > 0 ? filteredStats : defaultStats;
+      result = filteredStats;
     } else {
-      result = defaultStats;
+      result = emptyStats;
     }
   } else {
     // 检查每月内容统计数据
     if (Array.isArray(monthlyContentStats) && monthlyContentStats.length > 0) {
       // 过滤掉duration为0的项
       const filteredStats = monthlyContentStats.filter(item => item.duration > 0);
-      result = filteredStats.length > 0 ? filteredStats : defaultStats;
+      result = filteredStats;
     } else {
-      result = defaultStats;
+      result = emptyStats;
     }
   }
 
@@ -135,10 +133,8 @@ export const generateContentStatsFromTasks = (
     }))
     .sort((a, b) => b.duration - a.duration); // 按时长降序排序
 
-  // 如果没有数据，添加默认数据
-  if (result.length === 0) {
-    result.push({ name: '未分类', duration: 1 });
-  }
+  // 不再添加默认数据，允许返回空数组
+  // 这样当没有数据时，图表会显示"暂无数据"
 
   console.log('ContentDataService - 生成的内容统计数据:', result);
 

@@ -415,15 +415,13 @@ export const fetchContentStats = async (): Promise<{
   } catch (error) {
     console.error('获取内容统计数据失败:', error);
 
-    // 创建默认的内容统计数据
-    const defaultStats = [
-      { name: '未分类', duration: 1 }
-    ];
+    // 返回空数组，不再使用默认数据
+    const emptyStats: any[] = [];
 
     return {
-      dailyContentStats: defaultStats,
-      weeklyContentStats: defaultStats,
-      monthlyContentStats: defaultStats
+      dailyContentStats: emptyStats,
+      weeklyContentStats: emptyStats,
+      monthlyContentStats: emptyStats
     };
   }
 };
@@ -444,9 +442,9 @@ export const fetchAllStatistics = async (): Promise<StatisticsData> => {
     let timeDistribution = Array.from({ length: 24 }, (_, i) => ({ hour: i, duration: 0 }));
     let userInfo = { registrationDate: '' };
     let contentStats = {
-      dailyContentStats: [{ name: '未分类', duration: 1 }],
-      weeklyContentStats: [{ name: '未分类', duration: 1 }],
-      monthlyContentStats: [{ name: '未分类', duration: 1 }]
+      dailyContentStats: [],
+      weeklyContentStats: [],
+      monthlyContentStats: []
     };
 
     // 单独请求每个数据，而不是使用 Promise.all，这样一个请求失败不会影响其他请求
@@ -525,10 +523,8 @@ export const fetchAllStatistics = async (): Promise<StatisticsData> => {
   } catch (error) {
     console.error('获取所有统计数据失败:', error);
 
-    // 创建默认的内容统计数据
-    const defaultContentStats = [
-      { name: '未分类', duration: 1 }
-    ];
+    // 创建空的内容统计数据
+    const emptyContentStats: any[] = [];
 
     // 创建默认的每周数据
     const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -564,9 +560,9 @@ export const fetchAllStatistics = async (): Promise<StatisticsData> => {
       heatmapData: [],
       timeDistribution: defaultHourlyStats,
       userRegistrationDate: '',
-      dailyContentStats: defaultContentStats,
-      weeklyContentStats: defaultContentStats,
-      monthlyContentStats: defaultContentStats
+      dailyContentStats: emptyContentStats,
+      weeklyContentStats: emptyContentStats,
+      monthlyContentStats: emptyContentStats
     };
   }
 };

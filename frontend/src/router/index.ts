@@ -29,6 +29,7 @@ import AntTest from '../shared/components/AntTest.vue'
 import StudyHome from '../apps/study/views/Home.vue'
 import StudyStatistics from '../apps/study/views/Statistics.vue'
 import StudyAchievements from '../apps/study/views/Achievements.vue'
+import PomodoroTimer from '../apps/study/views/PomodoroTimer.vue'
 
 // 课程系统视图（未来实现）
 const CourseHome = { template: '<div>课程系统 - 开发中</div>' }
@@ -65,6 +66,12 @@ const routes: RouteRecordRaw[] = [
     path: '/achievements',
     component: StudyAchievements,
     name: 'achievements',
+    meta: { requiresAuth: true, app: 'study' }
+  },
+  {
+    path: '/pomodoro',
+    component: PomodoroTimer,
+    name: 'pomodoro',
     meta: { requiresAuth: true, app: 'study' }
   },
 

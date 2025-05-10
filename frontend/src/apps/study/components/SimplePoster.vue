@@ -137,8 +137,8 @@ const updateChartData = () => {
     chartData.value = {
       labels: ['暂无数据'],
       datasets: [{
-        backgroundColor: ['#7f7f7f'],
-        data: [1]
+        backgroundColor: [],
+        data: []
       }]
     };
     return;
@@ -215,7 +215,7 @@ const loadUserData = async () => {
       return taskDate >= new Date(todayStart) && taskDate <= new Date(todayEnd);
     });
 
-    // 使用与统计页面相同的计算函数，确保时长至少为1分钟
+    // 使用与统计页面相同的计算函数，不再强制最小为1分钟
     dailyDuration = calculateTotalDuration(todayTasks);
 
     console.log('今日学习时长（分钟）:', dailyDuration);
@@ -237,7 +237,7 @@ const loadUserData = async () => {
 
     // 今日计划数据准备完成
 
-    // 计算今日总学习时间（分钟）
+    // 计算今日总学习时间（分钟），不再使用默认值
     const totalTime = todayTasks.reduce((sum: number, task: any) => sum + (task.duration || 0), 0);
 
     // 获取用户统计数据
@@ -272,6 +272,11 @@ const loadUserData = async () => {
           const type = task.type || 'default';
           distribution[type] = (distribution[type] || 0) + 1;
         });
+
+        // 如果没有任务，返回空数组
+        if (todayTasks.length === 0) {
+          return [];
+        }
 
         // 转换为数组格式
         return Object.entries(distribution).map(([type, count]) => ({
