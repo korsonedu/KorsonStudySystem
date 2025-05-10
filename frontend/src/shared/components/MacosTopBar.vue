@@ -76,8 +76,8 @@
   </div>
 
   <!-- shadcn Dialog 确认对话框 -->
-  <Dialog :open="showConfirmDialog" @update:open="showConfirmDialog = $event">
-    <DialogContent class="sm:max-w-md">
+  <Dialog>
+    <DialogContent v-if="showConfirmDialog" class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>退出登录</DialogTitle>
         <DialogDescription>
@@ -192,14 +192,13 @@ const goToProfile = () => {
 // 退出登录
 const handleLogout = () => {
   console.log('退出登录 - 开始');
-  console.log('showConfirmDialog 之前:', showConfirmDialog.value);
 
   // 关闭用户下拉菜单
   showUserDropdown.value = false;
 
   // 显示确认对话框
   showConfirmDialog.value = true;
-  console.log('showConfirmDialog 之后:', showConfirmDialog.value);
+  console.log('showConfirmDialog 设置为:', showConfirmDialog.value);
   console.log('退出登录 - 结束');
 };
 

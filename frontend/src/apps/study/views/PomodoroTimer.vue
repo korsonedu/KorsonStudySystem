@@ -311,8 +311,8 @@ onBeforeUnmount(clearTimer)
     </Card>
 
     <!-- shadcn Dialog 确认对话框 -->
-    <Dialog :open="showConfirmDialog" @update:open="showConfirmDialog = $event">
-      <DialogContent class="sm:max-w-md">
+    <Dialog>
+      <DialogContent v-if="showConfirmDialog" class="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{{ confirmDialogTitle }}</DialogTitle>
           <DialogDescription>
