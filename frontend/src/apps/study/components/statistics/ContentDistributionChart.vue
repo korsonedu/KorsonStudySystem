@@ -123,14 +123,15 @@ const chartData = computed(() => {
   }
 
   // 限制数据项数量，避免图表过于复杂
-  if (filteredStats.length > 10) {
+  let displayStats = filteredStats;
+  if (displayStats.length > 10) {
     console.log('ContentDistributionChart - 数据项过多，只显示前10项');
-    filteredStats = filteredStats.slice(0, 10);
+    displayStats = displayStats.slice(0, 10);
   }
 
   // 提取标签和数据
-  const labels = filteredStats.map((item: any) => item.name);
-  const data = filteredStats.map((item: any) => item.duration);
+  const labels = displayStats.map((item: any) => item.name);
+  const data = displayStats.map((item: any) => item.duration);
   const backgroundColor = generateColors(labels.length);
 
   // 打印图表数据，用于调试

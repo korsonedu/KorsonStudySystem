@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import html2canvas from 'html2canvas';
+import { toPng, toJpeg, toBlob } from 'html-to-image';
 import apiService from '../services/apiService';
 import { API_CONFIG, POSTER_CONFIG } from '../config';
 import { authService } from '../../../shared/services/authService';
@@ -175,7 +175,7 @@ const loadUserData = async () => {
     // 强制更新登录状态
     authService.checkAuth();
 
-    if (!authService.isLoggedIn.value) {
+    if (!authService.isLoggedIn) {
       error.value = '请先登录后再生成海报';
       return;
     }
@@ -363,9 +363,14 @@ const chartOptions = {
       hoverOffset: 4
     }
   },
+  // 禁用动画，确保在生成图片时能立即渲染完成
   animation: {
-    duration: 500
-  }
+    duration: 0
+  },
+  // 确保图表在生成图片时能正确渲染
+  devicePixelRatio: 3,
+  // 确保图表在生成图片时能正确显示
+  events: []
 };
 
 // 获取实际海报高度
@@ -410,7 +415,7 @@ const calculatePosterHeight = () => {
   return baseHeight;
 };
 
-// 生成海报
+// 生成海报 - 使用html-to-image库
 const generatePoster = async () => {
   if (!posterRef.value) return;
 
@@ -418,137 +423,46 @@ const generatePoster = async () => {
   error.value = '';
 
   try {
-    // 检测是否为移动设备
-    const isMobile = window.innerWidth <= 768;
+    // 等待字体加载完成和布局稳定
+    await document.fonts.ready;
 
-    // 计算合适的海报宽度和高度
-    const posterWidth = isMobile ? 320 : 400;
-    const posterHeight = getActualPosterHeight(); // 使用实际高度
+    // 强制浏览器重新计算布局
+    posterRef.value.getBoundingClientRect();
 
-    // 创建一个临时的海报容器，用于生成图像
-    const tempContainer = document.createElement('div');
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.left = '-9999px';
-    tempContainer.style.top = '-9999px';
-    document.body.appendChild(tempContainer);
+    // 等待一小段时间确保布局稳定和图表渲染完成
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // 克隆原始海报
-    const posterClone = posterRef.value.cloneNode(true) as HTMLElement;
+    // 设置生成图片的选项
+    const options = {
+      quality: 1.0, // 最高质量
+      pixelRatio: 3, // 高分辨率
+      skipFonts: false, // 不跳过字体
+      fontEmbedCSS: '', // 嵌入字体CSS
+      backgroundColor: '#2c3e50', // 背景颜色
+      width: posterRef.value.offsetWidth, // 使用原始宽度
+      height: posterRef.value.offsetHeight, // 使用原始高度
+      style: {
+        // 确保背景渐变正确应用
+        background: 'linear-gradient(135deg, #2c3e50, #3498db)',
+        // 确保文本不会下移
+        transform: 'translateY(0)',
+        // 确保字体渲染一致
+        fontKerning: 'normal',
+        textRendering: 'optimizeLegibility',
+        '-webkit-font-smoothing': 'antialiased',
+        '-moz-osx-font-smoothing': 'grayscale'
+      },
+      filter: (node) => {
+        // 过滤掉不需要的元素
+        return true;
+      }
+    };
 
-    // 设置克隆海报的样式
-    posterClone.style.width = `${posterWidth}px`;
-    posterClone.style.height = `${posterHeight}px`;
-    posterClone.style.minHeight = 'auto';
-    posterClone.style.background = 'linear-gradient(135deg, #2c3e50, #3498db)';
-    posterClone.style.position = 'relative';
-    posterClone.style.display = 'flex';
-    posterClone.style.flexDirection = 'column';
-    posterClone.style.padding = '20px';
-    posterClone.style.boxSizing = 'border-box';
-    posterClone.style.borderRadius = '16px';
-    posterClone.style.overflow = 'hidden';
+    // 使用toPng函数生成PNG图片
+    const dataUrl = await toPng(posterRef.value, options);
 
-    // 添加到临时容器
-    tempContainer.appendChild(posterClone);
-
-    // 应用样式到克隆元素的子元素
-    // 统计数据样式
-    const statItems = posterClone.querySelectorAll('.stat-item');
-    statItems.forEach((item: Element) => {
-      const statItem = item as HTMLElement;
-      statItem.style.background = 'rgba(255, 255, 255, 0.15)';
-      statItem.style.backdropFilter = 'blur(5px)';
-      statItem.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-      statItem.style.borderRadius = '12px';
-      statItem.style.padding = '15px';
-      statItem.style.display = 'flex';
-      statItem.style.flexDirection = 'column';
-      statItem.style.alignItems = 'center';
-      statItem.style.justifyContent = 'center';
-      statItem.style.transition = 'all 0.3s ease';
-    });
-
-    // 统计数值样式
-    const statValues = posterClone.querySelectorAll('.stat-value');
-    statValues.forEach((item: Element) => {
-      const statValue = item as HTMLElement;
-      statValue.style.color = '#ffffff';
-      statValue.style.fontSize = '24px';
-      statValue.style.fontWeight = 'bold';
-      statValue.style.marginBottom = '5px';
-      statValue.style.textShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
-    });
-
-    // 任务列表样式
-    const taskItems = posterClone.querySelectorAll('.task-item');
-    taskItems.forEach((item: Element) => {
-      const taskItem = item as HTMLElement;
-      taskItem.style.background = 'rgba(255, 255, 255, 0.08)';
-      taskItem.style.border = '1px solid rgba(255, 255, 255, 0.1)';
-      taskItem.style.borderRadius = '8px';
-      taskItem.style.padding = '10px 15px';
-      taskItem.style.marginBottom = '8px';
-      taskItem.style.display = 'flex';
-      taskItem.style.alignItems = 'center';
-      taskItem.style.gap = '10px';
-    });
-
-    // 底部样式 - 更紧凑的设计
-    const footer = posterClone.querySelector('.poster-footer') as HTMLElement;
-    if (footer) {
-      footer.style.background = 'linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4))';
-      footer.style.margin = '0 -20px -20px -20px';
-      footer.style.padding = '20px 15px';
-      footer.style.borderRadius = '0 0 16px 16px';
-      footer.style.marginTop = 'auto';
-      footer.style.display = 'flex';
-      footer.style.flexDirection = 'row';
-      footer.style.justifyContent = 'space-between';
-      footer.style.minHeight = '120px'; // 减少底部高度
-    }
-
-    // 确保slogan样式正确
-    const slogan = posterClone.querySelector('.slogan') as HTMLElement;
-    if (slogan) {
-      slogan.style.textAlign = 'center';
-      slogan.style.marginTop = '15px';
-      slogan.style.color = 'white';
-      slogan.style.fontSize = '16px';
-      slogan.style.fontWeight = '500';
-    }
-
-    // 名言样式
-    const quoteText = posterClone.querySelector('.quote-text') as HTMLElement;
-    if (quoteText) {
-      quoteText.style.color = '#ffffff';
-      quoteText.style.fontSize = '18px';
-      quoteText.style.lineHeight = '1.6';
-      quoteText.style.fontStyle = 'italic';
-      quoteText.style.textShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-    }
-
-    // 确保公司logo样式正确
-    const companyLogo = posterClone.querySelector('.company-logo img') as HTMLElement;
-    if (companyLogo) {
-      companyLogo.style.borderRadius = '8px';
-      companyLogo.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
-    }
-
-    // 使用html2canvas将临时元素转换为canvas
-    const canvas = await html2canvas(posterClone, {
-      scale: 3, // 提高缩放比例，获得更高质量的图像
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#2c3e50',
-      width: posterWidth,
-      height: posterHeight
-    });
-
-    // 清理临时元素
-    document.body.removeChild(tempContainer);
-
-    // 将画布转换为图像URL
-    generatedImageUrl.value = canvas.toDataURL('image/png');
+    // 保存生成的图片URL
+    generatedImageUrl.value = dataUrl;
     emit('generated', generatedImageUrl.value);
   } catch (err) {
     console.error('生成海报失败:', err);
@@ -565,7 +479,7 @@ const isMobileDevice = () => {
 
 // 检测iOS设备
 const isIOSDevice = () => {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 };
 
 // 下载海报
@@ -573,30 +487,8 @@ const downloadPoster = async () => {
   if (!generatedImageUrl.value) return;
 
   try {
-    // 创建一个新的图片对象，确保图片已完全加载
-    const img = new Image();
-    img.crossOrigin = 'anonymous'; // 允许跨域
-
-    // 使用Promise包装图片加载过程
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = generatedImageUrl.value;
-      if (img.complete) resolve();
-    });
-
-    // 创建canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    // 在canvas上绘制图片
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.error('无法获取canvas上下文');
-      return;
-    }
-    ctx.drawImage(img, 0, 0);
+    // 直接使用生成的图片URL，无需重新创建canvas
+    const dataUrl = generatedImageUrl.value;
 
     // 检测是否为移动设备
     if (isMobileDevice()) {
@@ -604,14 +496,19 @@ const downloadPoster = async () => {
         // 移动设备：优先使用分享API
         if (navigator.share && typeof navigator.canShare === 'function') {
           try {
-            // 将canvas转换为Blob
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            // 使用html-to-image的toBlob函数直接获取Blob
+            const blob = await toBlob(posterRef.value, {
+              quality: 1.0,
+              pixelRatio: 3,
+              backgroundColor: '#2c3e50'
+            });
+
             if (!blob) {
               throw new Error('无法创建图片Blob');
             }
 
             // 创建文件对象
-            const file = new File([blob], `学习海报-${formattedDate.value}.png`, { type: 'image/png' });
+            const file = new File([blob as BlobPart], `学习海报-${formattedDate.value}.png`, { type: 'image/png' });
 
             // 尝试分享文件
             const shareData = { files: [file] };
@@ -626,12 +523,11 @@ const downloadPoster = async () => {
 
         // 对于iOS设备，使用特殊处理
         if (isIOSDevice()) {
-          // 创建一个临时的a标签，打开图片在新窗口
-          const dataUrl = canvas.toDataURL('image/png');
+          // 直接使用已生成的dataUrl
 
           // 创建一个临时的img元素，设置样式使其填满屏幕
           const tempImg = document.createElement('img');
-          tempImg.src = dataUrl;
+          tempImg.src = dataUrl; // 使用html-to-image生成的dataUrl
           tempImg.style.position = 'fixed';
           tempImg.style.top = '0';
           tempImg.style.left = '0';
@@ -683,7 +579,7 @@ const downloadPoster = async () => {
 
         // 对于Android设备，尝试使用下载API
         try {
-          const dataUrl = canvas.toDataURL('image/png');
+          // 直接使用已生成的dataUrl
           const link = document.createElement('a');
           link.href = dataUrl;
           link.download = `学习海报-${formattedDate.value}.png`;
@@ -695,15 +591,32 @@ const downloadPoster = async () => {
           }, 100);
         } catch (downloadErr) {
           console.error('Android下载失败:', downloadErr);
-          fallbackDownload(canvas);
+          // 使用备用下载方法
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.click();
         }
       } catch (err) {
         console.error('移动设备保存失败:', err);
-        fallbackDownload(canvas);
+        // 使用备用下载方法，直接使用dataUrl
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `学习海报-${formattedDate.value}.png`;
+        link.click();
       }
     } else {
       // 桌面设备：使用传统下载方法
-      fallbackDownload(canvas);
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `学习海报-${formattedDate.value}.png`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+      }, 100);
     }
   } catch (err) {
     console.error('下载海报失败:', err);
@@ -711,33 +624,7 @@ const downloadPoster = async () => {
   }
 };
 
-// 传统下载方法
-const fallbackDownload = (canvas) => {
-  canvas.toBlob((blob) => {
-    if (!blob) {
-      console.error('无法创建Blob');
-      return;
-    }
-    // 创建一个临时URL
-    const url = URL.createObjectURL(blob);
 
-    // 创建下载链接
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `学习海报-${formattedDate.value}.png`;
-    link.style.display = 'none';
-
-    // 添加到文档并触发点击
-    document.body.appendChild(link);
-    link.click();
-
-    // 清理
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 100);
-  }, 'image/png');
-};
 
 // 关闭模态框
 const closeModal = () => {
@@ -868,18 +755,13 @@ const posterText = POSTER_CONFIG.TEXT;
               <p v-if="selectedQuote" class="quote-author">—— {{ selectedQuote.author }}</p>
             </div>
 
-            <!-- 底部信息 - 更紧凑的布局 -->
+            <!-- 底部信息 - 纵向居中排列 -->
             <div class="poster-footer">
               <div class="footer-content">
                 <div class="company-info">
                   <h3 class="company-name">科晟智慧</h3>
                   <p class="company-name-en">KORSON ACADEMY</p>
-                </div>
-                <div class="company-logo">
-                  <img src="../../../assets/kslogo.png" width="40" height="40" alt="科晟智慧" />
-                </div>
-                <div class="slogan">
-                  <p>探索·学习·创造</p>
+                  <p class="company-slogan">探索·学习·创造</p>
                 </div>
               </div>
             </div>
@@ -985,8 +867,16 @@ const posterText = POSTER_CONFIG.TEXT;
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: visible;
+  overflow: hidden; /* 修改为hidden，确保内容不会溢出 */
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+  /* 修复文字渲染问题 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* 确保所有文本都有良好的渲染 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .poster::before {
@@ -1010,6 +900,17 @@ const posterText = POSTER_CONFIG.TEXT;
 .poster > * {
   position: relative;
   z-index: 1;
+}
+
+/* 防止文本下移的全局规则 */
+.poster * {
+  line-height: normal !important; /* 使用normal确保一致的行高 */
+  text-rendering: geometricPrecision !important; /* 使用几何精度渲染 */
+  font-kerning: normal !important; /* 启用字距调整 */
+  font-variant-ligatures: normal !important; /* 使用正常的连字 */
+  font-feature-settings: normal !important; /* 重置字体特性设置 */
+  letter-spacing: normal !important; /* 使用正常的字母间距 */
+  transform: translateY(0) !important; /* 防止Y轴偏移 */
 }
 
 /* 顶部信息 */
@@ -1054,6 +955,9 @@ const posterText = POSTER_CONFIG.TEXT;
   text-align: center;
   color: white;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  /* 修复文字渲染问题 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* 统计数据 */
@@ -1074,6 +978,9 @@ const posterText = POSTER_CONFIG.TEXT;
   transition: transform 0.3s;
   position: relative;
   overflow: hidden;
+  /* 修复文字渲染问题 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .stat-item::before {
@@ -1097,6 +1004,9 @@ const posterText = POSTER_CONFIG.TEXT;
   margin-bottom: 5px;
   color: #ffffff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  /* 修复文字渲染问题 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .stat-label {
@@ -1104,6 +1014,9 @@ const posterText = POSTER_CONFIG.TEXT;
   opacity: 0.9;
   text-transform: uppercase;
   letter-spacing: 1px;
+  /* 修复文字渲染问题 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* 任务列表 */
@@ -1225,6 +1138,9 @@ const posterText = POSTER_CONFIG.TEXT;
   margin-bottom: 15px;
   font-style: italic;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* 修复文字渲染问题 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .quote-author {
@@ -1235,7 +1151,7 @@ const posterText = POSTER_CONFIG.TEXT;
   font-weight: 500;
 }
 
-/* 美化底部样式 - 更紧凑的设计 */
+/* 美化底部样式 - 纵向居中排列 */
 .poster-footer {
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4));
   margin: 0 -20px -20px;
@@ -1244,22 +1160,30 @@ const posterText = POSTER_CONFIG.TEXT;
   backdrop-filter: blur(10px);
   margin-top: auto; /* 将底部推到最下方 */
   min-height: 120px; /* 减少底部高度 */
+  position: relative; /* 确保定位正确 */
+  z-index: 1; /* 确保在其他元素之上 */
+  box-sizing: border-box; /* 确保内边距不会增加元素尺寸 */
 }
 
 .footer-content {
   display: flex;
-  flex-direction: row; /* 改为横向布局 */
+  flex-direction: column; /* 改为纵向布局 */
   align-items: center;
-  justify-content: space-between; /* 两侧对齐 */
+  justify-content: center; /* 居中对齐 */
   height: 100%;
+  width: 100%; /* 确保宽度填满父容器 */
+  box-sizing: border-box; /* 确保内边距不会增加元素尺寸 */
 }
 
 .company-info {
-  text-align: left;
+  text-align: center;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 0;
+  width: 100%; /* 确保宽度填满父容器 */
+  height: 100%; /* 确保高度填满父容器 */
 }
 
 .company-name {
@@ -1269,31 +1193,32 @@ const posterText = POSTER_CONFIG.TEXT;
   color: #ffffff;
   letter-spacing: 1px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  /* 修复文字渲染问题 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .company-name-en {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.9);
-  margin: 2px 0 0 0;
+  margin: 5px 0;
   letter-spacing: 1px;
   font-weight: 500;
+  /* 修复文字渲染问题 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
-.company-logo {
-  margin-left: 10px;
-}
-
-.company-logo img {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.slogan {
-  display: flex;
-  align-items: center;
+.company-slogan {
   font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 5px 0 0 0;
+  letter-spacing: 1px;
+  font-weight: 500;
+  text-align: center; /* 确保文本居中 */
+  /* 修复文字渲染问题 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .slogan-item {
@@ -1337,6 +1262,9 @@ const posterText = POSTER_CONFIG.TEXT;
   object-fit: contain; /* 确保图片不会被拉伸或压缩 */
   max-width: 100%; /* 确保在小屏幕上不会溢出 */
   display: block; /* 防止底部出现额外空间 */
+  image-rendering: -webkit-optimize-contrast; /* 提高图片渲染质量 */
+  image-rendering: crisp-edges; /* 提高图片渲染质量 */
+  transform: translateZ(0); /* 启用硬件加速 */
 }
 
 /* 按钮样式 */
@@ -1529,30 +1457,18 @@ button:disabled {
     min-height: 100px;
   }
 
-  .footer-content {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-  }
-
   .company-name {
     font-size: 16px;
   }
 
   .company-name-en {
     font-size: 10px;
+    margin: 3px 0;
   }
 
-  .company-logo img {
-    width: 35px;
-    height: 35px;
-  }
-
-  .slogan {
+  .company-slogan {
     font-size: 12px;
-    width: 100%;
-    justify-content: center;
-    margin-top: 5px;
+    margin-top: 3px;
   }
 }
 </style>

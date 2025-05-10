@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { authService } from './authService';
+import { userService } from './userService';
 import router from '../../router';
 
 // 添加请求拦截器
@@ -54,9 +54,11 @@ axios.interceptors.response.use(
 
       // 清除无效的令牌
       localStorage.removeItem('token');
-      authService.isLoggedIn.value = false;
-      authService.currentUser.value = null;
-      authService.token.value = '';
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('username');
+
+      // 登出用户
+      userService.logout();
 
       // 重定向到登录页面
       router.push('/login');

@@ -3,29 +3,11 @@ import { onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import NavBar from './apps/study/components/NavBar.vue'
 import MacosTopBar from './shared/components/MacosTopBar.vue'
-import { userService } from './shared/services/userService'
-import { authService } from './shared/services/authService'
+import { Toaster } from '@/components/ui/sonner'
+import { useUserStore } from '@/stores/userStore'
 
-// 检查本地存储中的令牌 - 尝试多种可能的键名
-function checkToken() {
-  // 尝试多种可能的键名
-  let token = localStorage.getItem('auth_token');
-  if (!token) token = localStorage.getItem('token');
-
-  // 如果找到令牌，确保它被正确存储在所有可能的键下
-  if (token) {
-    localStorage.setItem('auth_token', token);
-    localStorage.setItem('token', token);
-    console.log('App.vue - Token found and synchronized across all keys');
-    return token;
-  }
-
-  return null;
-}
-
-const token = checkToken();
-console.log('App.vue - Token in localStorage:', token ? 'exists' : 'not found')
-
+// 使用用户状态存储
+const userStore = useUserStore()
 const route = useRoute()
 
 // 计算属性：是否显示应用内导航栏
@@ -44,46 +26,20 @@ const showTopBar = computed(() => {
 onMounted(async () => {
   console.log('App.vue - App mounted')
 
-  // 再次检查令牌，确保它在所有可能的键下都存在
-  const token = checkToken();
+  // 初始化用户状态
+  userStore.init()
 
-  if (token) {
-    console.log('App.vue - Token exists, setting up authentication');
-
-    // 确保用户名存在
-    if (!localStorage.getItem('username')) {
-      localStorage.setItem('username', 'user');
-      console.log('App.vue - Username not found, using default: user');
-    }
-
-    // 强制更新认证状态
-    authService.checkAuth();
-    userService.checkAuth();
-
-    console.log('App.vue - Auth service says user is logged in:', authService.isLoggedIn.value);
-    console.log('App.vue - User service says user is logged in:', userService.isLoggedIn.value);
-
-    // 尝试获取当前用户信息
-    try {
-      console.log('App.vue - Trying to get current user');
-      const user = await authService.getCurrentUser();
-
-      if (user) {
-        console.log('App.vue - Current user loaded:', user);
-      } else {
-        console.log('App.vue - No user data returned, but continuing with token auth');
-      }
-    } catch (err) {
-      console.error('App.vue - Error loading current user:', err);
-      console.log('App.vue - Continuing with token auth despite error');
-    }
+  // 检查用户是否已登录
+  if (userStore.isLoggedIn) {
+    console.log('App.vue - User is logged in:', userStore.username)
   } else {
-    console.log('App.vue - No token found, user not logged in');
+    console.log('App.vue - User is not logged in')
   }
 })
 </script>
 
 <template>
+  <Toaster position="top-right" />
   <div class="app-wrapper">
     <!-- macOS风格顶部状态栏 -->
     <MacosTopBar v-if="showTopBar" />
@@ -97,6 +53,9 @@ onMounted(async () => {
         <router-view />
       </div>
     </div>
+
+    <!-- 番茄钟组件 -->
+    <PomodoroTimer />
   </div>
 </template>
 

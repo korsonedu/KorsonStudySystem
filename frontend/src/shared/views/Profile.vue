@@ -1,178 +1,265 @@
 <template>
-  <div class="profile-container">
-    <div class="profile-header">
-      <div class="profile-avatar">
-        <div class="avatar-circle">
-          <span v-if="!userInfo.avatar">{{ userInitials }}</span>
-          <img v-else :src="userInfo.avatar" alt="用户头像" />
-        </div>
-      </div>
-      <div class="profile-info">
-        <h1>{{ userInfo.username }}</h1>
-        <p class="email">{{ userInfo.email || '未设置邮箱' }}</p>
-        <p class="join-date">加入时间: {{ formatDate(userInfo.created_at) }}</p>
-      </div>
-    </div>
+  <div class="container mx-auto p-4 pt-16 max-w-5xl">
+    <Card class="mb-8 overflow-hidden">
+      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-6 flex flex-col md:flex-row items-center gap-6 user-header">
+        <Avatar class="w-24 h-24 border-4 border-white shadow-lg">
+          <AvatarImage v-if="userInfo.avatar" :src="userInfo.avatar" alt="用户头像" />
+          <AvatarFallback class="text-3xl">
+            {{ userInitials }}
+          </AvatarFallback>
+        </Avatar>
 
-    <div class="profile-content">
-      <div class="profile-section">
-        <h2>基本信息</h2>
-        <div class="form-group" v-if="!isEditing">
-          <div class="info-item">
-            <span class="label">用户名:</span>
-            <span class="value">{{ userInfo.username }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">邮箱:</span>
-            <span class="value">{{ userInfo.email || '未设置' }}</span>
-            <span v-if="userInfo.email && userInfo.email_verified" class="verified-badge">已验证</span>
-            <span v-else-if="userInfo.email && !userInfo.email_verified" class="unverified-badge">未验证</span>
-          </div>
-          <div class="info-item">
-            <span class="label">账号状态:</span>
-            <span class="value">{{ userInfo.is_active ? '正常' : '已禁用' }}</span>
-          </div>
-          <button class="edit-btn" @click="startEditing">编辑资料</button>
-        </div>
-
-        <div class="form-group" v-else>
-          <div class="form-item">
-            <label for="username">用户名</label>
-            <input type="text" id="username" v-model="editForm.username" />
-          </div>
-          <div class="form-item">
-            <label for="email">邮箱</label>
-            <input type="email" id="email" v-model="editForm.email" />
-          </div>
-          <div class="form-item">
-            <label for="password">新密码 (留空则不修改)</label>
-            <input type="password" id="password" v-model="editForm.password" />
-          </div>
-          <div class="form-item">
-            <label for="confirmPassword">确认新密码</label>
-            <input type="password" id="confirmPassword" v-model="editForm.confirmPassword" />
-          </div>
-          <div class="form-actions">
-            <button class="save-btn" @click="saveProfile">保存</button>
-            <button class="cancel-btn" @click="cancelEditing">取消</button>
+        <div class="text-center md:text-left">
+          <h1 class="text-2xl font-bold">{{ userInfo.username }}</h1>
+          <p class="text-muted-foreground">{{ userInfo.email || '未设置邮箱' }}</p>
+          <div class="flex items-center gap-2 mt-2 justify-center md:justify-start user-badges">
+            <Badge v-if="userInfo.email && userInfo.email_verified" class="badge-success">已验证邮箱</Badge>
+            <Badge v-else-if="userInfo.email && !userInfo.email_verified" class="badge-destructive">未验证邮箱</Badge>
+            <Badge variant="outline">加入时间: {{ formatDate(userInfo.created_at) }}</Badge>
           </div>
         </div>
       </div>
+    </Card>
 
-      <div class="profile-section">
-        <h2>考研信息</h2>
-        <div class="form-group" v-if="!isEditingExam">
-          <div class="info-item">
-            <span class="label">目标院校:</span>
-            <span class="value">{{ examInfo.targetSchool || '未设置' }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">目标专业:</span>
-            <span class="value">{{ examInfo.targetMajor || '未设置' }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">考试年份:</span>
-            <span class="value">{{ examInfo.examYear || '未设置' }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">备考阶段:</span>
-            <span class="value">{{ examInfo.prepPhase || '未设置' }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">每日目标:</span>
-            <span class="value">{{ examInfo.dailyGoal ? `${examInfo.dailyGoal} 小时` : '未设置' }}</span>
-          </div>
-          <button class="edit-btn" @click="startEditingExam">编辑考研信息</button>
-        </div>
+    <Tabs default-value="profile" class="w-full">
+      <TabsList class="grid w-full grid-cols-3">
+        <TabsTrigger value="profile">个人资料</TabsTrigger>
+        <TabsTrigger value="exam">考研信息</TabsTrigger>
+        <TabsTrigger value="stats">学习统计</TabsTrigger>
+      </TabsList>
 
-        <div class="form-group" v-else>
-          <div class="form-item">
-            <label for="targetSchool">目标院校</label>
-            <input type="text" id="targetSchool" v-model="examEditForm.targetSchool" placeholder="例如：北京大学、清华大学" />
-          </div>
-          <div class="form-item">
-            <label for="targetMajor">目标专业</label>
-            <input type="text" id="targetMajor" v-model="examEditForm.targetMajor" placeholder="例如：金融学、会计学" />
-          </div>
-          <div class="form-item">
-            <label for="examYear">考试年份</label>
-            <select id="examYear" v-model="examEditForm.examYear">
-              <option value="">请选择</option>
-              <option value="2024">2024年</option>
-              <option value="2025">2025年</option>
-              <option value="2026">2026年</option>
-            </select>
-          </div>
-          <div class="form-item">
-            <label for="prepPhase">备考阶段</label>
-            <select id="prepPhase" v-model="examEditForm.prepPhase">
-              <option value="">请选择</option>
-              <option value="初期准备">初期准备</option>
-              <option value="基础强化">基础强化</option>
-              <option value="真题训练">真题训练</option>
-              <option value="冲刺阶段">冲刺阶段</option>
-            </select>
-          </div>
-          <div class="form-item">
-            <label for="dailyGoal">每日学习目标（小时）</label>
-            <input type="number" id="dailyGoal" v-model="examEditForm.dailyGoal" min="1" max="16" step="0.5" />
-          </div>
-          <div class="form-actions">
-            <button class="save-btn" @click="saveExamInfo">保存</button>
-            <button class="cancel-btn" @click="cancelEditingExam">取消</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="profile-section">
-        <h2>学习统计</h2>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon">⏱️</div>
-            <div class="stat-content">
-              <h3>总学习时间</h3>
-              <p>{{ formatDuration(userStats.totalStudyTime) }}</p>
+      <!-- 个人资料标签页 -->
+      <TabsContent value="profile">
+        <Card>
+          <CardHeader>
+            <CardTitle>基本信息</CardTitle>
+            <CardDescription>查看和更新您的个人资料</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div v-if="!isEditing">
+              <div class="grid gap-4">
+                <div class="flex flex-col space-y-1.5">
+                  <Label>用户名</Label>
+                  <p class="text-base">{{ userInfo.username }}</p>
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label>邮箱</Label>
+                  <p class="text-base">{{ userInfo.email || '未设置' }}</p>
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label>账号状态</Label>
+                  <p class="text-base">{{ userInfo.is_active ? '正常' : '已禁用' }}</p>
+                </div>
+              </div>
+              <Button class="mt-6" @click="startEditing">编辑资料</Button>
             </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">📊</div>
-            <div class="stat-content">
-              <h3>完成任务数</h3>
-              <p>{{ userStats.completedTasks }}</p>
+
+            <div v-else class="space-y-4">
+              <div class="grid gap-4">
+                <div class="flex flex-col space-y-1.5">
+                  <Label for="username">用户名</Label>
+                  <Input id="username" v-model="editForm.username" />
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label for="email">邮箱</Label>
+                  <Input id="email" type="email" v-model="editForm.email" />
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label for="password">新密码 (留空则不修改)</Label>
+                  <Input id="password" type="password" v-model="editForm.password" />
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label for="confirmPassword">确认新密码</Label>
+                  <Input id="confirmPassword" type="password" v-model="editForm.confirmPassword" />
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <Button @click="saveProfile">保存</Button>
+                <Button variant="outline" @click="cancelEditing">取消</Button>
+              </div>
             </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">🏆</div>
-            <div class="stat-content">
-              <h3>解锁成就</h3>
-              <p>{{ userStats.unlockedAchievements }}</p>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <!-- 考研信息标签页 -->
+      <TabsContent value="exam">
+        <Card>
+          <CardHeader>
+            <CardTitle>考研信息</CardTitle>
+            <CardDescription>设置您的考研目标和计划</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div v-if="!isEditingExam">
+              <div class="grid gap-4">
+                <div class="flex flex-col space-y-1.5">
+                  <Label>目标院校</Label>
+                  <p class="text-base">{{ examInfo.targetSchool || '未设置' }}</p>
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label>目标专业</Label>
+                  <p class="text-base">{{ examInfo.targetMajor || '未设置' }}</p>
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label>考试年份</Label>
+                  <p class="text-base">{{ examInfo.examYear || '未设置' }}</p>
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label>备考阶段</Label>
+                  <p class="text-base">{{ examInfo.prepPhase || '未设置' }}</p>
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label>每日目标</Label>
+                  <p class="text-base">{{ examInfo.dailyGoal ? `${examInfo.dailyGoal} 小时` : '未设置' }}</p>
+                </div>
+              </div>
+              <Button class="mt-6" @click="startEditingExam">编辑考研信息</Button>
             </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">📅</div>
-            <div class="stat-content">
-              <h3>学习天数</h3>
-              <p>{{ userStats.studyDays }}</p>
+
+            <div v-else class="space-y-4">
+              <div class="grid gap-4">
+                <div class="flex flex-col space-y-1.5">
+                  <Label for="targetSchool">目标院校</Label>
+                  <Input id="targetSchool" v-model="examEditForm.targetSchool" placeholder="例如：北京大学、清华大学" />
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label for="targetMajor">目标专业</Label>
+                  <Input id="targetMajor" v-model="examEditForm.targetMajor" placeholder="例如：金融学、会计学" />
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label for="examYear">考试年份</Label>
+                  <Select v-model="examEditForm.examYear">
+                    <SelectTrigger>
+                      <SelectValue placeholder="请选择" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">请选择</SelectItem>
+                      <SelectItem value="2024">2024年</SelectItem>
+                      <SelectItem value="2025">2025年</SelectItem>
+                      <SelectItem value="2026">2026年</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label for="prepPhase">备考阶段</Label>
+                  <Select v-model="examEditForm.prepPhase">
+                    <SelectTrigger>
+                      <SelectValue placeholder="请选择" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">请选择</SelectItem>
+                      <SelectItem value="初期准备">初期准备</SelectItem>
+                      <SelectItem value="基础强化">基础强化</SelectItem>
+                      <SelectItem value="真题训练">真题训练</SelectItem>
+                      <SelectItem value="冲刺阶段">冲刺阶段</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="flex flex-col space-y-1.5">
+                  <Label for="dailyGoal">每日学习目标（小时）</Label>
+                  <Input id="dailyGoal" type="number" v-model="examEditForm.dailyGoal" min="1" max="16" step="0.5" />
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <Button @click="saveExamInfo">保存</Button>
+                <Button variant="outline" @click="cancelEditingExam">取消</Button>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <!-- 学习统计标签页 -->
+      <TabsContent value="stats">
+        <Card>
+          <CardHeader>
+            <CardTitle>学习统计</CardTitle>
+            <CardDescription>查看您的学习进度和成就</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card class="card-stats">
+                <CardContent class="p-6 flex items-center gap-4">
+                  <div class="rounded-full bg-blue-100 dark:bg-blue-900 p-3 text-blue-600 dark:text-blue-300 text-xl">⏱️</div>
+                  <div>
+                    <p class="text-sm text-muted-foreground">总学习时间</p>
+                    <p class="text-2xl font-bold">{{ formatDuration(userStats.totalStudyTime) }}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card class="card-stats">
+                <CardContent class="p-6 flex items-center gap-4">
+                  <div class="rounded-full bg-green-100 dark:bg-green-900 p-3 text-green-600 dark:text-green-300 text-xl">📊</div>
+                  <div>
+                    <p class="text-sm text-muted-foreground">完成任务数</p>
+                    <p class="text-2xl font-bold">{{ userStats.completedTasks }}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card class="card-stats">
+                <CardContent class="p-6 flex items-center gap-4">
+                  <div class="rounded-full bg-amber-100 dark:bg-amber-900 p-3 text-amber-600 dark:text-amber-300 text-xl">🏆</div>
+                  <div>
+                    <p class="text-sm text-muted-foreground">解锁成就</p>
+                    <p class="text-2xl font-bold">{{ userStats.unlockedAchievements }}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card class="card-stats">
+                <CardContent class="p-6 flex items-center gap-4">
+                  <div class="rounded-full bg-purple-100 dark:bg-purple-900 p-3 text-purple-600 dark:text-purple-300 text-xl">📅</div>
+                  <div>
+                    <p class="text-sm text-muted-foreground">学习天数</p>
+                    <p class="text-2xl font-bold">{{ userStats.studyDays }}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { authService } from '../services/authService'
 import { userService } from '../services/userService'
 import { API_CONFIG } from '../../config'
 import axios from 'axios'
 
+// 导入shadcn组件
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { toast } from 'vue-sonner'
+
 const router = useRouter()
 const isEditing = ref(false)
 const isEditingExam = ref(false)
-const userInfo = ref({
+// 扩展User类型以包含额外的字段
+interface ExtendedUser {
+  id?: number;
+  username: string;
+  email?: string;
+  is_active?: boolean;
+  is_superuser?: boolean;
+  created_at?: string;
+  email_verified?: boolean;
+  avatar?: string;
+  [key: string]: any;
+}
+
+const userInfo = ref<ExtendedUser>({
   id: 0,
   username: '',
   email: '',
@@ -244,9 +331,21 @@ const formatDuration = (minutes: number) => {
 // 获取用户信息
 const fetchUserInfo = async () => {
   try {
-    const response = await authService.getCurrentUser()
+    const response = await userService.getCurrentUser()
     if (response) {
-      userInfo.value = response
+      // 将response转换为ExtendedUser类型
+      userInfo.value = {
+        ...response,
+        // 确保所有必需的字段都存在
+        id: response.id || 0,
+        username: response.username,
+        email: response.email || '',
+        is_active: response.is_active !== undefined ? response.is_active : true,
+        is_superuser: response.is_superuser !== undefined ? response.is_superuser : false,
+        created_at: response.created_at || new Date().toISOString(),
+        email_verified: response.email_verified !== undefined ? response.email_verified : false,
+        avatar: response.avatar || ''
+      }
       console.log('获取到用户信息:', userInfo.value)
     }
   } catch (error) {
@@ -257,23 +356,29 @@ const fetchUserInfo = async () => {
 // 获取用户统计数据
 const fetchUserStats = async () => {
   try {
-    // 获取任务统计
-    const tasksResponse = await axios.get(`${API_CONFIG.BASE_URL}/api/study/statistics/tasks`)
-    if (tasksResponse.data) {
-      userStats.value.totalStudyTime = tasksResponse.data.total_duration || 0
-      userStats.value.completedTasks = tasksResponse.data.total_tasks || 0
-      userStats.value.studyDays = tasksResponse.data.unique_days || 0
-    }
-
-    // 获取成就统计
-    const achievementsResponse = await axios.get(`${API_CONFIG.BASE_URL}/api/study/achievements`)
-    if (achievementsResponse.data) {
-      userStats.value.unlockedAchievements = achievementsResponse.data.filter(
-        (achievement: any) => achievement.unlocked
-      ).length
+    // 获取用户统计数据
+    const statsResponse = await axios.get(`${API_CONFIG.BASE_URL}/api/users/me/statistics`)
+    if (statsResponse.data) {
+      userStats.value.totalStudyTime = statsResponse.data.total_study_time || 0
+      userStats.value.completedTasks = statsResponse.data.completed_tasks || 0
+      userStats.value.studyDays = statsResponse.data.study_days || 0
+      userStats.value.unlockedAchievements = statsResponse.data.unlocked_achievements || 0
     }
   } catch (error) {
     console.error('获取用户统计数据失败:', error)
+
+    // 设置默认值，确保UI正常显示
+    userStats.value = {
+      totalStudyTime: 120, // 默认2小时
+      completedTasks: 5,
+      unlockedAchievements: 2,
+      studyDays: 3
+    }
+
+    toast.error('获取统计数据失败', {
+      description: '无法连接到服务器，显示默认数据',
+      position: 'top-right'
+    })
   }
 }
 
@@ -295,7 +400,10 @@ const cancelEditing = () => {
 const saveProfile = async () => {
   // 验证密码
   if (editForm.value.password && editForm.value.password !== editForm.value.confirmPassword) {
-    alert('两次输入的密码不一致')
+    toast.error('密码不匹配', {
+      description: '两次输入的密码不一致',
+      position: 'top-right'
+    })
     return
   }
 
@@ -316,10 +424,18 @@ const saveProfile = async () => {
     // 更新成功后刷新用户信息
     await fetchUserInfo()
     isEditing.value = false
-    alert('个人资料更新成功')
+
+    toast.success('更新成功', {
+      description: '个人资料已更新',
+      position: 'top-right'
+    })
   } catch (error: any) {
     console.error('更新个人资料失败:', error)
-    alert(`更新失败: ${error.response?.data?.detail || '未知错误'}`)
+
+    toast.error('更新失败', {
+      description: error.response?.data?.detail || '未知错误',
+      position: 'top-right'
+    })
   }
 }
 
@@ -347,6 +463,11 @@ const saveExamInfo = () => {
   localStorage.setItem('examInfo', JSON.stringify(examInfo.value))
 
   isEditingExam.value = false
+
+  toast.success('更新成功', {
+    description: '考研信息已更新',
+    position: 'top-right'
+  })
 }
 
 // 从本地存储加载考研信息
@@ -364,7 +485,7 @@ const loadExamInfo = () => {
 // 组件挂载时获取用户信息和统计数据
 onMounted(async () => {
   // 检查用户是否已登录
-  if (!userService.isLoggedIn.value) {
+  if (!userService.isLoggedIn) {
     router.push('/login')
     return
   }
@@ -376,287 +497,62 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.profile-container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-.profile-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: linear-gradient(135deg, #f5f7fa, #e4e8f0);
-  border-radius: 15px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-}
-
-.profile-avatar {
-  margin-right: 30px;
-}
-
-.avatar-circle {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
+/* 自定义样式 */
+:deep(.avatar-fallback) {
   background: linear-gradient(135deg, #3498db, #2980b9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   color: white;
-  font-size: 40px;
-  font-weight: bold;
-  box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
-  border: 3px solid white;
-}
-
-.avatar-circle img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.profile-info h1 {
-  margin: 0 0 5px;
-  color: #2c3e50;
-  font-size: 28px;
-}
-
-.email {
-  color: #7f8c8d;
-  margin: 0 0 5px;
-  font-size: 16px;
-}
-
-.join-date {
-  color: #95a5a6;
-  margin: 0;
-  font-size: 14px;
-}
-
-.profile-content {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 30px;
-}
-
-.profile-section {
-  background: white;
-  border-radius: 15px;
-  padding: 25px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-}
-
-.profile-section h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: #2c3e50;
-  font-size: 20px;
-  border-bottom: 2px solid #f0f2f5;
-  padding-bottom: 10px;
-}
-
-.info-item {
-  margin-bottom: 15px;
-  display: flex;
-  align-items: center;
-}
-
-.label {
   font-weight: 600;
-  width: 100px;
-  color: #7f8c8d;
 }
 
-.value {
-  color: #2c3e50;
-}
-
-.verified-badge {
-  background: #2ecc71;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  margin-left: 10px;
-}
-
-.unverified-badge {
-  background: #e74c3c;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  margin-left: 10px;
-}
-
-.edit-btn {
-  background: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
+:deep(.badge) {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
   font-weight: 500;
-  margin-top: 15px;
+}
+
+:deep(.badge-success) {
+  background-color: #10b981;
+  color: white;
+}
+
+:deep(.badge-destructive) {
+  background-color: #ef4444;
+  color: white;
+}
+
+/* 卡片动画效果 */
+:deep(.card) {
   transition: all 0.3s ease;
 }
 
-.edit-btn:hover {
-  background: #2980b9;
+:deep(.card:hover) {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
-.form-item {
-  margin-bottom: 20px;
+/* 动画效果 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
 }
 
-.form-item label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #7f8c8d;
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
-.form-item input {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: border 0.3s ease;
-}
-
-.form-item input:focus,
-.form-item select:focus {
-  border-color: #3498db;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-.form-item select {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: border 0.3s ease;
-  background-color: white;
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232c3e50' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 16px;
-}
-
-.form-actions {
-  display: flex;
-  gap: 15px;
-  margin-top: 20px;
-}
-
-.save-btn {
-  background: #2ecc71;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.save-btn:hover {
-  background: #27ae60;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
-}
-
-.cancel-btn {
-  background: #e74c3c;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.cancel-btn:hover {
-  background: #c0392b;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-}
-
-.stat-card {
-  background: linear-gradient(135deg, #f5f7fa, #e4e8f0);
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(0, 0, 0, 0.03);
-}
-
-.stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-}
-
-.stat-icon {
-  font-size: 2rem;
-  margin-right: 15px;
-  color: #3498db;
-}
-
-.stat-content h3 {
-  margin: 0 0 5px;
-  font-size: 0.9rem;
-  color: #7f8c8d;
-  font-weight: 500;
-}
-
-.stat-content p {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .profile-header {
+/* 响应式调整 */
+@media (max-width: 640px) {
+  .user-header {
     flex-direction: column;
     text-align: center;
   }
 
-  .profile-avatar {
-    margin-right: 0;
-    margin-bottom: 20px;
-  }
-
-  .info-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .label {
-    width: auto;
-    margin-bottom: 5px;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
+  .user-badges {
+    justify-content: center;
   }
 }
+
+
 </style>

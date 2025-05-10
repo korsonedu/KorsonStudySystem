@@ -1,0 +1,48 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TypeScript compiled files
+**/*.js
+**/*.js.map
+!src/main.js
+!src/config/*.js
+!vite.config.js
+!postcss.config.js
+!tailwind.config.js
+
+# Keep specific JS files that are not compiled from TS
+!src/utils/storage.js
+!src/utils/corsTest.js
+
+# Environment variables
+.env
+.env.*
+!.env.example

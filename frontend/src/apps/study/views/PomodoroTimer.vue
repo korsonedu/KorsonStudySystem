@@ -2,12 +2,19 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { taskService } from '../../../shared/services/taskService'
 import { toChineseTimezone } from '../../../utils/dateUtils'
-import ConfirmDialog from '../../../shared/components/ConfirmDialog.vue'
 
 // Import shadcn-vue components
 import { Button } from '../../../components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Input } from '../../../components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../../components/ui/dialog'
 
 // State for Pomodoro timer
 const taskName = ref('')
@@ -80,7 +87,7 @@ function startTimer() {
 
     // 更新剩余时间
     totalSeconds.value = newRemaining
-    
+
     // 更新进度条
     progress.value = 100 - (newRemaining / (taskTime.value * 60) * 100)
 
@@ -116,7 +123,7 @@ const toggleTimer = () => {
 
     // 切换运行状态
     isRunning.value = true
-    
+
     // 启动计时器
     startTimer()
   } else {
@@ -141,7 +148,7 @@ const resetTimer = () => {
   // 重置为默认25分钟
   taskTime.value = 25
   totalSeconds.value = taskTime.value * 60
-  
+
   // 重置进度条
   progress.value = 0
 }
@@ -153,7 +160,7 @@ const completeTask = async () => {
     return
   }
 
-  // 显示自定义确认对话框
+  // 显示确认对话框
   confirmDialogTitle.value = '完成学习任务'
   confirmDialogMessage.value = `确定要结束"${taskName.value}"任务吗？`
 
@@ -268,7 +275,7 @@ onBeforeUnmount(clearTimer)
             </div>
           </div>
         </div>
-        
+
         <div class="task-input">
           <Input
             v-model="taskName"
@@ -276,7 +283,7 @@ onBeforeUnmount(clearTimer)
             class="task-name-input"
             :disabled="isRunning"
           />
-          
+
           <div class="time-input-container">
             <Input
               v-model="taskTime"
@@ -302,14 +309,22 @@ onBeforeUnmount(clearTimer)
         </Button>
       </CardFooter>
     </Card>
-    
-    <!-- 确认对话框 -->
-    <ConfirmDialog
-      v-model:visible="showConfirmDialog"
-      :title="confirmDialogTitle"
-      :message="confirmDialogMessage"
-      @confirm="confirmDialogCallback"
-    />
+
+    <!-- shadcn Dialog 确认对话框 -->
+    <Dialog v-model:open="showConfirmDialog">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{{ confirmDialogTitle }}</DialogTitle>
+          <DialogDescription>
+            {{ confirmDialogMessage }}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter class="flex justify-end gap-2 mt-4">
+          <Button variant="outline" @click="showConfirmDialog = false">取消</Button>
+          <Button @click="confirmDialogCallback">确定</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -326,8 +341,28 @@ onBeforeUnmount(clearTimer)
   width: 100%;
   max-width: 500px;
   background: #ffffff;
-  border-radius: var(--border-radius);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.03);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.pomodoro-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+}
+
+/* 输入框样式 */
+:deep(.input) {
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+:deep(.input:focus) {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
 .timer-display {
@@ -418,6 +453,14 @@ onBeforeUnmount(clearTimer)
 .control-button {
   flex: 1;
   transition: all 0.3s ease;
+  height: 44px;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+.control-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .control-button.running {
@@ -436,16 +479,16 @@ onBeforeUnmount(clearTimer)
   .pomodoro-container {
     padding: 10px;
   }
-  
+
   .timer-circle {
     width: 180px;
     height: 180px;
   }
-  
+
   .time-text {
     font-size: 3rem;
   }
-  
+
   .timer-controls {
     flex-direction: column;
   }

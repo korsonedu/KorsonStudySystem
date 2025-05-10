@@ -9,7 +9,7 @@ const showPosterModal = ref(false)
 const generatedImageUrl = ref('')
 
 // 使用用户服务的响应式状态
-const isLoggedIn = computed(() => userService.isLoggedIn.value)
+const isLoggedIn = computed(() => userService.isLoggedIn)
 
 // 显示海报生成模态框
 const showPoster = () => {
@@ -31,11 +31,10 @@ const handlePosterGenerated = (imageUrl: string) => {
 
 <template>
   <header class="navbar">
-    <h1>学习看板 📋</h1>
+    <h1></h1>
     <div class="nav-container">
       <nav v-if="isLoggedIn">
-        <router-link to="/" class="nav-btn">📋 任务</router-link>
-        <router-link to="/pomodoro" class="nav-btn">🍅 番茄钟</router-link>
+        <router-link to="/" class="nav-btn">🍅 番茄钟</router-link>
         <router-link to="/statistics" class="nav-btn">📈 统计</router-link>
         <router-link to="/achievements" class="nav-btn">🏅 成就</router-link>
         <button class="nav-btn" @click="showPoster">🖼️ 下载海报</button>

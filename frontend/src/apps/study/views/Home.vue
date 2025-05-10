@@ -3,9 +3,19 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { taskService } from '../../../shared/services/taskService'
 import { planService } from '../../../shared/services/planService'
 import CircularTimer from '../components/CircularTimer.vue'
-import ConfirmDialog from '../../../shared/components/ConfirmDialog.vue'
 import { formatDate, formatTime, toChineseTimezone, formatChineseDate, formatTimeOnly } from '../../../utils/dateUtils'
 import { getPlanId, sortPlansByCompletionAndDate, filterTodayPlans } from '../../../shared/utils/sortUtils'
+
+// 导入shadcn组件
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../../components/ui/dialog'
+import { Button } from '../../../components/ui/button'
 
 // State for Pomodoro timer
 const taskName = ref('')
@@ -534,14 +544,21 @@ onMounted(() => {
 
 <template>
   <div class="main-content">
-    <!-- 确认对话框 -->
-    <ConfirmDialog
-      :show="showConfirmDialog"
-      :title="confirmDialogTitle"
-      :message="confirmDialogMessage"
-      @confirm="confirmDialogCallback"
-      @cancel="showConfirmDialog = false"
-    />
+    <!-- shadcn Dialog 确认对话框 -->
+    <Dialog v-model:open="showConfirmDialog">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{{ confirmDialogTitle }}</DialogTitle>
+          <DialogDescription>
+            {{ confirmDialogMessage }}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter class="flex justify-end gap-2 mt-4">
+          <Button variant="outline" @click="showConfirmDialog = false">取消</Button>
+          <Button @click="confirmDialogCallback">确定</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     <!-- 主要内容区域 - 番茄钟为焦点 -->
     <main class="pomodoro-main">
       <!-- 番茄钟卡片 - 作为页面焦点 -->

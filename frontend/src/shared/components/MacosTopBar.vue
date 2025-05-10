@@ -51,12 +51,11 @@
 
       <!-- User Menu (if logged in) -->
       <div v-if="isLoggedIn" class="user-menu" @click.stop="toggleUserDropdown">
-        <div class="user-avatar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
+        <Avatar class="user-avatar-shadcn">
+          <AvatarFallback class="avatar-fallback">
+            {{ userInitials }}
+          </AvatarFallback>
+        </Avatar>
         <span class="username">{{ username }}</span>
         <div class="dropdown-indicator">▾</div>
 
@@ -76,53 +75,71 @@
     </div>
   </div>
 
-  <!-- 确认对话框 -->
-  <ConfirmDialog
-    :show="showConfirmDialog"
-    :title="confirmDialogTitle"
-    :message="confirmDialogMessage"
-    @confirm="confirmLogout"
-    @cancel="cancelLogout"
-  />
+  <!-- shadcn Dialog 确认对话框 -->
+  <Dialog :open="showConfirmDialog" @update:open="showConfirmDialog = $event">
+    <DialogContent class="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>退出登录</DialogTitle>
+        <DialogDescription>
+          确定要退出登录吗？
+        </DialogDescription>
+      </DialogHeader>
+      <DialogFooter class="flex justify-end gap-2 mt-4">
+        <Button variant="outline" @click="cancelLogout">取消</Button>
+        <Button @click="confirmLogout">确定</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { userService } from '../../shared/services/userService';
-import { authService } from '../../shared/services/authService';
+import { useUserStore } from '@/stores/userStore';
 import apiService from '../../shared/services/apiService';
 import { API_CONFIG } from '../../config';
-import ConfirmDialog from './ConfirmDialog.vue';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const router = useRouter();
+const userStore = useUserStore();
 const currentDateTime = ref('');
 const showUserDropdown = ref(false);
 let clockInterval: number | null = null;
 
 // 确认对话框状态
 const showConfirmDialog = ref(false);
-const confirmDialogTitle = ref('退出登录');
-const confirmDialogMessage = ref('确定要退出登录吗？');
 
 // 计算属性：是否已登录
 const isLoggedIn = computed(() => {
-  // 优先使用 authService，如果 authService 显示未登录，则检查 userService
-  const authLoggedIn = authService.isLoggedIn.value;
-  const userLoggedIn = userService.isLoggedIn.value;
-  console.log('MacosTopBar - authService.isLoggedIn:', authLoggedIn);
-  console.log('MacosTopBar - userService.isLoggedIn:', userLoggedIn);
-  return authLoggedIn || userLoggedIn;
+  // 使用Pinia用户存储检查登录状态
+  const loggedIn = userStore.isLoggedIn;
+  console.log('MacosTopBar - userStore.isLoggedIn:', loggedIn);
+  return loggedIn;
 });
 
 // 计算属性：用户名
 const username = computed(() => {
-  // 优先使用 authService 的用户名，如果没有则使用 userService 的用户名
-  const authUsername = authService.currentUser.value?.username;
-  const userUsername = userService.currentUser.value?.username;
-  console.log('MacosTopBar - authService.username:', authUsername);
-  console.log('MacosTopBar - userService.username:', userUsername);
-  return authUsername || userUsername || '';
+  // 使用Pinia用户存储获取用户名
+  const name = userStore.username;
+  console.log('MacosTopBar - userStore.username:', name);
+  return name || '';
+});
+
+// 计算属性：用户名首字母（用于头像）
+const userInitials = computed(() => {
+  const name = username.value;
+  if (!name) return '?';
+  return name.charAt(0).toUpperCase();
 });
 
 // 更新当前日期和时间
@@ -187,45 +204,14 @@ const handleLogout = () => {
 };
 
 // 确认退出登录
-const confirmLogout = () => {
+const confirmLogout = async () => {
   console.log('确认退出登录 - 开始');
 
   try {
-    // 清除所有本地存储
-    console.log('清除localStorage前:', Object.keys(localStorage));
-    localStorage.clear();
-    console.log('清除localStorage后:', Object.keys(localStorage));
+    // 使用Pinia用户存储登出
+    await userStore.logout();
 
-    console.log('清除sessionStorage前:', Object.keys(sessionStorage));
-    sessionStorage.clear();
-    console.log('清除sessionStorage后:', Object.keys(sessionStorage));
-
-    // 清除所有cookie
-    console.log('清除cookies前:', document.cookie);
-    const cookies = document.cookie.split(";");
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i];
-      const eqPos = cookie.indexOf("=");
-      const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
-      if (name) {
-        console.log('清除cookie:', name);
-        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-      }
-    }
-    console.log('清除cookies后:', document.cookie);
-
-    // 重置服务状态
-    console.log('重置authService前:', authService.currentUser.value);
-    if (authService && authService.currentUser) {
-      authService.currentUser.value = null;
-    }
-    console.log('重置authService后:', authService.currentUser.value);
-
-    console.log('重置userService前:', userService.currentUser.value);
-    if (userService && userService.currentUser) {
-      userService.currentUser.value = null;
-    }
-    console.log('重置userService后:', userService.currentUser.value);
+    console.log('用户已登出，状态已重置');
 
     // 隐藏确认对话框
     showConfirmDialog.value = false;
@@ -234,12 +220,22 @@ const confirmLogout = () => {
 
     // 使用setTimeout确保日志能显示完成
     setTimeout(() => {
-      // 重定向到登录页面
+      // 强制清除所有可能的存储
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+
+      // 使用router.push可能会被拦截，所以直接修改location
       window.location.href = '/login';
-    }, 500);
+    }, 300);
   } catch (error) {
     console.error('退出登录时发生错误:', error);
     showConfirmDialog.value = false;
+
+    // 即使出错也尝试重定向到登录页面
+    setTimeout(() => {
+      window.location.href = '/login';
+    }, 500);
   }
 };
 
@@ -495,20 +491,21 @@ onUnmounted(() => {
   border-color: rgba(52, 152, 219, 0.25);
 }
 
-.user-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  background: linear-gradient(135deg, #3498db, #2980b9);
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+.user-avatar-shadcn {
+  width: 24px;
+  height: 24px;
   transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-.user-menu:hover .user-avatar {
+.avatar-fallback {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.user-menu:hover .user-avatar-shadcn {
   transform: scale(1.1);
   box-shadow: 0 3px 8px rgba(52, 152, 219, 0.4);
 }

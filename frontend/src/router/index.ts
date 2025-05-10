@@ -1,7 +1,5 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
-// @ts-ignore
 import { userService } from '../shared/services/userService'
-import { authService } from '../shared/services/authService'
 
 // 检查令牌函数 - 尝试多种可能的键名
 function checkToken() {
@@ -145,16 +143,13 @@ router.beforeEach((to, from, next) => {
     localStorage.setItem('username', 'user');
   }
 
-  // 使用两个服务检查登录状态
-  const isAuthenticatedUser = userService.checkAuth();
-  const isAuthenticatedAuth = authService.checkAuth();
-  const isAuthenticated = isAuthenticatedUser || isAuthenticatedAuth || !!token;
+  // 使用统一服务检查登录状态
+  const isAuthenticated = userService.checkAuth() || !!token;
 
   console.log(`路由守卫 - 路径: ${to.path}`);
   console.log(`路由守卫 - 是否已登录: ${isAuthenticated}`);
   console.log(`路由守卫 - Token: ${!!token}`);
-  console.log(`路由守卫 - User Service: ${isAuthenticatedUser}`);
-  console.log(`路由守卫 - Auth Service: ${isAuthenticatedAuth}`);
+  console.log(`路由守卫 - User Service: ${userService.isLoggedIn}`);
 
   // 如果用户已登录且尝试访问登录或注册页面，重定向到主页
   if (isAuthenticated && (to.path === '/login' || to.path === '/register')) {
