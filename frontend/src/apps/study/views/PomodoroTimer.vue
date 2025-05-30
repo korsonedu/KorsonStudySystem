@@ -1,36 +1,54 @@
 <script setup lang="ts">
+/**
+ * 番茄钟计时器组件
+ *
+ * 功能：
+ * - 设置学习任务名称和专注时长
+ * - 开始/暂停/重置计时器
+ * - 完成任务并保存记录
+ * - 支持从学习计划拖放任务
+ * - 自动计算实际学习时长
+ *
+ * 使用方式：
+ * <PomodoroTimer />
+ */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { taskService } from '../../../shared/services/taskService'
 import { toChineseTimezone } from '../../../utils/dateUtils'
+import { useUserStore } from '../../../stores/userStore'
+import eventBus, { EVENT_NAMES } from '../../../utils/eventBus'
 
 // Import shadcn-vue components
 import { Button } from '../../../components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Input } from '../../../components/ui/input'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../../components/ui/dialog'
+import ConfirmDialog from '../../../shared/components/ConfirmDialog.vue'
 
-// State for Pomodoro timer
+// 番茄钟状态
+/** 学习任务名称 */
 const taskName = ref('')
+/** 专注时长（分钟） */
 const taskTime = ref(25)
+/** 计时器是否运行中 */
 const isRunning = ref(false)
+/** 剩余总秒数 */
 const totalSeconds = ref(25 * 60)
+/** 按钮文本（根据运行状态变化） */
 const buttonText = computed(() => isRunning.value ? '⏸️ 暂停' : '▶️ 开始')
+/** 进度条百分比 */
 const progress = ref(0)
 
-// 记录实际开始时间
+/** 记录实际开始时间 */
 const taskStartTime = ref<Date | null>(null)
 
 // 确认对话框状态
+/** 是否显示确认对话框 */
 const showConfirmDialog = ref(false)
+/** 确认对话框标题 */
 const confirmDialogTitle = ref('确认')
+/** 确认对话框消息内容 */
 const confirmDialogMessage = ref('')
+/** 确认对话框确认按钮回调函数 */
 const confirmDialogCallback = ref(() => {})
 
 // 监听taskTime的变化，实时更新时钟显示
@@ -47,16 +65,26 @@ watch(taskTime, (newValue) => {
 })
 
 // 计时器逻辑
+/** 计时器ID，用于清除计时器 */
 let timerId: number | null = null
 
-// 格式化时间显示
+/**
+ * 格式化时间显示
+ * 将秒数转换为 MM:SS 格式
+ *
+ * @param seconds 总秒数
+ * @returns 格式化后的时间字符串，如 "25:00"
+ */
 function formatTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
   const secs = seconds % 60
   return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
-// 清除计时器
+/**
+ * 清除计时器
+ * 停止当前运行的计时器并释放资源
+ */
 function clearTimer() {
   if (timerId !== null) {
     window.clearInterval(timerId)
@@ -64,7 +92,12 @@ function clearTimer() {
   }
 }
 
-// 启动计时器
+/**
+ * 启动计时器
+ *
+ * 创建一个新的计时器，每500毫秒更新一次时间和进度
+ * 当时间结束时自动触发任务完成事件
+ */
 function startTimer() {
   // 清除现有计时器
   clearTimer()
@@ -100,7 +133,15 @@ function startTimer() {
   }, 500)
 }
 
-// 开始/暂停计时器
+/**
+ * 开始/暂停计时器
+ *
+ * 根据当前状态切换计时器的运行状态：
+ * - 如果未运行，则启动计时器
+ * - 如果正在运行，则暂停计时器
+ *
+ * 启动前会进行时间有效性检查和限制
+ */
 const toggleTimer = () => {
   // 如果当前未运行，且要开始计时，需要检查时间是否有效
   if (!isRunning.value) {
@@ -115,7 +156,7 @@ const toggleTimer = () => {
       taskTime.value = 120
     }
 
-    // 更新总秒数
+    // 更新总秒数（始终重置总秒数）
     totalSeconds.value = taskTime.value * 60
 
     // 记录开始时间
@@ -160,7 +201,7 @@ const completeTask = async () => {
     return
   }
 
-  // 显示确认对话框
+  // 显示自定义确认对话框
   confirmDialogTitle.value = '完成学习任务'
   confirmDialogMessage.value = `确定要结束"${taskName.value}"任务吗？`
 
@@ -230,8 +271,8 @@ const saveCompletedTask = async () => {
       return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
     };
 
-    // 确保任务数据符合后端API要求
-    const newTask = {
+    // 创建任务数据
+    const taskData = {
       name: taskName.value,
       duration: taskDuration, // 使用计算出的实际时长
       completed: true,
@@ -239,32 +280,69 @@ const saveCompletedTask = async () => {
       end: formatDateForBackend(currentTime)
     }
 
-    // 使用直接API存储服务保存任务
-    await taskService.addTask(newTask)
+    console.log('创建已完成任务:', taskData);
+    // 直接创建新任务，只有在任务完成时才创建记录
+    const savedTask = await taskService.addTask(taskData);
+
+    // 获取当前用户信息
+    const userStore = useUserStore();
+
+    // 如果任务保存成功，广播任务完成事件
+    if (savedTask && savedTask.id) {
+      console.log('任务完成，准备广播任务完成事件:', savedTask);
+
+      // 添加用户信息到任务对象
+      const taskWithUser = {
+        ...savedTask,
+        user: {
+          id: userStore.userId,
+          username: userStore.username
+        }
+      };
+
+      console.log('广播任务完成事件:', taskWithUser);
+      // 通过EventBus广播任务完成事件
+      eventBus.emit(EVENT_NAMES.TASK_COMPLETED, taskWithUser);
+    }
 
     // Reset for next task
     resetTimer()
   } catch (err: any) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('完成任务失败')
-    }
+    console.error('完成任务失败:', err)
   }
 }
 
+// 监听倒计时结束事件
+watch(() => totalSeconds.value, (newValue) => {
+  if (newValue === 0 && isRunning.value) {
+    // 倒计时自然结束，保存任务
+    saveCompletedTask();
+  }
+});
+
 // 组件挂载时
 onMounted(() => {
-  // 初始化
-})
+  console.log('PomodoroTimer 组件挂载');
+});
 
 // 组件卸载时清除计时器
-onBeforeUnmount(clearTimer)
+onBeforeUnmount(() => {
+  console.log('PomodoroTimer 组件卸载');
+  clearTimer();
+});
 </script>
 
 <template>
   <div class="pomodoro-container">
     <Card class="pomodoro-card">
-      <CardHeader>
-        <CardTitle>番茄钟</CardTitle>
+      <CardHeader class="card-header">
+        <CardTitle class="card-title">番茄钟</CardTitle>
+        <div v-if="isRunning" class="task-status running">
+          任务进行中
+        </div>
+        <div v-else-if="taskStartTime && !isRunning" class="task-status">
+          任务已暂停
+        </div>
       </CardHeader>
       <CardContent>
         <div class="timer-display">
@@ -310,21 +388,14 @@ onBeforeUnmount(clearTimer)
       </CardFooter>
     </Card>
 
-    <!-- shadcn Dialog 确认对话框 -->
-    <Dialog>
-      <DialogContent v-if="showConfirmDialog" class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{{ confirmDialogTitle }}</DialogTitle>
-          <DialogDescription>
-            {{ confirmDialogMessage }}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter class="flex justify-end gap-2 mt-4">
-          <Button variant="outline" @click="showConfirmDialog = false">取消</Button>
-          <Button @click="confirmDialogCallback">确定</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <!-- 确认对话框 -->
+    <ConfirmDialog
+      :show="showConfirmDialog"
+      :title="confirmDialogTitle"
+      :message="confirmDialogMessage"
+      @confirm="confirmDialogCallback"
+      @cancel="showConfirmDialog = false"
+    />
   </div>
 </template>
 
@@ -340,29 +411,33 @@ onBeforeUnmount(clearTimer)
 .pomodoro-card {
   width: 100%;
   max-width: 500px;
-  background: #ffffff;
+  background-color: var(--color-card-gray);
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--color-border-gray);
   overflow: hidden;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  padding: 24px;
 }
 
 .pomodoro-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
 
-/* 输入框样式 */
+/* 输入框样式 - 苹果风格 */
 :deep(.input) {
   height: 42px;
   border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  border: 1px solid var(--color-border-gray);
+  background-color: var(--color-input-gray);
+  color: var(--color-text-white);
+  transition: all 0.2s ease;
 }
 
 :deep(.input:focus) {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  border-color: var(--color-accent-orange);
+  box-shadow: 0 0 0 1px var(--color-accent-orange-dim);
 }
 
 .timer-display {
@@ -381,8 +456,8 @@ onBeforeUnmount(clearTimer)
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: #f5f5f5;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+  background-color: var(--color-input-gray);
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.2);
   --progress: 0%;
 }
 
@@ -394,7 +469,7 @@ onBeforeUnmount(clearTimer)
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: conic-gradient(var(--primary-color) var(--progress), transparent var(--progress));
+  background: conic-gradient(var(--color-accent-orange) var(--progress), transparent var(--progress));
   mask: radial-gradient(transparent 65%, black 66%);
   -webkit-mask: radial-gradient(transparent 65%, black 66%);
 }
@@ -402,37 +477,37 @@ onBeforeUnmount(clearTimer)
 .time-text {
   font-size: 3.6rem;
   font-weight: 600;
-  color: #2c3e50;
-  font-family: 'Montserrat', sans-serif;
+  color: var(--color-text-white);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
   letter-spacing: 1px;
 }
 
 .timer-status {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #7f8c8d;
+  color: var(--color-text-gray);
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  font-family: 'Montserrat', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   opacity: 0.8;
 }
 
 .timer-status.active {
-  color: var(--primary-color);
+  color: var(--color-accent-orange);
   opacity: 1;
 }
 
 .task-input {
-  margin: 20px 0;
+  margin: 24px 0;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 16px;
 }
 
 .time-input-container {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .time-input {
@@ -441,38 +516,84 @@ onBeforeUnmount(clearTimer)
 
 .time-unit {
   font-size: 14px;
-  color: #666;
+  color: var(--color-text-gray);
+  font-weight: 500;
 }
 
 .timer-controls {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .control-button {
   flex: 1;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   height: 44px;
   font-weight: 500;
   border-radius: 8px;
+  background-color: var(--color-input-gray);
+  color: var(--color-text-white);
+  border: none;
 }
 
 .control-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  filter: brightness(1.1);
+}
+
+.control-button:active {
+  transform: scale(0.98);
+  filter: brightness(0.95);
 }
 
 .control-button.running {
-  background-color: #f39c12;
+  background-color: var(--color-accent-orange);
+  color: var(--color-text-white);
 }
 
 .reset-button {
-  background-color: #7f8c8d;
+  background-color: var(--color-input-gray);
 }
 
 .complete-button {
-  background-color: #27ae60;
+  background-color: var(--color-accent-green);
+}
+
+.card-header {
+  padding: 0 0 16px 0;
+  border-bottom: none;
+  text-align: center;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  color: var(--color-text-white);
+  margin-bottom: 6px;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.task-status {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #888;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.task-status.running {
+  color: var(--color-accent-orange);
+  background-color: rgba(255, 147, 38, 0.1);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
 }
 
 @media (max-width: 480px) {
@@ -491,6 +612,7 @@ onBeforeUnmount(clearTimer)
 
   .timer-controls {
     flex-direction: column;
+    gap: 8px;
   }
 }
 </style>

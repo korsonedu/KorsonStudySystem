@@ -5,9 +5,9 @@ from pydantic import BaseModel, Field
 class TaskBase(BaseModel):
     name: str
     duration: int
-    completed: Optional[bool] = False
     start: Optional[datetime] = None
-    end: Optional[datetime] = None
+    end: Optional[datetime] = None  # 允许为空，但在业务逻辑中处理
+    completed: Optional[bool] = False
 
 class TaskCreate(TaskBase):
     pass
@@ -15,9 +15,9 @@ class TaskCreate(TaskBase):
 class TaskUpdate(BaseModel):
     name: Optional[str] = None
     duration: Optional[int] = None
-    completed: Optional[bool] = None
     start: Optional[datetime] = None
-    end: Optional[datetime] = None
+    end: Optional[datetime] = None  # 允许为空，但在业务逻辑中处理
+    completed: Optional[bool] = None
 
 class TaskResponse(TaskBase):
     id: int

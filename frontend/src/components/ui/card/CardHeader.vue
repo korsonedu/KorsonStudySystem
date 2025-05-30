@@ -12,7 +12,7 @@ const props = withDefaults(
 )
 
 const headerClasses = computed(() => {
-  return cn('flex flex-col space-y-1.5 p-6', props.class)
+  return cn('flex flex-col space-y-2 p-8 pb-4', props.class)
 })
 </script>
 

@@ -1,5 +1,5 @@
 # backend/app/modules/common/models/user.py
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -17,6 +17,7 @@ class User(Base):
     created_at = Column(DateTime, server_default=func.now())
     email_verified = Column(Boolean, default=False, nullable=False)
     verification_token = Column(String, nullable=True)
+    avatar = Column(Text, nullable=True)  # 存储DiceBear头像URL
 
     # 建立关系
     tasks = relationship("Task", back_populates="user")

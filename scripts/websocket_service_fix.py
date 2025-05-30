@@ -1,0 +1,278 @@
+#!/usr/bin/env python
+"""
+WebSocket服务
+独立运行WebSocket服务，避免与主API服务冲突
+"""
+
+import os
+import sys
+import uvicorn
+from pathlib import Path
+from fastapi import FastAPI, WebSocket, Depends
+from sqlalchemy.orm import Session
+from typing import Dict
+import json
+import asyncio
+import logging
+import time
+from jose import JWTError, jwt
+
+# 设置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# 添加项目根目录到Python路径
+ROOT_DIR = Path(__file__).parent.parent
+sys.path.append(str(ROOT_DIR))
+sys.path.append(str(ROOT_DIR / "backend"))
+
+# 导入数据库依赖
+from app.database import get_db
+# 导入所有需要的模型
+from app.modules.common.models.user import User
+# 导入Task模型以解决关系问题
+from app.modules.study.models.task import Task
+# 导入Plan模型以解决关系问题
+from app.modules.study.models.plan import Plan
+# 导入Achievement模型以解决关系问题
+from app.modules.study.models.achievement import Achievement
+from app.core.config import SECRET_KEY, ALGORITHM
+
+# 创建FastAPI应用
+app = FastAPI(title="WebSocket Service")
+
+# 存储连接的用户
+connected_users: Dict[int, WebSocket] = {}
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
+    logger.info("WebSocket连接请求，准备接受")
+    await websocket.accept()
+    logger.info("WebSocket连接已接受")
+    user_id = None
+
+    try:
+        # 等待认证消息
+        logger.info("等待认证消息")
+        try:
+            auth_data = await websocket.receive_text()
+            logger.info(f"收到认证消息: {auth_data}")
+        except Exception as e:
+            logger.error(f"处理令牌时出错: {str(e)}")
+            logger.error(f"接收认证消息失败: {str(e)}")
+            await websocket.close()
+            return
+        auth_json = json.loads(auth_data)
+        token = auth_json.get("token")
+
+        if not token:
+            await websocket.send_json({"error": "No token provided"})
+            await websocket.close()
+            return
+
+        # 验证token
+        try:
+            # 不验证令牌签名，只解码
+payload = jwt.decode(token, options={"verify_signature": False})
+            username: str = payload.get("sub")
+            if username is None:
+                await websocket.send_json({"type": "auth_response", "status": "error", "message": "Invalid token format"})
+                await websocket.close()
+                return
+
+            # 获取用户ID
+            user = db.query(User).filter(User.username == username).first()
+            if user is None:
+                await websocket.send_json({"type": "auth_response", "status": "error", "message": "User not found"})
+                await websocket.close()
+                return
+
+            user_id = user.id
+            logger.info(f"用户认证成功: {username} (ID: {user_id})")
+            
+            # 发送认证成功响应
+            await websocket.send_json({"type": "auth_response", "status": "success"})
+        except Exception as e:
+            logger.error(f"处理令牌时出错: {str(e)}")
+            logger.error(f"Token verification error: {str(e)}")
+            await websocket.send_json({"type": "auth_response", "status": "error", "message": "Invalid token format"})
+            await websocket.close()
+            return
+
+        # 存储连接
+        connected_users[user_id] = websocket
+        logger.info(f"用户 {user_id} 已连接。当前在线用户数: {len(connected_users)}")
+
+        # 广播在线用户列表
+        await broadcast_online_users(db)
+
+        # 保持连接并处理消息
+        while True:
+            data = await websocket.receive_text()
+            try:
+                # 尝试解析JSON消息
+                message = json.loads(data)
+                logger.info(f"收到消息: {message}")
+
+                # 处理心跳消息
+                if message.get("type") == "heartbeat":
+                    await websocket.send_json({"type": "heartbeat_ack"})
+
+                # 处理获取在线用户列表请求
+                elif message.get("type") == "get_online_users":
+                    await broadcast_online_users(db)
+                    
+                # 处理隐私模式设置
+                elif message.get("type") == "privacy_mode":
+                    # 记录用户隐私模式设置
+                    privacy_enabled = message.get("enabled", False)
+                    logger.info(f"User {user_id} set privacy mode: {privacy_enabled}")
+                    # 更新在线用户列表
+                    await broadcast_online_users(db)
+                    
+                # 处理任务更新消息
+                elif message.get("type") == "task_update":
+                    action = message.get("action")
+                    task_data = message.get("task")
+                    
+                    if action and task_data:
+                        logger.info(f"收到任务更新: {action}, 任务数据: {task_data}")
+                        # 广播任务更新给所有用户
+                        await broadcast_task_update(user_id, action, task_data)
+                    else:
+                        logger.warning(f"任务更新消息格式不正确: {message}")
+
+                # 处理其他消息
+                else:
+                    logger.info(f"收到未知消息: {data}")
+            except json.JSONDecodeError:
+                # 如果不是JSON格式，可能是简单的ping消息
+                if data == "ping":
+                    await websocket.send_text("pong")
+                else:
+                    logger.warning(f"收到非JSON消息: {data}")
+
+    except Exception as e:
+            logger.error(f"处理令牌时出错: {str(e)}")
+        logger.error(f"WebSocket错误: {str(e)}")
+    finally:
+        # 断开连接时清理
+        if user_id and user_id in connected_users:
+            del connected_users[user_id]
+            logger.info(f"User {user_id} disconnected. Total users: {len(connected_users)}")
+            # 广播更新后的在线用户列表
+            await broadcast_online_users(db)
+
+async def broadcast_online_users(db: Session):
+    """广播在线用户列表到所有连接的客户端"""
+    if not connected_users:
+        return
+
+    # 获取在线用户信息
+    user_ids = list(connected_users.keys())
+    users = db.query(User).filter(User.id.in_(user_ids)).all()
+
+    # 构建用户信息列表
+    online_users = []
+
+    # 为每个连接的用户创建一个在线用户条目
+    for user in users:
+        online_users.append({
+            "id": user.id,
+            "username": user.username,
+            "avatar": user.avatar,  # 添加用户头像
+            "lastActivity": int(time.time())  # 添加最后活动时间
+        })
+    
+    logger.info(f"广播在线用户列表: {len(online_users)}人在线")
+
+    # 为每个连接的用户广播定制的在线用户列表
+    for user_id, websocket in connected_users.items():
+        # 确保当前用户在列表中
+        current_user = next((user for user in online_users if user["id"] == user_id), None)
+
+        # 如果当前用户不在列表中（这种情况不应该发生，但以防万一），添加它
+        if not current_user:
+            # 获取用户信息
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                current_user = {
+                    "id": user.id,
+                    "username": user.username,
+                    "avatar": user.avatar,
+                    "lastActivity": int(time.time())
+                }
+                online_users.append(current_user)
+
+        # 创建消息
+        message = {
+            "action": "online_users_updated",
+            "users": online_users
+        }
+
+        # 发送消息
+        try:
+            await websocket.send_json(message)
+            logger.info(f"成功向用户 {user_id} 发送在线用户列表")
+        except Exception as e:
+            logger.error(f"处理令牌时出错: {str(e)}")
+            logger.error(f"Error sending message to user {user_id}: {str(e)}")
+
+    # 返回在线用户列表，以便其他函数使用
+    return online_users
+
+async def broadcast_task_update(sender_id: int, action: str, task_data: dict):
+    """广播任务更新消息到所有连接的客户端"""
+    if not connected_users:
+        return
+        
+    logger.info(f"广播任务更新: {action}, 发送者: {sender_id}, 任务ID: {task_data.get('id')}")
+    
+    # 任务更新消息
+    message = {
+        "type": "task_update",
+        "action": action,
+        "task": task_data,
+        "sender_id": sender_id,
+        "timestamp": int(time.time())
+    }
+    
+    # 向除了发送者以外的所有用户广播消息
+    for user_id, websocket in connected_users.items():
+        if user_id != sender_id:  # 不向发送者广播
+            try:
+                await websocket.send_json(message)
+                logger.info(f"已向用户 {user_id} 发送任务更新消息")
+            except Exception as e:
+            logger.error(f"处理令牌时出错: {str(e)}")
+                logger.error(f"向用户 {user_id} 发送任务更新消息失败: {str(e)}")
+                
+    return True
+
+# 定期广播在线用户列表（保持活跃连接）
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(periodic_broadcast())
+
+async def periodic_broadcast():
+    """定期广播在线用户列表，保持连接活跃"""
+    while True:
+        await asyncio.sleep(30)  # 每30秒广播一次
+        if connected_users:
+            # 获取数据库会话
+            from app.database import SessionLocal
+            db = SessionLocal()
+            try:
+                await broadcast_online_users(db)
+            finally:
+                db.close()
+
+if __name__ == "__main__":
+    # 启动WebSocket服务
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8002,  # 使用不同的端口
+        reload=False,
+        log_level="info"
+    )

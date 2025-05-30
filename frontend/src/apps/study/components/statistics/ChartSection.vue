@@ -63,9 +63,9 @@ const props = defineProps<{
 }
 
 .section-heading {
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 10px;
   position: relative;
   display: inline-block;
@@ -79,16 +79,15 @@ const props = defineProps<{
   left: 0;
   width: 50px;
   height: 3px;
-  background: linear-gradient(90deg, #2196f3, #03a9f4);
+  background: rgba(74, 106, 138, 0.8);
   border-radius: 1.5px;
 }
 
 .section-desc {
   margin: 10px 0 0;
-  color: #5c6bc0;
+  color: var(--color-text-light-gray);
   font-size: 0.95rem;
   font-weight: 500;
-  opacity: 0.8;
 }
 
 .charts-row {

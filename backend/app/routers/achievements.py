@@ -156,6 +156,35 @@ def get_user_stats(user_id: int, db: Session) -> Dict[str, Any]:
 
     return stats
 
+# 获取所有成就定义（不包含条件函数）
+@router.get("/definitions", response_model=None)
+def get_achievement_definitions():
+    """获取所有成就的定义，包括名称、描述和等级信息"""
+    definitions = []
+    for achievement in ACHIEVEMENTS:
+        # 创建不包含条件函数的成就定义副本
+        achievement_def = {
+            "id": achievement["id"],
+            "name": achievement["name"],
+            "description": achievement["description"],
+            "levels": []
+        }
+
+        # 添加每个等级的信息，但不包含条件函数
+        for level in achievement["levels"]:
+            level_def = {
+                "level": level["level"],
+                "description": level["description"]
+            }
+            achievement_def["levels"].append(level_def)
+
+        definitions.append(achievement_def)
+
+    return {
+        "status": "success",
+        "achievements": definitions
+    }
+
 # 获取用户的成就
 @router.get("/", response_model=None)
 def get_user_achievements(db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):

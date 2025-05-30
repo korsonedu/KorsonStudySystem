@@ -1,21 +1,5 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
-import { userService } from '../shared/services/userService'
-
-// 检查令牌函数 - 尝试多种可能的键名
-function checkToken() {
-  // 尝试多种可能的键名
-  let token = localStorage.getItem('auth_token');
-  if (!token) token = localStorage.getItem('token');
-
-  // 如果找到令牌，确保它被正确存储在所有可能的键下
-  if (token) {
-    localStorage.setItem('auth_token', token);
-    localStorage.setItem('token', token);
-    return token;
-  }
-
-  return null;
-}
+import { useUserStore } from '../stores/userStore'
 
 // 导入共享视图
 import Login from '../shared/views/Login.vue'
@@ -135,28 +119,25 @@ const router = createRouter({
 
 // 路由守卫，检查用户是否已登录
 router.beforeEach((to, from, next) => {
-  // 检查令牌是否存在
-  const token = checkToken();
+  console.log(`路由守卫 - 开始处理路由: ${from.path} -> ${to.path}`);
 
-  // 如果令牌存在，确保用户名也存在
-  if (token && !localStorage.getItem('username')) {
-    localStorage.setItem('username', 'user');
-  }
-
-  // 使用统一服务检查登录状态
-  const isAuthenticated = userService.checkAuth() || !!token;
-
-  console.log(`路由守卫 - 路径: ${to.path}`);
-  console.log(`路由守卫 - 是否已登录: ${isAuthenticated}`);
-  console.log(`路由守卫 - Token: ${!!token}`);
-  console.log(`路由守卫 - User Service: ${userService.isLoggedIn}`);
-
-  // 如果用户已登录且尝试访问登录或注册页面，重定向到主页
-  if (isAuthenticated && (to.path === '/login' || to.path === '/register')) {
-    console.log('路由守卫 - 已登录用户尝试访问登录/注册页面，重定向到主页');
-    next({ path: '/', replace: true });
+  // 如果用户正在访问登录页或注册页，直接允许访问
+  if (to.path === '/login' || to.path === '/register') {
+    console.log('路由守卫 - 用户正在访问登录/注册页面，直接允许访问');
+    next();
     return;
   }
+
+  // 使用Pinia store检查登录状态
+  const userStore = useUserStore();
+  const isAuthenticated = userStore.checkAuth();
+
+  console.log(`路由守卫 - 认证状态:`, {
+    isAuthenticated,
+    username: userStore.username,
+    path: to.path,
+    requiresAuth: !!to.meta.requiresAuth
+  });
 
   // 如果需要认证但用户未登录，重定向到登录页
   if (to.meta.requiresAuth && !isAuthenticated) {

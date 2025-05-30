@@ -1,7 +1,24 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+
+// 导入CSS文件 - 按照优先级顺序排列
+// 1. 首先导入变量定义 - 所有CSS变量的单一来源
+import './assets/css/variables.css'
+
+// 2. 导入shadcn-vue全局CSS
+import './assets/global.css'
+
+// 3. 导入基础样式
 import './style.css'
-import './assets/global.css' // Import shadcn-vue global CSS
+
+// 4. 导入自定义组件和布局样式
+import './assets/css/components.css'
+import './assets/css/layout.css'
+import './assets/css/animations.css'
+
+// 5. 导入认证相关样式
+import './assets/css/auth.css'
+
 import App from './App.vue'
 import router from './router'
 

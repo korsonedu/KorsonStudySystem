@@ -2,11 +2,14 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import SimplePoster from './SimplePoster.vue'
+import SidebarNav from './SidebarNav.vue'
+import MobileNavButton from './MobileNavButton.vue'
 import { userService } from '../../../shared/services/userService'
 
 const router = useRouter()
 const showPosterModal = ref(false)
 const generatedImageUrl = ref('')
+const showSidebar = ref(false)
 
 // 使用用户服务的响应式状态
 const isLoggedIn = computed(() => userService.isLoggedIn)
@@ -26,24 +29,38 @@ const handlePosterGenerated = (imageUrl: string) => {
   generatedImageUrl.value = imageUrl
 }
 
-// 不再需要监听点击事件，因为用户菜单已移至顶栏
+// 打开侧边栏
+const openSidebar = () => {
+  showSidebar.value = true
+}
+
+// 关闭侧边栏
+const closeSidebar = () => {
+  showSidebar.value = false
+}
 </script>
 
 <template>
   <header class="navbar">
     <h1></h1>
     <div class="nav-container">
-      <nav v-if="isLoggedIn">
-        <router-link to="/" class="nav-btn">🍅 番茄钟</router-link>
+      <nav v-if="isLoggedIn" class="desktop-nav">
+        <router-link to="/" class="nav-btn" :class="{ 'router-link-active': $route.path === '/' || $route.path === '/study' }">🍅 番茄钟</router-link>
         <router-link to="/statistics" class="nav-btn">📈 统计</router-link>
         <router-link to="/achievements" class="nav-btn">🏅 成就</router-link>
         <button class="nav-btn" @click="showPoster">🖼️ 下载海报</button>
       </nav>
-
-      <!-- 用户菜单已移至顶栏 -->
-
-      <!-- 不显示登录/注册按钮，这些按钮应该只在顶部MacOS栏中显示 -->
     </div>
+
+    <!-- 移动端导航按钮 -->
+    <MobileNavButton @click="openSidebar" />
+
+    <!-- 侧边栏导航 -->
+    <SidebarNav
+      :is-open="showSidebar"
+      @close="closeSidebar"
+      @show-poster="showPoster"
+    />
 
     <!-- 海报模态框 -->
     <Teleport to="body">
@@ -62,7 +79,6 @@ const handlePosterGenerated = (imageUrl: string) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
   padding-bottom: 15px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
@@ -90,28 +106,32 @@ nav {
   align-items: center;
   justify-content: center;
   padding: 8px 16px;
-  border-radius: 20px;
-  color: var(--text-color);
+  border-radius: 10px;
+  color: var(--color-text-white);
   font-weight: 500;
-  transition: all 0.3s ease;
-  background: rgba(52, 152, 219, 0.05);
-  border: none;
+  transition: all var(--transition-fast) ease;
+  background-color: rgba(74, 106, 138, 0.1);
+  border: 1px solid rgba(74, 106, 138, 0.3);
   cursor: pointer;
   font-size: 1rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   height: 38px;
+  letter-spacing: 0.3px;
 }
 
 .nav-btn:hover {
-  background: rgba(52, 152, 219, 0.15);
+  background-color: rgba(74, 106, 138, 0.2);
+  border-color: rgba(74, 106, 138, 0.5);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.15);
+  box-shadow: 0 4px 10px rgba(74, 106, 138, 0.2);
 }
 
 .router-link-active {
-  background: var(--primary-color);
-  color: white;
-  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+  background-color: rgba(102, 205, 170, 0.2);
+  color: var(--color-text-white);
+  border-color: rgba(102, 205, 170, 0.5);
+  box-shadow: 0 4px 10px rgba(102, 205, 170, 0.15);
+  font-weight: 600;
 }
 
 .user-container {
@@ -183,6 +203,13 @@ nav {
   box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
 }
 
+/* 添加桌面导航样式 */
+.desktop-nav {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .navbar {
@@ -196,19 +223,8 @@ nav {
     width: 100%;
   }
 
-  nav {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-
-  .nav-btn {
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    height: 36px;
-    text-align: center;
-    justify-content: center;
+  .desktop-nav {
+    display: none; /* 在平板和手机上隐藏桌面导航 */
   }
 }
 
@@ -221,18 +237,6 @@ nav {
 
   h1 {
     font-size: 1.5em;
-  }
-
-  nav {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-  }
-
-  .nav-btn {
-    padding: 6px 8px;
-    font-size: 0.8rem;
-    height: 34px;
-    border-radius: 16px;
   }
 }
 </style>

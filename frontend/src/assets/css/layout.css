@@ -1,0 +1,396 @@
+/*
+ * 布局样式
+ * 这个文件定义了应用程序中使用的布局样式
+ * 基于苹果设计风格
+ */
+
+/* 主要内容布局 - 苹果风格 */
+.main-content {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 30px;
+  background-color: var(--color-dark-gray);
+  min-height: calc(100vh - 40px);
+  color: var(--color-text-white);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--color-border-gray);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 主要内容区域 */
+.content-main, .pomodoro-main {
+  flex: 3;
+  width: 100%;
+}
+
+/* 侧边栏 - 苹果风格 */
+.sidebar, .plan-sidebar {
+  width: 340px;
+  height: fit-content;
+  font-size: 0.9rem;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-card-gray);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--color-border-gray);
+  transition: all var(--transition-normal) ease;
+  padding:20px;
+}
+
+.sidebar:hover, .plan-sidebar:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+/* 番茄钟卡片 - 苹果风格 */
+.pomodoro-card {
+  margin-bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 400px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-card-gray);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--color-border-gray);
+  padding: 24px;
+}
+
+/* 番茄钟标题 - 苹果风格 */
+.pomodoro-title {
+  font-size: 1.5rem;
+  color: var(--color-text-white);
+  margin-bottom: 8px;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.pomodoro-subtitle {
+  color: var(--color-text-gray);
+  text-align: center;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+}
+
+/* 计时器容器 - 苹果风格 */
+.timer-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 24px 0;
+  transform: scale(1.4);
+  flex: 1;
+  min-height: 200px;
+  position: relative;
+  z-index: 1;
+}
+
+.timer-container::before {
+  content: '';
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(255, 159, 10, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: -1;
+}
+
+/* 控制按钮容器 - 苹果风格 */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 24px 0 16px;
+  width: 100%;
+  max-width: 600px;
+}
+
+/* 任务输入区域 - 苹果风格 */
+.task-input-section, .time-input-section {
+  width: 100%;
+  max-width: 800px;
+  position: relative;
+  transition: all 0.2s ease;
+  margin-bottom: 16px;
+  background-color: var(--color-input-gray);
+  border-radius: 10px;
+  border: 1px solid var(--color-border-gray);
+  padding: 16px;
+}
+
+.task-input-section {
+  margin-top: 20px;
+}
+
+.task-input-section.drag-over,
+.task-input-section.plan-dragging {
+  transform: scale(1.02);
+  border-color: var(--color-accent-orange);
+  box-shadow: 0 0 12px rgba(168, 138, 112, 0.4), 0 0 20px rgba(168, 138, 112, 0.2);
+  transition: all 0.3s ease;
+  background-color: rgba(168, 138, 112, 0.08);
+}
+
+.task-input-section.drag-over::after,
+.task-input-section.plan-dragging::after {
+  content: '拖放计划到这里开始学习';
+  position: absolute;
+  top: -45px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, var(--color-accent-orange), var(--color-accent-orange-dim));
+  color: var(--color-text-white);
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  animation: bounce 1.2s infinite ease-in-out;
+  z-index: 10;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* 添加箭头指示器 */
+.task-input-section.drag-over::before,
+.task-input-section.plan-dragging::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid var(--color-accent-orange-dim);
+  z-index: 10;
+  animation: bounce 1.2s infinite ease-in-out;
+}
+
+/* 学习统计区域 - 苹果风格 */
+.study-stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin: 20px 0;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* 学习提示区域 - 苹果风格 */
+.study-tips {
+  margin-top: 20px;
+  background-color: var(--color-input-gray);
+  border-radius: 10px;
+  padding: 16px 20px;
+  width: 100%;
+  max-width: 500px;
+  border-left: 3px solid var(--color-accent-orange);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--color-border-gray);
+}
+
+.study-tips h4 {
+  margin: 0 0 10px;
+  color: var(--color-text-white);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.study-tips ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.study-tips li {
+  margin-bottom: 8px;
+  color: var(--color-text-gray);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* 任务列表 - 苹果风格 */
+.task-list {
+  margin-bottom: 20px;
+  width: 100%;
+  background-color: var(--color-card-gray);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--color-border-gray);
+  padding: 20px;
+  transition: all var(--transition-normal) ease;
+}
+
+.task-list:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--color-border-gray);
+  padding-bottom: 15px;
+}
+
+.list-header h2 {
+  font-size: 1.4rem;
+  color: var(--color-text-white);
+  margin: 0;
+  font-weight: 600;
+}
+
+.task-records {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+/* 侧边栏样式 - 苹果风格 */
+.sidebar-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  padding: 20px 20px 15px;
+  border-bottom: 1px solid var(--color-border-gray);
+}
+
+.sidebar-header h2 {
+  font-size: 1.4rem;
+  color: var(--color-text-white);
+  margin: 0 0 5px 0;
+  font-weight: 600;
+}
+
+.sidebar-subtitle {
+  color: var(--color-text-gray);
+  font-size: 0.9rem;
+  margin: 0;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+}
+
+.plan-control {
+  display: flex;
+  margin-bottom: 14px;
+  margin-top: 6px;
+  padding: 0 20px;
+}
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+  .main-content {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    flex-direction: column;
+  }
+
+  .sidebar, .plan-sidebar {
+    width: 100%;
+    margin-top: 30px;
+  }
+
+  .content-main, .pomodoro-main {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  .study-stats {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 20px;
+  }
+
+  .controls {
+    flex-wrap: wrap;
+  }
+
+  .timer-container {
+    transform: scale(1.2);
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 15px;
+  }
+
+  .pomodoro-card {
+    padding: 16px;
+  }
+
+  .timer-container {
+    transform: scale(0.9);
+  }
+
+  .control-btn {
+    padding: 8px;
+    font-size: 0.85rem;
+  }
+
+  .list-header h2, .sidebar-header h2 {
+    font-size: 1.2rem;
+  }
+
+  .study-tips h4 {
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+  }
+
+  .study-tips li {
+    font-size: 0.8rem;
+    margin-bottom: 3px;
+  }
+
+  .empty-message {
+    padding: 15px;
+    font-size: 0.85rem;
+  }
+
+  /* 移动设备上的拖放提示样式调整 */
+  .task-input-section.drag-over::after,
+  .task-input-section.plan-dragging::after {
+    top: -40px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    white-space: normal;
+    max-width: 90%;
+    text-align: center;
+  }
+
+  .task-input-section.drag-over::before,
+  .task-input-section.plan-dragging::before {
+    top: -12px;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid var(--color-accent-orange-dim);
+  }
+}

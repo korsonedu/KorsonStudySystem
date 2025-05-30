@@ -1,0 +1,109 @@
+/*
+ * 全局CSS变量 - 苹果风格暗色主题
+ * 这个文件是所有CSS变量的单一来源，避免变量冲突
+ */
+
+:root {
+  /*
+   * 背景色系 - 统一命名规范
+   * 使用 --color- 前缀表示颜色变量
+   */
+  --color-black: #000000;         /* 纯黑色 - 主背景 */
+  --color-dark-gray: #1A1A1A;     /* 深灰色 - 主要背景 */
+  --color-card-gray: #242424;     /* 中深灰色 - 卡片背景 */
+  --color-input-gray: #323232;    /* 输入框背景 */
+  --color-border-gray: #3A3A3A;   /* 边框颜色 */
+  --color-hover-gray: #2A2A2A;    /* 悬停状态背景 */
+
+  /* 文本色系 */
+  --color-text-white: #FFFFFF;    /* 白色文本 - 主要文本 */
+  --color-text-gray: #A0A0A0;     /* 灰色文本 - 次要文本 */
+  --color-text-light-gray: #BBBBBB; /* 浅灰色文本 */
+  --color-text-dim: #777777;      /* 更暗的文本 */
+  --color-text-yellow: #FFCC00;   /* 黄色强调文本 */
+
+  /* 强调色系 - 低饱和度、柔和版本 */
+  --color-accent-blue: #5A7A9A;   /* 低饱和度蓝灰色 - 主强调色 */
+  --color-accent-orange: #A88A70; /* 低饱和度棕橙色 */
+  --color-accent-green: #6A8D7F;  /* 低饱和度青绿色 - 成功状态 */
+  --color-accent-red: #A07A7A;    /* 低饱和度红褐色 - 删除/警告 */
+  --color-accent-purple: #8A7A9A; /* 低饱和度紫灰色 */
+  --color-accent-yellow: #A09A7A; /* 低饱和度黄褐色 */
+
+  /* 低饱和度变体 - 更暗 */
+  --color-accent-blue-dim: #4A6A8A;   /* 更暗的蓝灰色 */
+  --color-accent-orange-dim: #907A60; /* 更暗的棕橙色 */
+  --color-accent-green-dim: #5A7D6F;  /* 更暗的青绿色 */
+  --color-accent-red-dim: #885555;    /* 更暗的红褐色 */
+
+  /* RGB值 - 用于rgba()函数 */
+  --color-accent-blue-dim-rgb: 74, 106, 138;
+  --color-accent-orange-dim-rgb: 144, 122, 96;
+  --color-accent-green-dim-rgb: 90, 125, 111;
+  --color-accent-red-dim-rgb: 136, 85, 85;
+
+  /* 边框和阴影 */
+  --color-border: rgba(255, 255, 255, 0.15);  /* 标准边框颜色 */
+  --color-shadow: rgba(0, 0, 0, 0.5);         /* 阴影颜色 */
+  --shadow-card: 0 6px 12px var(--color-shadow);  /* 卡片阴影 */
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.3); /* 卡片悬停阴影 */
+
+  /* 圆角 - 更大的圆角 */
+  --radius-sm: 10px;   /* 小圆角 - 按钮、输入框等 */
+  --radius-md: 12px;   /* 中圆角 - 卡片等 */
+  --radius-lg: 16px;   /* 大圆角 - 对话框等 */
+  --radius-xl: 20px;   /* 特大圆角 - 最外层容器 */
+
+  /* 渐变背景 */
+  --gradient-card: linear-gradient(145deg, #2a2a2c, #2e2e30);  /* 卡片渐变 */
+  --gradient-dark: linear-gradient(145deg, #1a1a1c, #202022);  /* 深色渐变 */
+  --gradient-input: linear-gradient(145deg, #323234, #3a3a3c);  /* 输入框渐变 */
+
+  /* 动画时间 */
+  --transition-fast: 0.15s;    /* 快速过渡 - 悬停效果等 */
+  --transition-normal: 0.25s;  /* 标准过渡 - 大多数交互 */
+  --transition-slow: 0.5s;     /* 慢速过渡 - 强调动画 */
+
+  /*
+   * 兼容性变量 - 为了向后兼容
+   * 这些变量使用新变量作为值，确保一致性
+   */
+  --bg-dark: var(--color-dark-gray);
+  --bg-card: var(--color-card-gray);
+  --bg-card-hover: var(--color-hover-gray);
+  --bg-input: var(--color-input-gray);
+
+  --text-white: var(--color-text-white);
+  --text-gray: var(--color-text-gray);
+  --text-yellow: var(--color-text-yellow);
+
+  --border-color: var(--color-border);
+  --shadow-color: var(--color-shadow);
+  --card-shadow: var(--shadow-card);
+
+  --border-radius-sm: var(--radius-sm);
+  --border-radius-md: var(--radius-md);
+  --border-radius-lg: var(--radius-lg);
+  --border-radius-xl: var(--radius-xl);
+
+  /* 其他兼容性变量 */
+  --text-primary: var(--color-text-white);
+  --text-secondary: var(--color-text-gray);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
+  --accent-yellow: var(--color-text-yellow);
+  --accent-blue: #0a84ff;
+  --accent-green: #30d158;
+  --accent-red: #ff453a;
+  --accent-orange: #ff9f0a;
+  --accent-purple: #bf5af2;
+}
+
+/* 暗色主题特定变量 */
+.dark-theme {
+  /* 可以在这里添加暗色主题特定的变量 */
+}
+
+/* 亮色主题特定变量 - 未来可能会用到 */
+.light-theme {
+  /* 可以在这里添加亮色主题特定的变量 */
+}

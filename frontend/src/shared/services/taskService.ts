@@ -5,6 +5,7 @@
 import { ref } from 'vue';
 import { apiService } from './apiService';
 import { API_CONFIG } from '../../config';
+import eventBus, { EVENT_NAMES } from '../../utils/eventBus';
 
 // 任务状态
 const tasks = ref<any[]>([]);
@@ -96,6 +97,11 @@ export const taskService = {
     error.value = '';
 
     try {
+      // 确保任务是已完成的
+      if (!task.completed) {
+        throw new Error('只能创建已完成的任务');
+      }
+
       const response = await apiService.post(API_CONFIG.ENDPOINTS.TASKS.BASE, task);
       // 更新本地任务列表
       tasks.value = [...tasks.value, response.data];
@@ -167,21 +173,86 @@ export const taskService = {
   },
 
   /**
-   * 完成任务
+   * 开始任务
    * @param id 任务ID
    */
-  async completeTask(id: number) {
+  async startTask(id: number) {
     isLoading.value = true;
     error.value = '';
 
     try {
-      const response = await apiService.post(`${API_CONFIG.ENDPOINTS.TASKS.BASE}/${id}/complete`);
+      const response = await apiService.post(`${API_CONFIG.ENDPOINTS.TASKS.BASE}/${id}/start`);
       // 更新本地任务列表
       const index = tasks.value.findIndex(t => t.id === id);
       if (index !== -1) {
         tasks.value[index] = response.data;
         tasks.value = [...tasks.value];
       }
+
+      // 广播任务开始事件
+      console.log('任务开始，广播事件:', EVENT_NAMES.TASK_STARTED, '任务数据:', response.data);
+
+      // 确保任务数据包含用户信息
+      if (!response.data.user || !response.data.user.id) {
+        console.warn('任务数据缺少用户信息，尝试添加');
+        // 尝试从localStorage获取当前用户信息
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        if (currentUser && currentUser.id) {
+          response.data.user = {
+            id: currentUser.id,
+            username: currentUser.username || '未知用户'
+          };
+          console.log('已添加用户信息到任务数据:', response.data);
+        } else {
+          console.error('无法获取当前用户信息，任务开始事件可能无法正确处理');
+        }
+      }
+
+      eventBus.emit(EVENT_NAMES.TASK_STARTED, response.data);
+
+      return response.data;
+    } catch (err: any) {
+      console.error(`开始任务 ${id} 失败:`, err);
+      error.value = err.response?.data?.detail || '开始任务失败';
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  },
+
+  /**
+   * 完成任务
+   * @param id 任务ID
+   * @param taskData 可选的任务数据，包含结束时间和持续时间
+   */
+  async completeTask(id: number, taskData?: any) {
+    isLoading.value = true;
+    error.value = '';
+
+    try {
+      // 如果提供了任务数据，使用PUT请求更新任务
+      let response;
+      if (taskData) {
+        // 确保任务被标记为已完成
+        taskData.completed = true;
+
+        // 使用PUT请求更新任务
+        response = await apiService.put(`${API_CONFIG.ENDPOINTS.TASKS.BASE}/${id}`, taskData);
+      } else {
+        // 否则使用原来的完成任务端点
+        response = await apiService.post(`${API_CONFIG.ENDPOINTS.TASKS.BASE}/${id}/complete`);
+      }
+
+      // 更新本地任务列表
+      const index = tasks.value.findIndex(t => t.id === id);
+      if (index !== -1) {
+        tasks.value[index] = response.data;
+        tasks.value = [...tasks.value];
+      }
+
+      // 广播任务完成事件
+      eventBus.emit(EVENT_NAMES.TASK_COMPLETED, response.data);
+
       return response.data;
     } catch (err: any) {
       console.error(`完成任务 ${id} 失败:`, err);

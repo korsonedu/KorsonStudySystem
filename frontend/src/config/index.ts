@@ -108,6 +108,11 @@ export const API_CONFIG = {
       TIME_DISTRIBUTION: '/api/study/statistics/time-distribution',
       USER_INFO: '/api/study/statistics/user',
       USER_STATS: '/api/study/statistics/user'  // 用户统计端点，获取连续学习天数等统计信息
+    },
+
+    // WebSocket相关
+    WEBSOCKET: {
+      ONLINE_USERS: '/api/online-users/ws'  // 在线用户WebSocket端点
     }
   },
 
@@ -118,7 +123,9 @@ export const API_CONFIG = {
 export const STORAGE_CONFIG = {
   PREFIX: 'studytool_',  // 本地存储键前缀
   TOKEN_KEY: 'auth_token',    // 认证令牌存储键 - 必须与服务文件中的 TOKEN_KEY 常量一致
-  USERNAME_KEY: 'username'  // 用户名存储键
+  USERNAME_KEY: 'username',  // 用户名存储键
+  USER_DATA_KEY: 'user_data', // 用户数据存储键
+  TOKEN_EXPIRY_KEY: 'token_expiry' // 令牌过期时间存储键
 };
 
 // 应用配置

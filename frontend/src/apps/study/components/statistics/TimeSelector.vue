@@ -51,33 +51,38 @@ const switchView = (view: string) => {
 .time-selector {
   display: flex;
   justify-content: center;
-  gap: 15px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 24px;
 }
 
 .time-filter {
-  background: white;
-  border: 1px solid #e0e0e0;
-  padding: 10px 20px;
-  border-radius: 30px;
+  background-color: rgba(74, 106, 138, 0.05);
+  border: 1px solid rgba(74, 106, 138, 0.2);
+  padding: 8px 16px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  font-size: 0.95rem;
+  transition: all var(--transition-fast) ease;
+  font-size: 0.9rem;
   font-weight: 500;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  color: var(--color-text-light-gray);
+  height: 36px;
+  min-width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .time-filter:hover {
-  background: #f8f9fa;
-  transform: translateY(-3px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: rgba(74, 106, 138, 0.1);
+  transform: translateY(-1px);
+  color: var(--color-text-white);
 }
 
 .time-filter.active {
-  background: linear-gradient(135deg, #2196f3, #1976d2);
-  color: white;
-  border-color: transparent;
-  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+  background-color: rgba(74, 106, 138, 0.2);
+  color: var(--color-text-white);
+  border-color: rgba(74, 106, 138, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* 响应式布局 */

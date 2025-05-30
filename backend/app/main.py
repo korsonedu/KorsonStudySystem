@@ -1,9 +1,11 @@
 # backend/app/main.py
 import pytz
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import tasks, plans, achievements, auth, statistics, users
+from sqlalchemy.orm import Session
+from .routers import tasks, plans, achievements, auth, statistics, users, avatar
+from .database import get_db
 from .database import engine, Base
 from .core.config import (
     ENVIRONMENT, FRONTEND_URL, APP_NAME, APP_DESCRIPTION, APP_VERSION,
@@ -55,6 +57,9 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 # 注册用户路由
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 
+# 注册头像路由
+app.include_router(avatar.router, prefix="/api/avatar", tags=["avatar"])
+
 # 注册任务路由
 app.include_router(tasks.router, prefix="/api/study/tasks", tags=["tasks"])
 
@@ -66,3 +71,5 @@ app.include_router(achievements.router, prefix="/api/study/achievements", tags=[
 
 # 注册统计路由
 app.include_router(statistics.router, prefix="/api/study/statistics", tags=["statistics"])
+
+# WebSocket路由已移至独立服务

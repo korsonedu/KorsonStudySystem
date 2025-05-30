@@ -244,12 +244,12 @@ function getColor(value: number | null | undefined | any): string {
     return '#ebedf0'; // 默认灰色
   }
 
-  // 根据值的大小返回不同深浅的蓝色
-  if (numValue < 30) return '#9be9ff';
-  if (numValue < 60) return '#4fc3f7';
-  if (numValue < 120) return '#2196f3';
-  if (numValue < 180) return '#1976d2';
-  return '#0d47a1'; // 180以上使用最深的蓝色
+  // 使用渐变的暖色调，从浅黄到深橙红，提供更好的对比度
+  if (numValue < 30) return 'rgba(255, 233, 125, 0.6)'; // 浅黄色
+  if (numValue < 60) return 'rgba(255, 213, 79, 0.7)'; // 中黄色
+  if (numValue < 120) return 'rgba(255, 153, 18, 0.8)'; // 橙黄色
+  if (numValue < 180) return 'rgba(235, 142, 85, 0.9)'; // 橙色
+  return 'rgba(218, 88, 78, 1)'; // 深红色，最高强度
 }
 
 // 格式化日期为中文格式
@@ -298,11 +298,11 @@ function formatDate(dateStr: string | null): string {
     <div class="legend">
       <span>少</span>
       <div class="legend-item" style="background-color: #ebedf0"></div>
-      <div class="legend-item" style="background-color: #9be9ff"></div>
-      <div class="legend-item" style="background-color: #4fc3f7"></div>
-      <div class="legend-item" style="background-color: #2196f3"></div>
-      <div class="legend-item" style="background-color: #1976d2"></div>
-      <div class="legend-item" style="background-color: #0d47a1"></div>
+      <div class="legend-item" style="background-color: rgba(255, 233, 125, 0.6)"></div>
+      <div class="legend-item" style="background-color: rgba(255, 213, 79, 0.7)"></div>
+      <div class="legend-item" style="background-color: rgba(255, 153, 18, 0.8)"></div>
+      <div class="legend-item" style="background-color: rgba(235, 142, 85, 0.9)"></div>
+      <div class="legend-item" style="background-color: rgba(218, 88, 78, 1)"></div>
       <span>多</span>
     </div>
   </div>
@@ -312,11 +312,12 @@ function formatDate(dateStr: string | null): string {
 .heatmap-container {
   margin: 20px 0;
   padding: 20px;
-  background-color: white;
+  background-color: rgba(74, 106, 138, 0.05);
   border-radius: 16px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
   position: relative;
   overflow: hidden;
+  border: 1px solid rgba(74, 106, 138, 0.3);
 }
 
 .today-data {
@@ -324,8 +325,9 @@ function formatDate(dateStr: string | null): string {
   justify-content: center;
   margin-bottom: 20px;
   padding: 10px;
-  background-color: rgba(33, 150, 243, 0.05);
+  background-color: rgba(74, 106, 138, 0.1);
   border-radius: 8px;
+  border: 1px solid rgba(74, 106, 138, 0.2);
 }
 
 .data-item {
@@ -334,20 +336,20 @@ function formatDate(dateStr: string | null): string {
 
 .data-label {
   font-size: 14px;
-  color: #5c6bc0;
+  color: var(--color-text-light-gray);
   margin-bottom: 5px;
 }
 
 .data-value {
   font-size: 18px;
   font-weight: bold;
-  color: #1976d2;
+  color: var(--color-text-white);
 }
 
 .data-note {
   font-size: 12px;
   font-weight: normal;
-  color: #9e9e9e;
+  color: var(--color-text-gray);
   display: block;
   margin-top: 5px;
 }
@@ -417,14 +419,15 @@ function formatDate(dateStr: string | null): string {
   margin-top: 15px;
   gap: 6px;
   font-size: 12px;
-  color: #5c6bc0;
+  color: var(--color-text-light-gray);
   font-weight: 500;
-  background: rgba(33, 150, 243, 0.03);
+  background-color: rgba(74, 106, 138, 0.1);
   padding: 8px 15px;
   border-radius: 20px;
   width: fit-content;
   margin-left: auto;
   margin-right: auto;
+  border: 1px solid rgba(74, 106, 138, 0.2);
 }
 
 .legend-item {

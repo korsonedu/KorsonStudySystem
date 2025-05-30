@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import studyApi from '../services/studyApi'
 import AchievementCard from '../components/AchievementCard.vue'
-import { ACHIEVEMENTS } from '../../../config/achievements'
+import { achievementService } from '../../../shared/services/achievementService'
 
 // Achievements data
 const achievements = ref<Array<any>>([])
@@ -23,38 +22,41 @@ const fetchAchievements = async () => {
     error.value = ''
 
     console.log('正在获取成就数据...')
-    const response = await studyApi.achievements.getAchievements()
-    console.log('成就数据获取成功:', response.data)
 
-    if (response.data) {
+    // 首先获取成就定义
+    const definitions = await achievementService.getAchievementDefinitions()
+
+    // 然后获取用户成就状态
+    const userAchievements = await achievementService.getUserAchievements()
+
+    if (userAchievements) {
       // 处理后端返回的成就数据
-      const backendAchievements = response.data.achievements || []
-      userStats.value = response.data.user_stats || {}
+      const backendAchievements = userAchievements || []
+      userStats.value = achievementService.userStats || {}
 
-      // 使用后端数据，结合前端定义的名称和描述
+      // 使用后端数据，结合成就定义
       achievements.value = backendAchievements.map((backendAchievement: any) => {
-        // 查找对应的前端成就定义
-        const frontendAchievement = ACHIEVEMENTS.find(
-          (fa) => fa.id === backendAchievement.id
+        // 查找对应的成就定义
+        const achievementDef = definitions.find(
+          (def: any) => def.id === backendAchievement.id
         ) || {
           id: backendAchievement.id,
           name: backendAchievement.name || `成就 #${backendAchievement.id}`,
           description: backendAchievement.description || '',
-          icon: '🏆',
           levels: []
         }
 
         // 处理等级信息
         const levels = backendAchievement.levels.map((backendLevel: any, index: number) => {
-          const frontendLevel = frontendAchievement.levels[index] || {
+          const levelDef = achievementDef.levels[index] || {
             level: index + 1,
             description: backendLevel.description || `等级 ${index + 1}`
           }
 
           return {
             id: index + 1,
-            level: frontendLevel.level,
-            description: frontendLevel.description,
+            level: levelDef.level,
+            description: levelDef.description,
             unlocked: backendLevel.unlocked,
             unlockedAt: backendLevel.unlocked_at
           }
@@ -63,9 +65,9 @@ const fetchAchievements = async () => {
         // 返回成就数据
         return {
           id: backendAchievement.id,
-          name: frontendAchievement.name,
-          description: frontendAchievement.description,
-          icon: frontendAchievement.icon,
+          name: achievementDef.name,
+          description: achievementDef.description,
+          icon: achievementService.getAchievementIcon(backendAchievement.id),
           unlocked: backendAchievement.is_unlocked,
           progress: calculateProgress(backendAchievement),
           currentLevel: backendAchievement.highest_level,
@@ -80,7 +82,7 @@ const fetchAchievements = async () => {
     loading.value = false
   } catch (err: any) {
     console.error('Error fetching achievements:', err)
-    error.value = err.response?.data?.detail || err.message || '获取成就数据失败，请稍后再试'
+    error.value = achievementService.error || err.message || '获取成就数据失败，请稍后再试'
     loading.value = false
 
     // 出错时不使用模拟数据，显示错误信息
@@ -98,14 +100,20 @@ const calculateProgress = (achievement: any) => {
   return totalLevels > 0 ? Math.round((unlockedLevels / totalLevels) * 100) : 0
 }
 
-// 计算已解锁成就数量
+// 计算已解锁等级总数
 const unlockedCount = computed(() => {
-  return achievements.value.filter(a => a.unlocked).length
+  // 计算所有成就的已解锁等级总数
+  return achievements.value.reduce((total, achievement) => {
+    return total + achievement.currentLevel;
+  }, 0);
 })
 
-// 计算总成就数量
+// 计算总等级数
 const totalCount = computed(() => {
-  return achievements.value.length
+  // 计算所有成就的总等级数
+  return achievements.value.reduce((total, achievement) => {
+    return total + achievement.maxLevel;
+  }, 0);
 })
 
 // 计算总进度
@@ -272,15 +280,15 @@ onUnmounted(() => {
   transform: translateX(-50%);
   width: 60px;
   height: 2px;
-  background: linear-gradient(90deg, #3498db, #2ecc71);
+  background: rgba(74, 106, 138, 0.8);
   border-radius: 2px;
 }
 
 h2 {
   font-size: 1.8rem;
-  color: #2c3e50;
+  color: var(--color-text-white);
   margin-bottom: 5px;
-  font-weight: 700;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   letter-spacing: 0.3px;
@@ -292,23 +300,28 @@ h2 {
 }
 
 .subtitle {
-  color: #7f8c8d;
+  color: var(--color-text-light-gray);
   font-size: 1rem;
   margin-top: 6px;
   font-weight: 400;
 }
 
 .progress-section {
-  background: linear-gradient(145deg, #ffffff, #f9f9f9);
+  background-color: rgba(74, 106, 138, 0.05);
   border-radius: 16px;
   padding: 20px 25px;
   margin-bottom: 35px;
-  box-shadow:
-    0 5px 20px rgba(0, 0, 0, 0.03),
-    0 1px 3px rgba(0, 0, 0, 0.01);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(74, 106, 138, 0.3);
   position: relative;
   overflow: hidden;
+  transition: all var(--transition-normal) ease;
+}
+
+.progress-section:hover {
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-3px);
+  background-color: rgba(74, 106, 138, 0.08);
 }
 
 .progress-section::before {
@@ -318,12 +331,12 @@ h2 {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #3498db, #2ecc71);
+  background: rgba(74, 106, 138, 0.8);
   opacity: 0.8;
 }
 
 .progress-overview h3 {
-  color: #2c3e50;
+  color: var(--color-text-white);
   font-size: 1.1rem;
   margin-bottom: 15px;
   font-weight: 600;
@@ -339,7 +352,7 @@ h2 {
   left: 0;
   width: 30px;
   height: 2px;
-  background: linear-gradient(90deg, #3498db, #2ecc71);
+  background: rgba(74, 106, 138, 0.8);
   opacity: 0.7;
 }
 
@@ -358,42 +371,42 @@ h2 {
 }
 
 .current {
-  color: #2ecc71;
+  color: rgba(227, 207, 87, 0.9);
   font-weight: 700;
   font-size: 1.1rem;
 }
 
 .separator {
-  color: #bdc3c7;
+  color: var(--color-text-gray);
   margin: 0 6px;
 }
 
 .total {
-  color: #7f8c8d;
+  color: var(--color-text-light-gray);
   font-size: 1rem;
 }
 
 .progress-percentage {
   font-size: 1rem;
   font-weight: 600;
-  color: #2ecc71;
-  background: rgba(46, 204, 113, 0.08);
+  color: rgba(227, 207, 87, 0.9);
+  background: rgba(227, 207, 87, 0.1);
   padding: 3px 10px;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .progress-bar-container {
   height: 6px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   overflow: hidden;
   position: relative;
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.02);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
 .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #3498db, #2ecc71);
+  background: rgba(227, 207, 87, 0.8);
   border-radius: 6px;
   transition: width 0.5s ease-out;
   position: relative;
@@ -408,10 +421,10 @@ h2 {
 
 .section-title {
   font-size: 1.3rem;
-  color: #2c3e50;
+  color: var(--color-text-white);
   margin-bottom: 20px;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(74, 106, 138, 0.2);
   position: relative;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -424,7 +437,7 @@ h2 {
   display: inline-block;
   width: 4px;
   height: 16px;
-  background: linear-gradient(to bottom, #3498db, #2ecc71);
+  background: rgba(74, 106, 138, 0.8);
   border-radius: 2px;
   margin-right: 10px;
 }
@@ -436,11 +449,15 @@ h2 {
 }
 
 .achievement-item {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all var(--transition-normal) ease;
+}
+
+.achievement-item:hover {
+  transform: translateY(-3px);
 }
 
 .locked-item {
-  opacity: 0.8;
+  opacity: 0.6;
 }
 
 .loading-container {
@@ -449,14 +466,14 @@ h2 {
   align-items: center;
   justify-content: center;
   padding: 50px 0;
-  color: #7f8c8d;
+  color: var(--color-text-light-gray);
 }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(0, 0, 0, 0.05);
-  border-top-color: #3498db;
+  border: 3px solid rgba(74, 106, 138, 0.2);
+  border-top-color: rgba(227, 207, 87, 0.8);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 15px;
@@ -467,31 +484,33 @@ h2 {
 }
 
 .error-container {
-  background: rgba(231, 76, 60, 0.05);
+  background-color: rgba(218, 88, 78, 0.1);
   border-radius: 12px;
   padding: 20px;
   text-align: center;
   margin: 30px 0;
+  border: 1px solid rgba(218, 88, 78, 0.3);
 }
 
 .error-message {
-  color: #e74c3c;
+  color: rgba(218, 88, 78, 0.9);
   margin-bottom: 15px;
 }
 
 .retry-button {
-  background: #e74c3c;
+  background-color: rgba(218, 88, 78, 0.8);
   color: white;
   border: none;
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-weight: 500;
-  transition: background 0.2s;
+  transition: all var(--transition-fast) ease;
 }
 
 .retry-button:hover {
-  background: #c0392b;
+  background-color: rgba(218, 88, 78, 1);
+  transform: translateY(-1px);
 }
 
 .achievement-notification {
@@ -508,13 +527,13 @@ h2 {
 }
 
 .notification-content {
-  background: white;
+  background-color: rgba(74, 106, 138, 0.95);
   border-radius: 12px;
   padding: 15px 20px;
   display: flex;
   align-items: center;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #2ecc71;
+  box-shadow: var(--card-shadow);
+  border-left: 4px solid rgba(227, 207, 87, 0.8);
   max-width: 300px;
 }
 
@@ -527,21 +546,21 @@ h2 {
   margin: 0;
   flex: 1;
   font-size: 0.95rem;
-  color: #2c3e50;
+  color: var(--color-text-white);
 }
 
 .close-button {
   background: none;
   border: none;
-  color: #bdc3c7;
+  color: var(--color-text-light-gray);
   cursor: pointer;
   font-size: 1rem;
   padding: 0 0 0 10px;
-  transition: color 0.2s;
+  transition: all var(--transition-fast) ease;
 }
 
 .close-button:hover {
-  color: #7f8c8d;
+  color: var(--color-text-white);
 }
 
 @media (max-width: 768px) {

@@ -1,2 +1,2 @@
 # 路由器模块
-from . import tasks, plans, achievements, auth, statistics
+from . import users, tasks, plans, achievements, auth, statistics, avatar

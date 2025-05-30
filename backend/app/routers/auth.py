@@ -12,6 +12,9 @@ from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
 from jose import jwt, JWTError
 from app.services.email import send_verification_email
 import logging
+import httpx
+import base64
+from urllib.parse import urlencode
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -64,7 +67,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             "email": user.email,
             "is_active": user.is_active,
             "is_superuser": user.is_superuser,
-            "email_verified": user.email_verified  # 添加邮箱验证状态到返回信息中
+            "email_verified": user.email_verified,
+            "avatar": user.avatar  # 返回数据库中存储的头像URL
         }
     }
 
@@ -78,7 +82,8 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         "is_active": current_user.is_active,
         "is_superuser": current_user.is_superuser,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
-        "email_verified": current_user.email_verified
+        "email_verified": current_user.email_verified,
+        "avatar": current_user.avatar  # 添加头像字段
     }
 
 @router.post("/register", response_model=UserResponse)
@@ -103,13 +108,33 @@ async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
 
     # 创建新用户
     hashed_password = get_password_hash(user_data.password)
+    
+    # 生成默认头像（只在没有提供头像时）
+    avatar_data = None
+    if not user_data.avatar:
+        try:
+            avatar_style = ["pixel-art", "lorelei", "micah", "bottts", "identicon", "shapes"][hash(user_data.username) % 6]
+            dicebear_url = f"https://api.dicebear.com/7.x/{avatar_style}/svg?seed={user_data.username}"
+            
+            # 获取SVG数据
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(dicebear_url)
+                if response.status_code == 200:
+                    svg_content = response.text
+                    # 转换为data URL
+                    base64_content = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
+                    avatar_data = f"data:image/svg+xml;base64,{base64_content}"
+        except Exception as e:
+            logger.error(f"生成默认头像失败: {str(e)}")
+    
     new_user = User(
         username=user_data.username,
         email=user_data.email,
         password=hashed_password,
         is_active=True,
         is_superuser=False,
-        email_verified=False  # 确保新用户的邮箱验证状态为False
+        email_verified=False,  # 确保新用户的邮箱验证状态为False
+        avatar=user_data.avatar or avatar_data  # 使用提供的头像或默认头像
     )
 
     db.add(new_user)

@@ -14,7 +14,6 @@ import StatsOverview from '../components/statistics/StatsOverview.vue'
 import TimeSelector from '../components/statistics/TimeSelector.vue'
 import ChartSection from '../components/statistics/ChartSection.vue'
 import JourneySection from '../components/statistics/JourneySection.vue'
-import MotivationQuote from '../components/statistics/MotivationQuote.vue'
 
 // 注册ChartJS组件
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend)
@@ -200,8 +199,6 @@ onMounted(() => {
         :registration-date="userRegistrationDate"
       />
 
-      <!-- 激励语 -->
-      <MotivationQuote />
     </template>
   </div>
 </template>
@@ -215,75 +212,39 @@ onMounted(() => {
   min-height: 100vh;
 }
 
-.statistics-container::before {
-  content: '';
-  position: absolute;
-  top: -100px;
-  right: -100px;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(33, 150, 243, 0.03), transparent 70%);
-  border-radius: 50%;
-  z-index: -1;
-}
-
-.statistics-container::after {
-  content: '';
-  position: absolute;
-  bottom: -100px;
-  left: -100px;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(3, 169, 244, 0.03), transparent 70%);
-  border-radius: 50%;
-  z-index: -1;
-}
-
 .time-filter {
-  background: white;
-  border: 1px solid #e0e0e0;
+  background-color: var(--color-input-gray);
+  border: 1px solid var(--color-border-gray);
   padding: 10px 20px;
-  border-radius: 30px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all var(--transition-fast) ease;
   font-size: 0.95rem;
   font-weight: 500;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  color: var(--color-text-white);
 }
 
 .time-filter:hover {
-  background: #f8f9fa;
-  transform: translateY(-3px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: var(--color-hover-gray);
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow);
 }
 
 .time-filter.active {
-  background: linear-gradient(135deg, #2196f3, #1976d2);
-  color: white;
-  border-color: transparent;
-  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+  background-color: rgba(90, 122, 154, 0.3); /* 低饱和度蓝灰色背景 */
+  color: var(--color-text-white);
+  border-color: rgba(90, 122, 154, 0.5); /* 低饱和度蓝灰色边框 */
+  box-shadow: 0 0 0 1px rgba(90, 122, 154, 0.2);
 }
 
 h2 {
   margin-bottom: 30px;
-  color: #1976d2;
+  color: var(--color-text-white);
   text-align: center;
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 600;
   position: relative;
   padding-bottom: 15px;
-}
-
-h2::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80px;
-  height: 4px;
-  background: linear-gradient(90deg, #2196f3, #03a9f4);
-  border-radius: 2px;
 }
 
 .section-title {
@@ -294,39 +255,19 @@ h2::after {
 
 .section-title h3 {
   margin: 0;
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   position: relative;
   display: inline-block;
   padding: 0 15px;
 }
 
-.section-title h3::before,
-.section-title h3::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 30px;
-  height: 2px;
-  background: linear-gradient(90deg, rgba(33, 150, 243, 0.5), rgba(33, 150, 243, 0.1));
-}
-
-.section-title h3::before {
-  right: 100%;
-}
-
-.section-title h3::after {
-  left: 100%;
-  transform: rotate(180deg);
-}
-
 .section-desc {
   margin: 10px 0 0;
-  color: #5c6bc0;
+  color: var(--color-text-light-gray);
   font-size: 0.95rem;
   font-weight: 500;
-  opacity: 0.8;
 }
 
 .loading-container {
@@ -339,17 +280,18 @@ h2::after {
 .loading-message, .empty-message {
   text-align: center;
   padding: 20px;
-  color: #7f8c8d;
+  color: var(--color-text-gray);
   font-style: italic;
 }
 
 .error-message {
-  background: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
+  background-color: rgba(160, 122, 122, 0.1); /* 低饱和度红褐色背景 */
+  color: var(--color-text-white);
   padding: 10px;
-  border-radius: 5px;
+  border-radius: 8px;
   margin-bottom: 20px;
   text-align: center;
+  border: 1px solid rgba(160, 122, 122, 0.3); /* 低饱和度红褐色边框 */
 }
 
 .empty-message {
@@ -358,31 +300,33 @@ h2::after {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.02);
+  background-color: rgba(90, 122, 154, 0.05); /* 低饱和度蓝灰色背景 */
   border-radius: 10px;
   flex: 1;
   font-size: 1rem;
-  color: #9e9e9e;
+  color: var(--color-text-gray);
   position: relative;
   padding: 20px;
   text-align: center;
+  border: 1px solid rgba(90, 122, 154, 0.2); /* 低饱和度蓝灰色边框 */
 }
 
 .empty-icon {
   font-size: 2.5rem;
   margin-bottom: 10px;
+  opacity: 0.7;
 }
 
 .empty-text {
   font-size: 1.2rem;
   font-weight: 500;
-  color: #757575;
+  color: var(--color-text-light-gray);
   margin-bottom: 5px;
 }
 
 .empty-subtext {
   font-size: 0.9rem;
-  color: #9e9e9e;
+  color: var(--color-text-gray);
 }
 
 .stats-grid {
@@ -471,14 +415,14 @@ h2::after {
 }
 
 .chart-card {
-  background: white;
-  border-radius: 16px;
+  background-color: rgba(74, 106, 138, 0.05); /* 使用 #4A6A8A 作为底纹 */
+  border-radius: 12px;
   padding: 25px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--card-shadow);
   height: 450px; /* 固定高度，防止无限延伸 */
   max-height: 450px; /* 最大高度限制 */
-  border: 1px solid rgba(33, 150, 243, 0.05);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border: 1px solid rgba(74, 106, 138, 0.3); /* 使用 #4A6A8A 作为边框 */
+  transition: all var(--transition-normal) ease;
   overflow: hidden;
   position: relative;
   display: flex;
@@ -486,15 +430,16 @@ h2::after {
 }
 
 .chart-card:hover {
-  box-shadow: 0 15px 35px rgba(33, 150, 243, 0.08), 0 5px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--card-shadow-hover);
   transform: translateY(-5px);
+  background-color: rgba(74, 106, 138, 0.08); /* 使用 #4A6A8A 作为悬停底纹 */
 }
 
 .chart-card .card-header {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
-  border-bottom: 1px solid rgba(33, 150, 243, 0.1);
+  border-bottom: 1px solid rgba(74, 106, 138, 0.2); /* 使用 #4A6A8A 作为边框 */
   padding-bottom: 15px;
   flex-shrink: 0; /* 防止头部被压缩 */
 }
@@ -502,12 +447,13 @@ h2::after {
 .chart-card .card-icon {
   font-size: 1.8rem;
   margin-right: 15px;
-  color: #2196f3;
+  color: var(--color-text-white);
+  opacity: 0.8;
 }
 
 .chart-card .card-header h3 {
   margin: 0;
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1.2rem;
   font-weight: 600;
 }
@@ -522,18 +468,19 @@ h2::after {
 .heatmap-container {
   position: relative;
   padding: 30px;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(33, 150, 243, 0.05);
+  background-color: rgba(74, 106, 138, 0.05); /* 使用 #4A6A8A 作为底纹 */
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(74, 106, 138, 0.3); /* 使用 #4A6A8A 作为边框 */
   max-width: 900px;
   width: 100%;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all var(--transition-normal) ease;
 }
 
 .heatmap-container:hover {
-  box-shadow: 0 15px 35px rgba(33, 150, 243, 0.08), 0 5px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--card-shadow-hover);
   transform: translateY(-5px);
+  background-color: rgba(74, 106, 138, 0.08); /* 使用 #4A6A8A 作为悬停底纹 */
 }
 
 .journey-motivation {
@@ -542,17 +489,20 @@ h2::after {
   justify-content: center;
   margin-top: 20px;
   padding: 15px;
-  background: rgba(33, 150, 243, 0.05);
+  background-color: rgba(74, 106, 138, 0.1); /* 使用 #4A6A8A 作为底纹 */
   border-radius: 10px;
+  border: 1px solid rgba(74, 106, 138, 0.2); /* 使用 #4A6A8A 作为边框 */
 }
 
 .motivation-icon {
   font-size: 1.8rem;
   margin-right: 15px;
+  color: var(--color-text-white);
+  opacity: 0.8;
 }
 
 .motivation-text {
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1rem;
   font-weight: 500;
 }
@@ -580,9 +530,17 @@ h2::after {
   max-width: 800px;
   margin: 0 auto;
   padding: 30px;
-  background: rgba(33, 150, 243, 0.03);
-  border-radius: 16px;
+  background-color: rgba(74, 106, 138, 0.05); /* 使用 #4A6A8A 作为底纹 */
+  border-radius: 12px;
   position: relative;
+  border: 1px solid rgba(74, 106, 138, 0.2); /* 使用 #4A6A8A 作为边框 */
+  transition: all var(--transition-normal) ease;
+}
+
+.quote-container:hover {
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-3px);
+  background-color: rgba(74, 106, 138, 0.08); /* 使用 #4A6A8A 作为悬停底纹 */
 }
 
 .quote-container::before {
@@ -591,14 +549,14 @@ h2::after {
   top: 10px;
   left: 20px;
   font-size: 5rem;
-  color: rgba(33, 150, 243, 0.1);
+  color: rgba(74, 106, 138, 0.2); /* 使用 #4A6A8A 作为底纹 */
   font-family: Georgia, serif;
   line-height: 1;
 }
 
 .quote {
   font-size: 1.5rem;
-  color: #1976d2;
+  color: var(--color-text-white);
   font-weight: 500;
   font-style: italic;
   margin: 0 0 15px;
@@ -607,7 +565,7 @@ h2::after {
 
 .quote-author {
   font-size: 1rem;
-  color: #5c6bc0;
+  color: var(--color-text-light-gray);
   text-align: right;
   margin: 0;
 }
@@ -619,7 +577,7 @@ h2::after {
 }
 
 .statistics-subtitle {
-  color: #5c6bc0;
+  color: var(--color-text-gray);
   font-size: 1.1rem;
   margin-top: 5px;
   font-weight: 500;
@@ -632,24 +590,12 @@ h2::after {
 }
 
 .section-heading {
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 10px;
+  font-weight: 600;
+  margin-bottom: 16px;
   position: relative;
   display: inline-block;
-  padding-bottom: 10px;
-}
-
-.section-heading::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 50px;
-  height: 3px;
-  background: linear-gradient(90deg, #2196f3, #03a9f4);
-  border-radius: 1.5px;
 }
 
 .overview-section, .journey-section {
@@ -703,6 +649,10 @@ h2::after {
 }
 
 @media (max-width: 600px) {
+  .statistics-container {
+    padding: 0 15px;
+  }
+
   .stats-grid {
     grid-template-columns: 1fr;
   }
@@ -717,23 +667,39 @@ h2::after {
   }
 
   .chart-card {
-    height: 400px;
-    max-height: 400px;
+    height: 350px;
+    max-height: 350px;
     padding: 15px;
   }
 
   .chart-container {
-    height: 300px;
-    max-height: 300px;
+    height: 250px;
+    max-height: 250px;
     padding: 10px;
   }
 
   .chart-column {
-    min-height: 400px;
+    min-height: 350px;
   }
 
   .quote {
     font-size: 1.2rem;
+  }
+
+  .heatmap-container {
+    padding: 15px;
+  }
+
+  .section-title h3 {
+    font-size: 1.3rem;
+  }
+
+  .card-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .card-icon {
+    font-size: 1.5rem;
   }
 }
 </style>

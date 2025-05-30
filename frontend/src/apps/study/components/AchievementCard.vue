@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const props = defineProps<{
   achievement: {
@@ -19,6 +19,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits(['toggle'])
+const cardRef = ref<HTMLElement | null>(null)
 
 // 切换展开状态
 const toggleExpand = (event: Event) => {
@@ -47,6 +48,24 @@ const highestLevel = computed(() => {
     ? Math.max(...unlockedLevels.map(level => level.level))
     : 0
 })
+
+// 获取弹出层样式
+const getPopupStyle = () => {
+  if (!cardRef.value) return {}
+
+  const rect = cardRef.value.getBoundingClientRect()
+  return {
+    position: 'absolute',
+    top: `${rect.bottom + window.scrollY}px`,
+    left: `${rect.left + window.scrollX}px`,
+    width: `${rect.width}px`,
+  }
+}
+
+// 在组件挂载后获取卡片元素引用
+onMounted(() => {
+  cardRef.value = document.querySelector(`.achievement-card[data-id="${props.achievement.id}"]`) as HTMLElement
+})
 </script>
 
 <template>
@@ -55,8 +74,13 @@ const highestLevel = computed(() => {
     :class="{
       expanded,
       unlocked: achievement.unlocked,
-      locked: !achievement.unlocked
+      locked: !achievement.unlocked,
+      'level-1': achievement.unlocked && highestLevel === 1,
+      'level-2': achievement.unlocked && highestLevel === 2,
+      'level-3': achievement.unlocked && highestLevel === 3
     }"
+    :data-id="achievement.id"
+    ref="cardRef"
     @click="toggleExpand"
   >
     <!-- 卡片内容 -->
@@ -93,48 +117,45 @@ const highestLevel = computed(() => {
     </div>
 
     <!-- 等级详情弹出层 -->
-    <div class="levels-popup" v-if="expanded">
-      <div class="levels-content">
-        <div class="levels-header">
-          <h4>等级详情</h4>
-          <span class="highest-level" v-if="highestLevel > 0">
-            当前等级: Lv.{{ highestLevel }}
-          </span>
-        </div>
+    <teleport to="body">
+      <div class="levels-popup" v-if="expanded" :style="getPopupStyle()">
+        <div class="levels-content">
+          <div class="levels-header">
+            <h4>等级详情</h4>
+            <span class="highest-level" v-if="highestLevel > 0">
+              当前等级: Lv.{{ highestLevel }}
+            </span>
+          </div>
 
-        <div class="levels-grid">
-          <div
-            v-for="level in achievement.levels"
-            :key="level.id"
-            class="level"
-            :class="{ unlocked: level.unlocked, locked: !level.unlocked }"
-          >
-            <span class="level-number">Lv.{{ level.level }}</span>
-            <span class="level-desc">{{ level.description }}</span>
-            <span class="level-status">{{ level.unlocked ? '✓' : '🔒' }}</span>
+          <div class="levels-grid">
+            <div
+              v-for="level in achievement.levels"
+              :key="level.id"
+              class="level"
+              :class="{ unlocked: level.unlocked, locked: !level.unlocked }"
+            >
+              <span class="level-number">Lv.{{ level.level }}</span>
+              <span class="level-desc">{{ level.description }}</span>
+              <span class="level-status">{{ level.unlocked ? '✓' : '🔒' }}</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </teleport>
   </div>
 </template>
 
 <style scoped>
 .achievement-card {
-  background: linear-gradient(145deg, #ffffff, #f8f9fa);
+  background-color: rgba(74, 106, 138, 0.05);
   border-radius: 12px;
   padding: 18px;
   margin: 14px 0;
-  box-shadow:
-    0 3px 12px rgba(0, 0, 0, 0.03),
-    0 1px 5px rgba(0, 0, 0, 0.02);
+  box-shadow: var(--card-shadow);
   cursor: pointer;
   position: relative;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  transition:
-    box-shadow 0.2s ease-out,
-    border-color 0.2s ease-out,
-    transform 0.2s ease-out;
+  border: 1px solid rgba(74, 106, 138, 0.3);
+  transition: all var(--transition-normal) ease;
   overflow: visible;
 }
 
@@ -147,9 +168,9 @@ const highestLevel = computed(() => {
   padding: 1px;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.5) 0%,
-    rgba(52, 152, 219, 0.1) 50%,
-    rgba(46, 204, 113, 0.1) 100%
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(74, 106, 138, 0.1) 50%,
+    rgba(227, 207, 87, 0.1) 100%
   );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -165,34 +186,68 @@ const highestLevel = computed(() => {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #3498db, #2ecc71);
+  background: rgba(102, 205, 170, 0.8); /* 默认使用优雅的中海蓝绿色 */
   border-radius: 12px 12px 0 0;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
 .achievement-card.unlocked {
-  border-color: rgba(46, 204, 113, 0.15);
-  background: linear-gradient(145deg, #fcfffe, #f7fdf7);
+  border-color: rgba(102, 205, 170, 0.3);
+  background-color: rgba(74, 106, 138, 0.08);
 }
 
 .achievement-card.unlocked::before {
   opacity: 1;
 }
 
+/* 根据最高解锁等级设置不同的边框颜色 */
+.achievement-card.level-1 {
+  border-color: rgba(100, 149, 237, 0.3); /* 矢车菊蓝 - 1级 */
+}
+
+.achievement-card.level-1::before {
+  background: rgba(100, 149, 237, 0.8); /* 矢车菊蓝 - 1级 */
+  opacity: 1;
+}
+
+.achievement-card.level-2 {
+  border-color: rgba(102, 205, 170, 0.3); /* 中海蓝绿色 - 2级 */
+}
+
+.achievement-card.level-2::before {
+  background: rgba(102, 205, 170, 0.8); /* 中海蓝绿色 - 2级 */
+  opacity: 1;
+}
+
+.achievement-card.level-3 {
+  border-color: rgba(147, 112, 219, 0.3); /* 中紫色 - 3级 */
+}
+
+.achievement-card.level-3::before {
+  background: rgba(147, 112, 219, 0.8); /* 中紫色 - 3级 */
+  opacity: 1;
+}
+
 .achievement-card.locked {
-  border-color: rgba(0, 0, 0, 0.05);
+  border-color: rgba(74, 106, 138, 0.2);
   /* 未解锁的成就添加高斯模糊效果 */
-  filter: grayscale(1) blur(4px);
-  opacity: 0.6;
+  filter: grayscale(1) blur(2px);
+  opacity: 0.5;
   pointer-events: none;
 }
 
 .achievement-card.expanded {
-  z-index: 10;
-  box-shadow:
-    0 4px 15px rgba(0, 0, 0, 0.05),
-    0 2px 8px rgba(0, 0, 0, 0.03);
+  z-index: 30; /* 提高展开卡片的z-index，确保它在悬停卡片之上 */
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-3px);
+}
+
+.achievement-card:hover:not(.expanded):not(.locked) {
+  z-index: 5; /* 悬停卡片的z-index */
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-3px);
+  background-color: rgba(74, 106, 138, 0.1);
 }
 
 /* 锁图标覆盖层 */
@@ -205,7 +260,7 @@ const highestLevel = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(2px);
   z-index: 5;
   border-radius: 12px;
@@ -213,18 +268,20 @@ const highestLevel = computed(() => {
 
 .lock-icon {
   font-size: 2rem;
-  color: rgba(0, 0, 0, 0.3);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* 等级详情弹出层 */
 .levels-popup {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 20;
+  position: fixed; /* 改为固定定位，避免受父元素影响 */
+  top: auto; /* 取消顶部定位 */
+  left: auto; /* 取消左侧定位 */
+  right: auto; /* 取消右侧定位 */
+  width: 100%; /* 设置宽度与父元素相同 */
+  z-index: 1000; /* 使用更高的z-index值 */
   animation: fadeIn 0.2s ease-out;
+  pointer-events: auto; /* 确保弹出层可以接收鼠标事件 */
 }
 
 @keyframes fadeIn {
@@ -242,7 +299,7 @@ const highestLevel = computed(() => {
   justify-content: space-between;
   align-items: center;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(74, 106, 138, 0.2);
   position: relative;
   margin-bottom: 12px;
 }
@@ -254,25 +311,38 @@ const highestLevel = computed(() => {
   left: 0;
   width: 40px;
   height: 1px;
-  background: linear-gradient(90deg, #3498db, #2ecc71);
+  background: rgba(102, 205, 170, 0.8); /* 默认使用优雅的中海蓝绿色 */
   opacity: 0.7;
+}
+
+/* 根据最高解锁等级设置不同的头部横线颜色 */
+.level-1 .card-header::after {
+  background: rgba(100, 149, 237, 0.8); /* 矢车菊蓝 - 1级 */
+}
+
+.level-2 .card-header::after {
+  background: rgba(102, 205, 170, 0.8); /* 中海蓝绿色 - 2级 */
+}
+
+.level-3 .card-header::after {
+  background: rgba(147, 112, 219, 0.8); /* 中紫色 - 3级 */
 }
 
 .card-header h3 {
   margin: 0;
   font-size: 1.1em;
-  color: #2c3e50;
+  color: var(--color-text-white);
   font-weight: 600;
   letter-spacing: 0.2px;
 }
 
 .unlocked .card-header h3 {
-  color: #2c3e50;
+  color: var(--color-text-white);
 }
 
 .status-badge {
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 0.75em;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -280,19 +350,32 @@ const highestLevel = computed(() => {
 }
 
 .unlocked .status-badge {
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
-  color: white;
-  box-shadow: 0 1px 3px rgba(46, 204, 113, 0.2);
+  background: rgba(102, 205, 170, 0.8); /* 默认使用优雅的中海蓝绿色 */
+  color: var(--color-text-black);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 根据最高解锁等级设置不同的状态徽章颜色 */
+.level-1 .status-badge {
+  background: rgba(100, 149, 237, 0.8); /* 矢车菊蓝 - 1级 */
+}
+
+.level-2 .status-badge {
+  background: rgba(102, 205, 170, 0.8); /* 中海蓝绿色 - 2级 */
+}
+
+.level-3 .status-badge {
+  background: rgba(147, 112, 219, 0.8); /* 中紫色 - 3级 */
 }
 
 .locked .status-badge {
-  background: #f0f0f0;
-  color: #95a5a6;
+  background: rgba(74, 106, 138, 0.2);
+  color: var(--color-text-light-gray);
 }
 
 .description {
   margin: 12px 0;
-  color: #5d6d7e;
+  color: var(--color-text-light-gray);
   font-size: 0.9em;
   line-height: 1.5;
   font-weight: 400;
@@ -300,17 +383,17 @@ const highestLevel = computed(() => {
 
 .progress-container {
   height: 5px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   margin: 12px 0 6px;
   overflow: hidden;
   position: relative;
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.02);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
 .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #3498db, #2ecc71);
+  background: rgba(102, 205, 170, 0.8); /* 使用优雅的中海蓝绿色 */
   width: 0;
   border-radius: 6px;
   transition: width 0.5s ease-out;
@@ -324,18 +407,16 @@ const highestLevel = computed(() => {
   align-items: center;
   font-size: 0.8em;
   font-weight: 500;
-  color: #7f8c8d;
+  color: var(--color-text-light-gray);
   margin: 6px 0;
 }
 
 .levels-content {
-  background: white;
+  background-color: rgba(42, 54, 65, 0.95); /* 深色不透明背景 */
   border-radius: 12px;
   padding: 16px;
-  box-shadow:
-    0 5px 20px rgba(0, 0, 0, 0.05),
-    0 2px 8px rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(74, 106, 138, 0.5);
   margin-top: 8px;
 }
 
@@ -345,13 +426,13 @@ const highestLevel = computed(() => {
   align-items: center;
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(74, 106, 138, 0.2);
 }
 
 .levels-header h4 {
   margin: 0;
   font-size: 0.95em;
-  color: #2c3e50;
+  color: var(--color-text-white);
   font-weight: 600;
   position: relative;
   padding-left: 10px;
@@ -365,17 +446,17 @@ const highestLevel = computed(() => {
   transform: translateY(-50%);
   width: 3px;
   height: 12px;
-  background: linear-gradient(to bottom, #3498db, #2ecc71);
+  background: rgba(102, 205, 170, 0.8); /* 使用优雅的中海蓝绿色 */
   border-radius: 2px;
 }
 
 .highest-level {
   font-size: 0.75em;
   font-weight: 600;
-  color: #2ecc71;
-  background: rgba(46, 204, 113, 0.08);
+  color: var(--color-text-black);
+  background: rgba(102, 205, 170, 0.8); /* 使用优雅的中海蓝绿色 */
   padding: 3px 8px;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
 }
@@ -394,7 +475,7 @@ const highestLevel = computed(() => {
   padding-right: 4px;
   /* 美化滚动条 */
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.05) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .levels-grid::-webkit-scrollbar {
@@ -406,7 +487,7 @@ const highestLevel = computed(() => {
 }
 
 .levels-grid::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
 }
 
@@ -416,8 +497,8 @@ const highestLevel = computed(() => {
   align-items: center;
   padding: 8px 10px;
   border-radius: 6px;
-  background: #f9f9f9;
-  border: 1px solid rgba(0, 0, 0, 0.02);
+  background-color: rgba(74, 106, 138, 0.05);
+  border: 1px solid rgba(74, 106, 138, 0.2);
   position: relative;
   overflow: hidden;
 }
@@ -429,25 +510,39 @@ const highestLevel = computed(() => {
   left: 0;
   width: 3px;
   height: 100%;
-  background: #e0e0e0;
+  background: rgba(74, 106, 138, 0.3);
 }
 
 .level.unlocked {
-  background: rgba(46, 204, 113, 0.02);
+  background-color: rgba(227, 207, 87, 0.05);
+  border-color: rgba(227, 207, 87, 0.2);
 }
 
 .level.unlocked::before {
-  background: linear-gradient(to bottom, #3498db, #2ecc71);
+  background: rgba(227, 207, 87, 0.8);
   height: 70%;
   top: 15%;
   border-radius: 2px;
 }
 
+/* 为不同等级的成就添加不同的颜色 - 使用更优雅的色调 */
+.level.unlocked:nth-child(3n+1)::before {
+  background: rgba(100, 149, 237, 0.8); /* 矢车菊蓝 - 1级 */
+}
+
+.level.unlocked:nth-child(3n+2)::before {
+  background: rgba(102, 205, 170, 0.8); /* 中海蓝绿色 - 2级 */
+}
+
+.level.unlocked:nth-child(3n+3)::before {
+  background: rgba(147, 112, 219, 0.8); /* 中紫色 - 3级 */
+}
+
 .level-number {
   font-weight: 600;
   font-size: 0.8em;
-  color: #34495e;
-  background: rgba(52, 152, 219, 0.05);
+  color: var(--color-text-light-gray);
+  background-color: rgba(74, 106, 138, 0.1);
   width: 22px;
   height: 22px;
   display: flex;
@@ -457,19 +552,35 @@ const highestLevel = computed(() => {
 }
 
 .level.unlocked .level-number {
-  background: rgba(46, 204, 113, 0.05);
-  color: #27ae60;
+  background-color: rgba(102, 205, 170, 0.1);
+  color: rgba(102, 205, 170, 0.9);
+}
+
+/* 为不同等级的成就添加不同的颜色 - 使用更优雅的色调 */
+.level.unlocked:nth-child(3n+1) .level-number {
+  background-color: rgba(100, 149, 237, 0.1);
+  color: rgba(100, 149, 237, 0.9);
+}
+
+.level.unlocked:nth-child(3n+2) .level-number {
+  background-color: rgba(102, 205, 170, 0.1);
+  color: rgba(102, 205, 170, 0.9);
+}
+
+.level.unlocked:nth-child(3n+3) .level-number {
+  background-color: rgba(147, 112, 219, 0.1);
+  color: rgba(147, 112, 219, 0.9);
 }
 
 .level-desc {
   font-size: 0.85em;
-  color: #7f8c8d;
+  color: var(--color-text-light-gray);
   padding-left: 6px;
   line-height: 1.4;
 }
 
 .level.unlocked .level-desc {
-  color: #2c3e50;
+  color: var(--color-text-white);
   font-weight: 500;
 }
 
@@ -479,11 +590,24 @@ const highestLevel = computed(() => {
 }
 
 .level.unlocked .level-status {
-  color: #2ecc71;
+  color: rgba(102, 205, 170, 0.9);
+}
+
+/* 为不同等级的成就添加不同的颜色 - 使用更优雅的色调 */
+.level.unlocked:nth-child(3n+1) .level-status {
+  color: rgba(100, 149, 237, 0.9);
+}
+
+.level.unlocked:nth-child(3n+2) .level-status {
+  color: rgba(102, 205, 170, 0.9);
+}
+
+.level.unlocked:nth-child(3n+3) .level-status {
+  color: rgba(147, 112, 219, 0.9);
 }
 
 .level.locked .level-status {
-  color: #bdc3c7;
+  color: var(--color-text-gray);
 }
 
 /* 展开指示器 */
@@ -495,14 +619,21 @@ const highestLevel = computed(() => {
 
 .expand-icon {
   font-size: 0.7em;
-  color: rgba(52, 152, 219, 0.5);
+  color: rgba(102, 205, 170, 0.7); /* 默认使用优雅的中海蓝绿色 */
   display: inline-block;
 }
 
-.achievement-card:hover:not(.expanded) {
-  box-shadow:
-    0 4px 15px rgba(0, 0, 0, 0.04),
-    0 2px 5px rgba(0, 0, 0, 0.02);
+/* 根据最高解锁等级设置不同的展开指示器颜色 */
+.level-1 .expand-icon {
+  color: rgba(100, 149, 237, 0.7); /* 矢车菊蓝 - 1级 */
+}
+
+.level-2 .expand-icon {
+  color: rgba(102, 205, 170, 0.7); /* 中海蓝绿色 - 2级 */
+}
+
+.level-3 .expand-icon {
+  color: rgba(147, 112, 219, 0.7); /* 中紫色 - 3级 */
 }
 
 .achievement-card:active {

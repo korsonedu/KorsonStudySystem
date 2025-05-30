@@ -1,0 +1,341 @@
+/*
+ * 通用组件样式
+ * 这个文件定义了应用程序中使用的通用组件样式
+ * 基于苹果设计风格
+ */
+
+/* 卡片样式 - 苹果风格 */
+.card {
+  background-color: var(--color-card-gray);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--color-border-gray);
+  overflow: hidden;
+  padding: 16px;
+}
+
+.card-header {
+  padding: 20px 20px 0;
+  border-bottom: none;
+  text-align: center;
+}
+
+.card-content {
+  padding: 20px;
+  color: var(--color-text-white);
+}
+
+.card-title {
+  font-size: 1.5rem;
+  color: var(--color-text-white);
+  margin-bottom: 8px;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* 按钮样式 - 苹果风格 */
+.button, .control-btn {
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  letter-spacing: 0.3px;
+  font-size: 0.95rem;
+  min-width: 100px;
+  text-align: center;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  background-color: var(--color-input-gray);
+  color: var(--color-text-white);
+}
+
+.button:hover:not(:disabled), .control-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.button:active:not(:disabled), .control-btn:active:not(:disabled) {
+  transform: scale(0.98);
+  filter: brightness(0.95);
+  transition: all 0.1s;
+}
+
+.button:disabled, .control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 按钮样式 - 苹果风格色彩 */
+.button-primary, .primary-btn {
+  background-color: var(--color-accent-orange);
+  color: var(--color-text-white);
+}
+
+.button-secondary, .success-btn {
+  background-color: var(--color-accent-green);
+  color: var(--color-text-white);
+}
+
+.button-tertiary, .reset-btn {
+  background-color: var(--color-input-gray);
+  color: var(--color-text-white);
+}
+
+/* 输入框样式 - 苹果风格 */
+.input {
+  flex-shrink: 0;
+  height: 40px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-gray);
+  background-color: var(--color-input-gray);
+  color: var(--color-text-white);
+  font-size: 0.95rem;
+  padding: 0 12px;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent-orange);
+  box-shadow: 0 0 0 1px var(--color-accent-orange-dim);
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.time-input {
+  text-align: center;
+}
+
+.plan-input {
+  flex: 1;
+  border: none;
+  border-radius: 8px 0 0 8px;
+  font-size: 0.95rem;
+  background-color: var(--color-input-gray);
+  color: var(--color-text-white);
+  transition: all 0.2s ease;
+  height: 100%;
+  box-shadow: none;
+  padding: 0 14px;
+  line-height: 40px;
+  align-content: center;
+  align-items: center;
+}
+
+/* 标签样式 - 苹果风格 */
+.label {
+  font-size: 0.85rem;
+  color: var(--color-text-light-gray);
+  font-weight: 500;
+  margin-left: 2px;
+  margin-bottom: 4px;
+  display: block;
+  text-align: left;
+  letter-spacing: 0.3px;
+}
+
+/* 输入组样式 - 苹果风格 */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.input-group label {
+  font-size: 0.85rem;
+  color: var(--color-text-light-gray);
+  font-weight: 500;
+  margin-left: 2px;
+  margin-bottom: 4px;
+  display: block;
+  text-align: left;
+  letter-spacing: 0.3px;
+}
+
+.task-group {
+  width: 100%;
+}
+
+.time-group {
+  width: 100%;
+  max-width: 200px;
+}
+
+/* 统计卡片样式 */
+.stat-card {
+  flex: 1;
+  background: var(--gradient-input);
+  border-radius: var(--border-radius-md);
+  padding: 16px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  align-items: center;
+  transition: all var(--transition-normal) ease;
+  border: 1px solid var(--border-color);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.stat-icon {
+  font-size: 1.8rem;
+  margin-right: 15px;
+  color: var(--text-yellow);
+}
+
+.stat-content h3 {
+  margin: 0 0 5px;
+  font-size: 0.9rem;
+  color: var(--text-gray);
+  font-weight: 500;
+}
+
+.stat-content p {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-white);
+}
+
+/* 添加计划按钮 - 苹果风格 */
+.add-plan-btn {
+  background-color: var(--color-accent-orange);
+  color: var(--color-text-white);
+  border: none;
+  width: 40px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 8px 8px 0;
+  height: 100%;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0;
+}
+
+.add-plan-btn:hover {
+  filter: brightness(1.1);
+}
+
+.add-plan-btn:active {
+  filter: brightness(0.95);
+}
+
+/* 任务记录项样式 - 苹果风格 */
+.task-record-item {
+  margin-top: 7px;
+  margin-bottom: 7px;
+  padding: 16px;
+  background-color: rgba(var(--color-accent-blue-dim-rgb), 0.05);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--color-accent-blue-dim-rgb), 0.3);
+  transition: all var(--transition-fast) ease;
+}
+
+.task-record-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+  background-color: rgba(74, 106, 138, 0.08); /* 使用 #4A6A8A 作为悬停底纹 */
+}
+
+.task-record-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-gray);
+  padding-bottom: 12px;
+}
+
+.task-name {
+  font-weight: 500;
+  font-size: 1.05rem;
+  color: var(--color-text-white);
+  letter-spacing: 0.3px;
+}
+
+.task-record-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--color-text-white);
+}
+
+.task-time, .task-duration, .task-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--color-input-gray);
+  padding: 6px 12px;
+  border-radius: 6px;
+  margin-right: 0;
+  margin-bottom: 0;
+}
+
+.task-time, .task-duration {
+  border: 1px solid rgba(90, 122, 154, 0.3); /* 低饱和度蓝灰色边框 */
+  background-color: rgba(90, 122, 154, 0.05); /* 低饱和度蓝灰色背景 */
+}
+
+.task-date {
+  border: 1px solid var(--color-border-gray);
+  background-color: rgba(160, 160, 160, 0.05); /* 低饱和度灰色背景 */
+}
+
+.task-date .label {
+  color: var(--color-text-light-gray);
+}
+
+.delete-task-btn {
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-text-gray);
+  transition: all 0.2s ease;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-task-btn:hover {
+  color: var(--color-accent-red);
+  background-color: rgba(255, 69, 58, 0.1);
+}
+
+.empty-message {
+  text-align: center;
+  padding: 20px;
+  color: var(--color-text-gray);
+  font-style: italic;
+  background-color: var(--color-card-gray);
+  border-radius: 10px;
+  border: 1px solid var(--color-border-gray);
+  margin: 14px 0;
+}
+
+

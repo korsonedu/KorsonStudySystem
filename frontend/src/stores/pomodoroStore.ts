@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import { taskService } from '../shared/services/taskService';
 import { APP_CONFIG } from '../config';
+import eventBus, { EVENT_NAMES } from '../utils/eventBus';
+import { useUserStore } from './userStore';
 
 // 任务类型定义
 export interface Task {
@@ -57,9 +59,9 @@ export const usePomodoroStore = defineStore('pomodoro', {
       if (time > 120) {
         time = 120;
       }
-      
+
       this.taskTime = time;
-      
+
       // 只在非运行状态下更新总秒数
       if (!this.isRunning) {
         this.totalSeconds = time * 60;
@@ -146,7 +148,7 @@ export const usePomodoroStore = defineStore('pomodoro', {
         this.isRunning = false;
         this.clearTimer();
       }
-      
+
       return true;
     },
 
@@ -186,10 +188,10 @@ export const usePomodoroStore = defineStore('pomodoro', {
       try {
         // 获取当前时间
         const currentTime = new Date();
-        
+
         // 计算实际持续时间（分钟）
         let taskDuration = this.taskTime;
-        
+
         // 如果有开始时间，计算实际持续时间
         if (this.taskStartTime) {
           const durationMs = currentTime.getTime() - this.taskStartTime.getTime();
@@ -211,11 +213,31 @@ export const usePomodoroStore = defineStore('pomodoro', {
         };
 
         // 使用任务服务保存任务
-        await taskService.addTask(newTask);
+        const savedTask = await taskService.addTask(newTask);
+
+        // 获取当前用户信息
+        const userStore = useUserStore();
+
+        // 广播任务完成事件
+        if (savedTask && savedTask.id) {
+          console.log('广播任务完成事件:', savedTask);
+
+          // 添加用户信息到任务对象
+          const taskWithUser = {
+            ...savedTask,
+            user: {
+              id: userStore.userId,
+              username: userStore.username
+            }
+          };
+
+          // 通过EventBus广播任务完成事件
+          eventBus.emit(EVENT_NAMES.TASK_COMPLETED, taskWithUser);
+        }
 
         // 重置计时器
         this.resetTimer();
-        
+
         return true;
       } catch (err: any) {
         console.error('完成任务失败:', err);
@@ -234,11 +256,11 @@ export const usePomodoroStore = defineStore('pomodoro', {
     startFromCourse(courseName: string, duration: number = APP_CONFIG.DEFAULT_POMODORO_TIME): boolean {
       // 重置当前计时器
       this.resetTimer();
-      
+
       // 设置任务名称和时间
       this.setTaskName(courseName);
       this.setTaskTime(duration);
-      
+
       // 启动计时器
       return this.toggleTimer();
     },

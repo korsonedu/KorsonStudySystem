@@ -1,0 +1,253 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { apiService } from '../services/apiService'
+import { API_CONFIG } from '../../config'
+import { useUserStore } from '../../stores/userStore'
+
+// Import shadcn-vue components
+import { Button } from '../../components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../components/ui/card'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { toast } from 'vue-sonner'
+
+// 使用用户状态存储
+const userStore = useUserStore()
+const router = useRouter()
+
+// 组件挂载时检查登录状态
+onMounted(() => {
+  console.log('Login.vue - 组件挂载，检查登录状态')
+
+  // 检查用户是否已登录
+  const isAuthenticated = userStore.checkAuth()
+
+  console.log('Login.vue - 登录状态检查结果:', {
+    isAuthenticated,
+    username: userStore.username
+  })
+
+  // 如果已登录，重定向到首页
+  if (isAuthenticated) {
+    console.log('Login.vue - 用户已登录，重定向到首页')
+    router.replace('/')
+  }
+})
+
+const username = ref('')
+const password = ref('')
+const email = ref('')
+const errorMessage = ref('')
+const successMessage = ref('')
+const loading = ref(false)
+const showResendVerification = ref(false)
+const resendLoading = ref(false)
+
+const login = async () => {
+  try {
+    errorMessage.value = ''
+    loading.value = true
+    console.log('Login.vue - 开始登录流程')
+
+    if (!username.value || !password.value) {
+      toast.error('错误', {
+        description: '请输入用户名和密码',
+      })
+      loading.value = false
+      return
+    }
+
+    // 使用Pinia用户存储进行登录
+    console.log('Login.vue - 调用 userStore.login', { username: username.value })
+    const loginResult = await userStore.login({
+      username: username.value,
+      password: password.value
+    });
+
+    console.log('Login.vue - 登录结果:', loginResult)
+
+    if (loginResult) {
+      console.log('Login.vue - 登录成功，用户状态已更新')
+
+      // 显示登录成功提示
+      toast.success('登录成功', {
+        description: '欢迎回来！',
+      })
+
+      // 重定向到首页
+      router.push('/')
+    } else {
+      console.error('Login.vue - 登录失败:', userStore.error)
+      toast.error('登录失败', {
+        description: userStore.error || '请检查用户名和密码',
+      })
+    }
+  } catch (error: any) {
+    console.error('Login.vue - 登录异常:', error)
+    if (error.response) {
+      console.error('Login.vue - 错误详情:', error.response.data)
+
+      // 检查是否是邮箱未验证的错误
+      if (error.response.data.detail === "邮箱未验证，请检查您的邮箱并点击验证链接") {
+        toast.error('邮箱未验证', {
+          description: '请检查您的邮箱并点击验证链接',
+        })
+        showResendVerification.value = true
+        // 保存用户名，用于重新发送验证邮件
+        email.value = username.value
+      } else {
+        toast.error('登录失败', {
+          description: error.response.data.detail || '请检查用户名和密码',
+        })
+      }
+    } else {
+      toast.error('登录失败', {
+        description: '服务器连接失败，请稍后再试',
+      })
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+const resendVerificationEmail = async () => {
+  try {
+    resendLoading.value = true
+    errorMessage.value = ''
+    successMessage.value = ''
+
+    if (!email.value) {
+      toast.error('错误', {
+        description: '请输入邮箱地址',
+      })
+      resendLoading.value = false
+      return
+    }
+
+    // 调用重新发送验证邮件API
+    const response = await apiService.post(`${API_CONFIG.AUTH_URL}/resend-verification`, {
+      email: email.value
+    })
+
+    if (response.status === 200) {
+      toast.success('发送成功', {
+        description: '验证邮件已发送，请查收',
+      })
+      // 返回登录表单
+      showResendVerification.value = false
+    }
+  } catch (error: any) {
+    console.error('重新发送验证邮件失败:', error)
+    if (error.response) {
+      toast.error('发送失败', {
+        description: error.response.data.detail || '请稍后再试',
+      })
+    } else {
+      toast.error('发送失败', {
+        description: '服务器连接失败，请稍后再试',
+      })
+    }
+  } finally {
+    resendLoading.value = false
+  }
+}
+
+const goToRegister = () => {
+  router.push('/register')
+}
+</script>
+
+<template>
+  <div class="auth-container">
+    <Card class="auth-card">
+      <CardHeader class="auth-header">
+        <CardTitle class="auth-title">欢迎回来</CardTitle>
+        <p class="auth-subtitle">登录您的账号继续学习之旅</p>
+      </CardHeader>
+
+      <CardContent class="auth-content">
+
+        <!-- 重新发送验证邮件表单 -->
+        <Card v-if="showResendVerification" class="auth-verification">
+          <CardContent>
+            <p class="auth-verification-text">没有收到验证邮件？请输入您的邮箱地址，我们将重新发送验证链接。</p>
+            <div class="auth-form">
+              <div class="auth-input-group">
+                <Label for="email" class="auth-label">邮箱</Label>
+                <Input
+                  id="email"
+                  v-model="email"
+                  placeholder="请输入您的邮箱"
+                  :disabled="resendLoading"
+                  class="auth-input"
+                />
+              </div>
+              <Button
+                @click="resendVerificationEmail"
+                :disabled="resendLoading"
+                class="auth-submit-btn"
+              >
+                {{ resendLoading ? '发送中...' : '重新发送验证邮件' }}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div v-if="!showResendVerification" class="auth-form">
+          <div class="auth-input-group">
+            <Label for="username" class="auth-label">用户名</Label>
+            <Input
+              id="username"
+              v-model="username"
+              placeholder="请输入用户名"
+              :disabled="loading"
+              @keyup.enter="login"
+              class="auth-input"
+            />
+          </div>
+
+          <div class="auth-input-group">
+            <Label for="password" class="auth-label">密码</Label>
+            <Input
+              id="password"
+              type="password"
+              v-model="password"
+              placeholder="请输入密码"
+              :disabled="loading"
+              @keyup.enter="login"
+              class="auth-input"
+            />
+          </div>
+        </div>
+      </CardContent>
+
+      <CardFooter v-if="!showResendVerification" class="auth-footer">
+        <Button
+          @click="login"
+          :disabled="loading"
+          class="auth-submit-btn"
+        >
+          {{ loading ? '登录中...' : '登录' }}
+        </Button>
+
+        <Button
+          @click="goToRegister"
+          :disabled="loading"
+          variant="outline"
+          class="auth-secondary-btn"
+        >
+          注册新账号
+        </Button>
+
+        <div class="auth-link-text">
+          还没有账号？<a href="#" @click.prevent="goToRegister" class="auth-link">立即注册</a>
+        </div>
+      </CardFooter>
+    </Card>
+  </div>
+</template>
+
+<style scoped>
+/* 所有样式已移至全局CSS文件 */
+</style>

@@ -7,7 +7,7 @@
 ACHIEVEMENTS = [
     {
         "id": 1,
-        "name": "速通！学习入门",
+        "name": "速通！",
         "description": "每一段伟大的旅程都始于第一步，你已经踏上了知识的征程",
         "levels": [
             {
@@ -17,13 +17,13 @@ ACHIEVEMENTS = [
             },
             {
                 "level": 2,
-                "description": "完成20个番茄钟任务",
-                "condition": lambda user_stats: user_stats["total_tasks"] >= 20
+                "description": "完成30个番茄钟任务",
+                "condition": lambda user_stats: user_stats["total_tasks"] >= 30
             },
             {
                 "level": 3,
-                "description": "完成60个番茄钟任务",
-                "condition": lambda user_stats: user_stats["total_tasks"] >= 60
+                "description": "完成150个番茄钟任务",
+                "condition": lambda user_stats: user_stats["total_tasks"] >= 150
             }
         ]
     },
@@ -39,35 +39,35 @@ ACHIEVEMENTS = [
             },
             {
                 "level": 2,
-                "description": "在晚上10点后完成12个任务",
-                "condition": lambda user_stats: user_stats["night_tasks"] >= 12
+                "description": "在晚上10点后完成15个任务",
+                "condition": lambda user_stats: user_stats["night_tasks"] >= 15
             },
             {
                 "level": 3,
-                "description": "在晚上10点后完成30个任务",
-                "condition": lambda user_stats: user_stats["night_tasks"] >= 30
+                "description": "在晚上10点后完成45个任务",
+                "condition": lambda user_stats: user_stats["night_tasks"] >= 45
             }
         ]
     },
     {
         "id": 3,
-        "name": "时间管理大法师",
+        "name": "时间管理大师",
         "description": "投资时间是最有价值的决策，你已经开始积累丰厚的知识回报",
         "levels": [
             {
                 "level": 1,
-                "description": "累计学习时间达到1小时",
-                "condition": lambda user_stats: user_stats["total_minutes"] >= 60
+                "description": "累计学习时间达到5小时",
+                "condition": lambda user_stats: user_stats["total_minutes"] >= 300
             },
             {
                 "level": 2,
-                "description": "累计学习时间达到15小时",
-                "condition": lambda user_stats: user_stats["total_minutes"] >= 900
+                "description": "累计学习时间达到30小时",
+                "condition": lambda user_stats: user_stats["total_minutes"] >= 1800
             },
             {
                 "level": 3,
-                "description": "累计学习时间达到50小时",
-                "condition": lambda user_stats: user_stats["total_minutes"] >= 3000
+                "description": "累计学习时间达到100小时",
+                "condition": lambda user_stats: user_stats["total_minutes"] >= 6000
             }
         ]
     },
@@ -83,13 +83,13 @@ ACHIEVEMENTS = [
             },
             {
                 "level": 2,
-                "description": "在早上6点前开始8个任务",
-                "condition": lambda user_stats: user_stats["early_tasks"] >= 8
+                "description": "在早上6点前开始10个任务",
+                "condition": lambda user_stats: user_stats["early_tasks"] >= 10
             },
             {
                 "level": 3,
-                "description": "在早上6点前开始20个任务",
-                "condition": lambda user_stats: user_stats["early_tasks"] >= 20
+                "description": "在早上6点前开始30个任务",
+                "condition": lambda user_stats: user_stats["early_tasks"] >= 30
             }
         ]
     },
@@ -100,18 +100,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "连续3天完成至少1个任务",
-                "condition": lambda user_stats: user_stats["streak_days"] >= 3
+                "description": "连续7天完成至少1个任务",
+                "condition": lambda user_stats: user_stats["streak_days"] >= 7
             },
             {
                 "level": 2,
-                "description": "连续10天完成至少1个任务",
-                "condition": lambda user_stats: user_stats["streak_days"] >= 10
+                "description": "连续30天完成至少1个任务",
+                "condition": lambda user_stats: user_stats["streak_days"] >= 30
             },
             {
                 "level": 3,
-                "description": "连续21天完成至少1个任务",
-                "condition": lambda user_stats: user_stats["streak_days"] >= 21
+                "description": "连续90天完成至少1个任务",
+                "condition": lambda user_stats: user_stats["streak_days"] >= 90
             }
         ]
     },
@@ -122,40 +122,40 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "创建5个学习计划",
-                "condition": lambda user_stats: user_stats["total_plans"] >= 5
+                "description": "创建10个学习计划",
+                "condition": lambda user_stats: user_stats["total_plans"] >= 10
             },
             {
                 "level": 2,
-                "description": "创建18个学习计划",
-                "condition": lambda user_stats: user_stats["total_plans"] >= 18
+                "description": "创建30个学习计划",
+                "condition": lambda user_stats: user_stats["total_plans"] >= 30
             },
             {
                 "level": 3,
-                "description": "创建40个学习计划",
-                "condition": lambda user_stats: user_stats["total_plans"] >= 40
+                "description": "创建90个学习计划",
+                "condition": lambda user_stats: user_stats["total_plans"] >= 90
             }
         ]
     },
     {
         "id": 7,
         "name": "任务粉碎机",
-        "description": "如果效率有CEO，那一定是你，没有任务能逃过你的火眼金睛",
+        "description": "我只做计划内的事",
         "levels": [
             {
                 "level": 1,
-                "description": "完成3个计划中的任务",
-                "condition": lambda user_stats: user_stats["completed_plans"] >= 3
+                "description": "完成5个计划中的任务",
+                "condition": lambda user_stats: user_stats["completed_plans"] >= 5
             },
             {
                 "level": 2,
-                "description": "完成12个计划中的任务",
-                "condition": lambda user_stats: user_stats["completed_plans"] >= 12
+                "description": "完成20个计划中的任务",
+                "condition": lambda user_stats: user_stats["completed_plans"] >= 20
             },
             {
                 "level": 3,
-                "description": "完成25个计划中的任务",
-                "condition": lambda user_stats: user_stats["completed_plans"] >= 25
+                "description": "完成60个计划中的任务",
+                "condition": lambda user_stats: user_stats["completed_plans"] >= 60
             }
         ]
     },
@@ -166,18 +166,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "完成一个25分钟以上的任务",
-                "condition": lambda user_stats: user_stats["long_tasks"] >= 1
+                "description": "完成5个25分钟以上的任务",
+                "condition": lambda user_stats: user_stats["long_tasks"] >= 5
             },
             {
                 "level": 2,
-                "description": "完成10个25分钟以上的任务",
-                "condition": lambda user_stats: user_stats["long_tasks"] >= 10
+                "description": "完成25个25分钟以上的任务",
+                "condition": lambda user_stats: user_stats["long_tasks"] >= 25
             },
             {
                 "level": 3,
-                "description": "完成25个25分钟以上的任务",
-                "condition": lambda user_stats: user_stats["long_tasks"] >= 25
+                "description": "完成60个25分钟以上的任务",
+                "condition": lambda user_stats: user_stats["long_tasks"] >= 60
             }
         ]
     },
@@ -188,18 +188,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "在周末完成1个任务",
-                "condition": lambda user_stats: user_stats["weekend_tasks"] >= 1
+                "description": "在周末完成3个任务",
+                "condition": lambda user_stats: user_stats["weekend_tasks"] >= 3
             },
             {
                 "level": 2,
-                "description": "在周末完成10个任务",
-                "condition": lambda user_stats: user_stats["weekend_tasks"] >= 10
+                "description": "在周末完成15个任务",
+                "condition": lambda user_stats: user_stats["weekend_tasks"] >= 15
             },
             {
                 "level": 3,
-                "description": "在周末完成20个任务",
-                "condition": lambda user_stats: user_stats["weekend_tasks"] >= 20
+                "description": "在周末完成40个任务",
+                "condition": lambda user_stats: user_stats["weekend_tasks"] >= 40
             }
         ]
     },
@@ -210,40 +210,40 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "单日完成3个任务",
-                "condition": lambda user_stats: user_stats["max_daily_tasks"] >= 3
+                "description": "单日完成5个任务",
+                "condition": lambda user_stats: user_stats["max_daily_tasks"] >= 5
             },
             {
                 "level": 2,
-                "description": "单日完成7个任务",
-                "condition": lambda user_stats: user_stats["max_daily_tasks"] >= 7
+                "description": "单日完成10个任务",
+                "condition": lambda user_stats: user_stats["max_daily_tasks"] >= 10
             },
             {
                 "level": 3,
-                "description": "单日完成12个任务",
-                "condition": lambda user_stats: user_stats["max_daily_tasks"] >= 12
+                "description": "单日完成20个任务",
+                "condition": lambda user_stats: user_stats["max_daily_tasks"] >= 20
             }
         ]
     },
     {
         "id": 11,
         "name": "凯恩斯亲传弟子",
-        "description": "你对经济学的理解如同凯恩斯再世，宏观调控在你手中如同儿戏",
+        "description": "祖师爷给你的学习成就一点小小的刺激",
         "levels": [
             {
                 "level": 1,
-                "description": "完成3个包含\"经济\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("economics_tasks", 0) >= 3
+                "description": "完成5个包含\"经济\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("economics_tasks", 0) >= 5
             },
             {
                 "level": 2,
-                "description": "完成10个包含\"经济\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("economics_tasks", 0) >= 10
+                "description": "完成15个包含\"经济\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("economics_tasks", 0) >= 15
             },
             {
                 "level": 3,
-                "description": "完成20个包含\"经济\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("economics_tasks", 0) >= 20
+                "description": "完成30个包含\"经济\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("economics_tasks", 0) >= 30
             }
         ]
     },
@@ -254,18 +254,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "完成3个包含\"数学\"或\"统计\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("math_stats_tasks", 0) >= 3
+                "description": "完成5个包含\"数学\"或\"统计\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("math_stats_tasks", 0) >= 5
             },
             {
                 "level": 2,
-                "description": "完成10个包含\"数学\"或\"统计\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("math_stats_tasks", 0) >= 10
+                "description": "完成15个包含\"数学\"或\"统计\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("math_stats_tasks", 0) >= 15
             },
             {
                 "level": 3,
-                "description": "完成20个包含\"数学\"或\"统计\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("math_stats_tasks", 0) >= 20
+                "description": "完成30个包含\"数学\"或\"统计\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("math_stats_tasks", 0) >= 30
             }
         ]
     },
@@ -276,18 +276,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "完成3个包含\"英语\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("english_tasks", 0) >= 3
+                "description": "完成5个包含\"英语\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("english_tasks", 0) >= 5
             },
             {
                 "level": 2,
-                "description": "完成10个包含\"英语\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("english_tasks", 0) >= 10
+                "description": "完成15个包含\"英语\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("english_tasks", 0) >= 15
             },
             {
                 "level": 3,
-                "description": "完成20个包含\"英语\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("english_tasks", 0) >= 20
+                "description": "完成30个包含\"英语\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("english_tasks", 0) >= 30
             }
         ]
     },
@@ -298,18 +298,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "完成3个包含\"货币\"或\"银行\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("money_banking_tasks", 0) >= 3
+                "description": "完成5个包含\"货币\"或\"银行\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("money_banking_tasks", 0) >= 5
             },
             {
                 "level": 2,
-                "description": "完成10个包含\"货币\"或\"银行\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("money_banking_tasks", 0) >= 10
+                "description": "完成15个包含\"货币\"或\"银行\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("money_banking_tasks", 0) >= 15
             },
             {
                 "level": 3,
-                "description": "完成20个包含\"货币\"或\"银行\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("money_banking_tasks", 0) >= 20
+                "description": "完成30个包含\"货币\"或\"银行\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("money_banking_tasks", 0) >= 30
             }
         ]
     },
@@ -320,18 +320,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "完成3个包含\"金融\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("finance_tasks", 0) >= 3
+                "description": "完成5个包含\"金融\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("finance_tasks", 0) >= 5
             },
             {
                 "level": 2,
-                "description": "完成10个包含\"金融\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("finance_tasks", 0) >= 10
+                "description": "完成15个包含\"金融\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("finance_tasks", 0) >= 15
             },
             {
                 "level": 3,
-                "description": "完成20个包含\"金融\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("finance_tasks", 0) >= 20
+                "description": "完成30个包含\"金融\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("finance_tasks", 0) >= 30
             }
         ]
     },
@@ -342,40 +342,40 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "完成3个包含\"财务\"或\"会计\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("accounting_tasks", 0) >= 3
+                "description": "完成5个包含\"财务\"或\"会计\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("accounting_tasks", 0) >= 5
             },
             {
                 "level": 2,
-                "description": "完成10个包含\"财务\"或\"会计\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("accounting_tasks", 0) >= 10
+                "description": "完成15个包含\"财务\"或\"会计\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("accounting_tasks", 0) >= 15
             },
             {
                 "level": 3,
-                "description": "完成20个包含\"财务\"或\"会计\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("accounting_tasks", 0) >= 20
+                "description": "完成30个包含\"财务\"或\"会计\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("accounting_tasks", 0) >= 30
             }
         ]
     },
     {
         "id": 17,
-        "name": "巴菲特接班人",
+        "name": "牛回速归！",
         "description": "你对投资理论的掌握让你能够在任何市场环境中找到机会",
         "levels": [
             {
                 "level": 1,
-                "description": "完成3个包含\"投资\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("investment_tasks", 0) >= 3
+                "description": "完成5个包含\"投资\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("investment_tasks", 0) >= 5
             },
             {
                 "level": 2,
-                "description": "完成10个包含\"投资\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("investment_tasks", 0) >= 10
+                "description": "完成15个包含\"投资\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("investment_tasks", 0) >= 15
             },
             {
                 "level": 3,
-                "description": "完成20个包含\"投资\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("investment_tasks", 0) >= 20
+                "description": "完成30个包含\"投资\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("investment_tasks", 0) >= 30
             }
         ]
     },
@@ -386,18 +386,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "完成3个包含\"考研\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("exam_prep_tasks", 0) >= 3
+                "description": "完成5个包含\"考研\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("exam_prep_tasks", 0) >= 5
             },
             {
                 "level": 2,
-                "description": "完成10个包含\"考研\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("exam_prep_tasks", 0) >= 10
+                "description": "完成15个包含\"考研\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("exam_prep_tasks", 0) >= 15
             },
             {
                 "level": 3,
-                "description": "完成20个包含\"考研\"关键词的任务",
-                "condition": lambda user_stats: user_stats.get("exam_prep_tasks", 0) >= 20
+                "description": "完成30个包含\"考研\"关键词的任务",
+                "condition": lambda user_stats: user_stats.get("exam_prep_tasks", 0) >= 30
             }
         ]
     },
@@ -408,18 +408,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "获得3个其他成就",
-                "condition": lambda user_stats: user_stats.get("total_achievements", 0) >= 3
+                "description": "获得5个其他成就",
+                "condition": lambda user_stats: user_stats.get("total_achievements", 0) >= 5
             },
             {
                 "level": 2,
-                "description": "获得8个其他成就",
-                "condition": lambda user_stats: user_stats.get("total_achievements", 0) >= 8
+                "description": "获得10个其他成就",
+                "condition": lambda user_stats: user_stats.get("total_achievements", 0) >= 10
             },
             {
                 "level": 3,
-                "description": "获得15个其他成就",
-                "condition": lambda user_stats: user_stats.get("total_achievements", 0) >= 15
+                "description": "获得18个其他成就",
+                "condition": lambda user_stats: user_stats.get("total_achievements", 0) >= 18
             }
         ]
     },
@@ -430,18 +430,18 @@ ACHIEVEMENTS = [
         "levels": [
             {
                 "level": 1,
-                "description": "解锁5个成就",
-                "condition": lambda user_stats: user_stats.get("unlocked_achievements", 0) >= 5
+                "description": "解锁8个成就",
+                "condition": lambda user_stats: user_stats.get("unlocked_achievements", 0) >= 8
             },
             {
                 "level": 2,
-                "description": "解锁12个成就",
-                "condition": lambda user_stats: user_stats.get("unlocked_achievements", 0) >= 12
+                "description": "解锁15个成就",
+                "condition": lambda user_stats: user_stats.get("unlocked_achievements", 0) >= 15
             },
             {
                 "level": 3,
-                "description": "解锁18个成就",
-                "condition": lambda user_stats: user_stats.get("unlocked_achievements", 0) >= 18
+                "description": "解锁19个成就",
+                "condition": lambda user_stats: user_stats.get("unlocked_achievements", 0) >= 19
             }
         ]
     }

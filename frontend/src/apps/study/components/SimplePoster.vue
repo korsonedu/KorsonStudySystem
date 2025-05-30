@@ -90,22 +90,14 @@ const formattedDate = computed(() => {
   return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
 });
 
-// 格式化时间（将分钟转换为小时和分钟）
+// 格式化时间（将分钟转换为小时，保留小数点后两位）
 const formatTime = (minutes: number): string => {
-  if (!minutes || isNaN(minutes)) return '0分钟';
+  if (!minutes || isNaN(minutes)) return '0小时';
 
-  if (minutes < 60) {
-    return `${minutes}分钟`;
-  }
+  // 转换为小时，保留小数点后两位
+  const hours = (minutes / 60).toFixed(2);
 
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (remainingMinutes === 0) {
-    return `${hours}小时`;
-  }
-
-  return `${hours}小时${remainingMinutes}分钟`;
+  return `${hours}小时`;
 };
 
 // 获取今日开始时间
@@ -761,7 +753,8 @@ const posterText = POSTER_CONFIG.TEXT;
                 <div class="company-info">
                   <h3 class="company-name">科晟智慧</h3>
                   <p class="company-name-en">KORSON ACADEMY</p>
-                  <p class="company-slogan">探索·学习·创造</p>
+                  <p class="company-slogan">探索 · 学习 · 创造</p>
+                  <p class="company-slogan">Explore｜Learn｜Create</p>
                 </div>
               </div>
             </div>
@@ -800,59 +793,84 @@ const posterText = POSTER_CONFIG.TEXT;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
   transition: opacity 0.3s ease;
+  backdrop-filter: blur(5px);
 }
 
 .poster-container {
-  background-color: white;
-  border-radius: 12px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  background-color: rgba(42, 54, 65, 0.95);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
   width: 90%;
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
-  padding: 24px;
+  padding: 28px;
+  border: 1px solid rgba(74, 106, 138, 0.3);
 }
 
 .poster-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #eee;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(74, 106, 138, 0.3);
 }
 
 .poster-header h2 {
   margin: 0;
-  color: #2c3e50;
-  font-size: 22px;
+  color: var(--color-text-white);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .close-btn {
-  background: none;
-  border: none;
-  font-size: 28px;
+  background-color: rgba(74, 106, 138, 0.2);
+  border: 1px solid rgba(74, 106, 138, 0.3);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
   cursor: pointer;
-  color: #7f8c8d;
+  color: var(--color-text-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast) ease;
+}
+
+.close-btn:hover {
+  background-color: rgba(218, 88, 78, 0.2);
+  border-color: rgba(218, 88, 78, 0.4);
+  transform: rotate(90deg);
 }
 
 .poster-content {
   display: flex;
   flex-direction: column;
   align-items: center;
+  background-color: rgba(74, 106, 138, 0.05);
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid rgba(74, 106, 138, 0.2);
 }
 
 .poster-preview {
   width: 100%;
   display: flex;
   justify-content: center;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 /* 海报样式 */
@@ -1251,20 +1269,25 @@ const posterText = POSTER_CONFIG.TEXT;
   width: 100%;
   display: flex;
   justify-content: center;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .generated-poster img {
   width: 400px; /* 固定宽度，与预览海报宽度一致 */
   height: auto; /* 保持宽高比 */
   border-radius: 16px; /* 与预览海报圆角一致 */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); /* 与预览海报阴影一致 */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); /* 增强阴影效果 */
   object-fit: contain; /* 确保图片不会被拉伸或压缩 */
   max-width: 100%; /* 确保在小屏幕上不会溢出 */
   display: block; /* 防止底部出现额外空间 */
   image-rendering: -webkit-optimize-contrast; /* 提高图片渲染质量 */
   image-rendering: crisp-edges; /* 提高图片渲染质量 */
   transform: translateZ(0); /* 启用硬件加速 */
+  border: 1px solid rgba(255, 255, 255, 0.1); /* 添加细微边框 */
 }
 
 /* 按钮样式 */
@@ -1277,22 +1300,31 @@ const posterText = POSTER_CONFIG.TEXT;
 
 .generate-btn, .download-btn, .regenerate-btn {
   padding: 12px 24px;
-  border-radius: 50px;
-  border: none;
+  border-radius: 10px;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 16px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-fast) ease;
+  letter-spacing: 0.5px;
 }
 
 .generate-btn {
-  background: linear-gradient(135deg, #3498db, #2980b9);
-  color: white;
+  background-color: rgba(102, 205, 170, 0.2);
+  color: var(--color-text-white);
   min-width: 180px;
+  border: 1px solid rgba(102, 205, 170, 0.4);
+  box-shadow: 0 4px 12px rgba(102, 205, 170, 0.1);
+}
+
+.generate-btn:hover:not(:disabled) {
+  background-color: rgba(102, 205, 170, 0.3);
+  border-color: rgba(102, 205, 170, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 205, 170, 0.2);
 }
 
 .download-options {
@@ -1301,28 +1333,48 @@ const posterText = POSTER_CONFIG.TEXT;
 }
 
 .download-btn {
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
-  color: white;
+  background-color: rgba(100, 149, 237, 0.2);
+  color: var(--color-text-white);
+  border: 1px solid rgba(100, 149, 237, 0.4);
+  box-shadow: 0 4px 12px rgba(100, 149, 237, 0.1);
+}
+
+.download-btn:hover:not(:disabled) {
+  background-color: rgba(100, 149, 237, 0.3);
+  border-color: rgba(100, 149, 237, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(100, 149, 237, 0.2);
 }
 
 .regenerate-btn {
-  background: #ecf0f1;
-  color: #34495e;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-light-gray);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.regenerate-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--color-text-white);
 }
 
 .error-message {
-  background: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
-  padding: 12px;
-  border-radius: 8px;
+  background-color: rgba(218, 88, 78, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 14px;
+  border-radius: 10px;
   margin-bottom: 20px;
   text-align: center;
   width: 100%;
+  border: 1px solid rgba(218, 88, 78, 0.3);
+  font-weight: 500;
 }
 
 button:disabled {
-  opacity: 0.7;
+  opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 /* 响应式设计 */

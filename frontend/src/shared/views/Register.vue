@@ -107,55 +107,58 @@ const goToLogin = () => {
 </script>
 
 <template>
-  <div class="register-container">
-    <Card class="register-card">
-      <CardHeader class="card-header">
-        <CardTitle class="card-title">创建新账号</CardTitle>
-        <p class="subtitle">加入我们，开启您的学习之旅</p>
+  <div class="auth-container">
+    <Card class="auth-card">
+      <CardHeader class="auth-header">
+        <CardTitle class="auth-title">创建新账号</CardTitle>
+        <p class="auth-subtitle">加入我们，开启您的学习之旅</p>
       </CardHeader>
 
-      <CardContent class="card-content">
+      <CardContent class="auth-content">
 
-        <div class="form-group">
-          <div class="input-group">
-            <Label for="username" class="input-label">用户名</Label>
+        <div class="auth-form">
+          <div class="auth-input-group">
+            <Label for="username" class="auth-label">用户名</Label>
             <Input
               id="username"
               v-model="username"
               placeholder="请输入用户名"
               :disabled="loading"
-              class="input-field"
+              class="auth-input"
+              autocomplete="username"
             />
           </div>
 
-          <div class="input-group">
-            <Label for="email" class="input-label">邮箱</Label>
+          <div class="auth-input-group">
+            <Label for="email" class="auth-label">邮箱</Label>
             <Input
               id="email"
               v-model="email"
               placeholder="请输入邮箱"
               :disabled="loading"
-              class="input-field"
+              class="auth-input"
+              autocomplete="email"
             />
           </div>
 
-          <div class="input-group">
-            <Label for="password" class="input-label">密码</Label>
+          <div class="auth-input-group">
+            <Label for="password" class="auth-label">密码</Label>
             <Input
               id="password"
               type="password"
               v-model="password"
               placeholder="请输入密码"
               :disabled="loading"
-              class="input-field"
+              class="auth-input"
+              autocomplete="new-password"
             />
             <div class="password-hint">
               <span>密码长度必须至少为8个字符</span>
             </div>
           </div>
 
-          <div class="input-group">
-            <Label for="confirmPassword" class="input-label">确认密码</Label>
+          <div class="auth-input-group">
+            <Label for="confirmPassword" class="auth-label">确认密码</Label>
             <Input
               id="confirmPassword"
               type="password"
@@ -163,28 +166,29 @@ const goToLogin = () => {
               placeholder="请再次输入密码"
               :disabled="loading"
               @keyup.enter="register"
-              class="input-field"
+              class="auth-input"
+              autocomplete="new-password"
             />
           </div>
 
-          <div class="input-group">
-            <Label for="invitationCode" class="input-label">邀请码</Label>
+          <div class="auth-input-group">
+            <Label for="invitationCode" class="auth-label">邀请码</Label>
             <Input
               id="invitationCode"
               v-model="invitationCode"
               placeholder="请输入邀请码（仅支持邀请注册）"
               :disabled="loading"
-              class="input-field"
+              class="auth-input"
             />
           </div>
         </div>
       </CardContent>
 
-      <CardFooter class="card-footer">
+      <CardFooter class="auth-footer">
         <Button
           @click="register"
           :disabled="loading"
-          class="submit-button"
+          class="auth-submit-btn"
         >
           {{ loading ? '注册中...' : '创建账号' }}
         </Button>
@@ -193,13 +197,13 @@ const goToLogin = () => {
           @click="goToLogin"
           :disabled="loading"
           variant="outline"
-          class="secondary-button"
+          class="auth-secondary-btn"
         >
           返回登录
         </Button>
 
-        <div class="login-link">
-          已有账号？<a href="#" @click.prevent="goToLogin">立即登录</a>
+        <div class="auth-link-text">
+          已有账号？<a href="#" @click.prevent="goToLogin" class="auth-link">立即登录</a>
         </div>
       </CardFooter>
     </Card>
@@ -207,190 +211,5 @@ const goToLogin = () => {
 </template>
 
 <style scoped>
-.register-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 80vh;
-  background: #f5f7fa;
-  padding: 20px;
-}
-
-.register-card {
-  width: 100%;
-  max-width: 550px; /* 增加宽度 */
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.register-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-}
-
-/* 卡片头部样式 */
-.card-header {
-  padding: 24px 24px 0;
-  border-bottom: none;
-}
-
-.card-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #333;
-  text-align: center;
-  margin-bottom: 8px;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-.subtitle {
-  color: rgba(0, 0, 0, 0.45);
-  font-size: 16px;
-  margin-bottom: 8px;
-  text-align: center;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-/* 卡片内容样式 */
-.card-content {
-  padding: 24px 32px; /* 增加水平内边距 */
-}
-
-/* 表单样式 */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.input-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-.input-field {
-  height: 42px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  font-size: 14px;
-  padding: 0 16px; /* 增加内边距 */
-  width: 100%; /* 确保宽度填满父容器 */
-}
-
-.input-field:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-.password-hint {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.55);
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background-color: rgba(0, 0, 0, 0.02);
-  padding: 8px 12px;
-  border-radius: 6px;
-  border-left: 3px solid var(--primary-color);
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-/* 卡片底部样式 */
-.card-footer {
-  padding: 0 24px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  border-top: none;
-}
-
-/* 按钮样式 */
-.submit-button, .secondary-button {
-  height: 44px;
-  font-weight: 500;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  width: 100%;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  font-size: 15px;
-}
-
-.submit-button {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.secondary-button {
-  background-color: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  color: #666;
-}
-
-.submit-button:hover, .secondary-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* 提示信息样式 */
-.alert-message {
-  margin-bottom: 20px;
-  border-radius: 8px;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-/* 链接样式 */
-.login-link {
-  text-align: center;
-  font-size: 14px;
-  color: #666;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-.login-link a {
-  color: var(--primary-color);
-  font-weight: 500;
-  transition: all 0.2s ease;
-  text-decoration: none;
-}
-
-.login-link a:hover {
-  text-decoration: underline;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .register-card {
-    max-width: 100%;
-    margin: 0 10px;
-  }
-
-  :deep(.button) {
-    height: 42px;
-  }
-}
-
-@media (max-width: 480px) {
-  .register-container {
-    padding: 15px;
-  }
-
-  .password-hint {
-    font-size: 12px;
-    padding: 6px 10px;
-  }
-}
+/* 所有样式已移至全局CSS文件 */
 </style>

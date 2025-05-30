@@ -1,21 +1,49 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { taskService } from '../../../shared/services/taskService'
 import { planService } from '../../../shared/services/planService'
+import eventBus, { EVENT_NAMES } from '../../../utils/eventBus'
+import { useUserStore } from '../../../stores/userStore'
+import { useOnlineUsersStore } from '../../../stores/onlineUsersStore'
 import CircularTimer from '../components/CircularTimer.vue'
 import { formatDate, formatTime, toChineseTimezone, formatChineseDate, formatTimeOnly } from '../../../utils/dateUtils'
 import { getPlanId, sortPlansByCompletionAndDate, filterTodayPlans } from '../../../shared/utils/sortUtils'
-
-// 导入shadcn组件
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../../components/ui/dialog'
+import ConfirmDialog from '../../../shared/components/ConfirmDialog.vue'
+import OnlineUsersCard from '../components/OnlineUsersCard.vue'
+import { Input } from '../../../components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
+import { toast } from 'vue-sonner'
+
+// 使用状态存储
+const userStore = useUserStore()
+const onlineUsersStore = useOnlineUsersStore()
+
+// 隐私模式状态
+const privacyMode = ref(localStorage.getItem('privacy_mode') === 'true')
+
+// 切换隐私模式
+const togglePrivacyMode = (checked: boolean) => {
+  console.log('隐私模式切换:', checked)
+  privacyMode.value = checked
+  localStorage.setItem('privacy_mode', checked.toString())
+
+  if (checked) {
+    // 如果开启隐私模式，从在线用户列表中移除自己
+    onlineUsersStore.setPrivacyMode(true)
+    toast.success('隐私模式已开启', {
+      description: '您的信息将不会向其他用户显示',
+      duration: 3000,
+    })
+  } else {
+    // 如果关闭隐私模式，重新加入在线用户列表
+    onlineUsersStore.setPrivacyMode(false)
+    toast.success('隐私模式已关闭', {
+      description: '您的信息将会向其他用户显示',
+      duration: 3000,
+    })
+  }
+}
 
 // State for Pomodoro timer
 const taskName = ref('')
@@ -54,7 +82,25 @@ const confirmDialogTitle = ref('确认')
 const confirmDialogMessage = ref('')
 const confirmDialogCallback = ref(() => {})
 
-// 拖拽功能
+// 在 script setup 部分的开头添加
+const timeLeft = ref(0);
+
+/**
+ * 拖拽功能
+ *
+ * 实现学习计划与番茄钟之间的拖放交互，允许用户：
+ * 1. 从计划列表拖动计划到番茄钟
+ * 2. 自动填充任务名称
+ * 3. 自动开始计时
+ * 4. 完成后自动标记计划为已完成
+ */
+
+/**
+ * 处理拖拽开始事件
+ *
+ * @param event 拖拽事件对象
+ * @param plan 被拖拽的计划对象
+ */
 const handleDragStart = (event: DragEvent, plan: any) => {
   if (!event.dataTransfer) return
 
@@ -74,16 +120,38 @@ const handleDragStart = (event: DragEvent, plan: any) => {
     event.target.classList.add('dragging')
   }
 
+  // 立即显示拖放提示卡片
+  const taskInputSection = document.querySelector('.task-input-section')
+  if (taskInputSection) {
+    taskInputSection.classList.add('plan-dragging')
+  }
+
   // 拖拽开始
 }
 
+/**
+ * 处理拖拽结束事件
+ *
+ * @param event 事件对象
+ */
 const handleDragEnd = (event: Event) => {
   // 移除视觉反馈
   if (event.target instanceof HTMLElement) {
     event.target.classList.remove('dragging')
   }
+
+  // 移除拖放提示卡片
+  const taskInputSection = document.querySelector('.task-input-section')
+  if (taskInputSection) {
+    taskInputSection.classList.remove('plan-dragging')
+  }
 }
 
+/**
+ * 处理拖拽经过目标区域事件
+ *
+ * @param event 拖拽事件对象
+ */
 const handleDragOver = (event: DragEvent) => {
   // 允许放置
   event.preventDefault()
@@ -97,6 +165,11 @@ const handleDragOver = (event: DragEvent) => {
   }
 }
 
+/**
+ * 处理拖拽离开目标区域事件
+ *
+ * @param event 拖拽事件对象
+ */
 const handleDragLeave = (event: DragEvent) => {
   // 移除视觉反馈
   if (event.currentTarget instanceof HTMLElement) {
@@ -107,12 +180,28 @@ const handleDragLeave = (event: DragEvent) => {
 // 创建一个引用来存储当前拖拽的计划ID
 const currentDraggedPlanId = ref<string | number | null>(null)
 
+/**
+ * 处理拖拽放置事件
+ *
+ * 当计划被拖放到番茄钟区域时：
+ * 1. 提取计划文本和ID
+ * 2. 设置为当前任务名称
+ * 3. 显示确认对话框询问是否开始计时
+ *
+ * @param event 拖拽事件对象
+ */
 const handleDrop = (event: DragEvent) => {
   event.preventDefault()
 
   // 移除视觉反馈
   if (event.currentTarget instanceof HTMLElement) {
     event.currentTarget.classList.remove('drag-over')
+  }
+
+  // 移除拖放提示卡片
+  const taskInputSection = document.querySelector('.task-input-section')
+  if (taskInputSection) {
+    taskInputSection.classList.remove('plan-dragging')
   }
 
   // 获取拖拽数据
@@ -130,12 +219,39 @@ const handleDrop = (event: DragEvent) => {
 
   // 设置任务名称
   taskName.value = planText
+
+  // 检查是否可以开始计时
+  if (!isRunning.value && taskName.value.trim() && taskTime.value > 0) {
+    // 确保时间不超过120分钟
+    if (taskTime.value > 120) {
+      taskTime.value = 120
+    }
+
+    // 显示确认对话框
+    confirmDialogTitle.value = '开始学习任务'
+    confirmDialogMessage.value = `您确认开始此次任务吗？\n\n任务名：${taskName.value}\n时长：${taskTime.value} 分钟`
+
+    // 设置确认回调函数
+    confirmDialogCallback.value = () => {
+      // 启动计时器
+      toggleTimer()
+
+      // 隐藏对话框
+      showConfirmDialog.value = false
+    }
+
+    // 显示对话框
+    showConfirmDialog.value = true
+  }
 }
 
 
 
 // 记录实际开始时间
 const taskStartTime = ref<Date | null>(null)
+
+// 当前正在进行的任务ID
+const currentTaskId = ref<number | null>(null)
 
 // 开始/暂停计时器
 const toggleTimer = () => {
@@ -160,6 +276,9 @@ const toggleTimer = () => {
 
     // 切换运行状态
     isRunning.value = true
+
+    // 创建并开始任务
+    createAndStartTask()
   } else {
     // 暂停计时
     isRunning.value = false
@@ -180,6 +299,9 @@ const resetTimer = () => {
   // 重置为默认25分钟
   taskTime.value = 25
   totalSeconds.value = taskTime.value * 60
+
+  // 重置当前任务ID
+  currentTaskId.value = null
 }
 
 // 完成当前任务
@@ -209,13 +331,49 @@ const completeTask = async () => {
   showConfirmDialog.value = true
 }
 
+// 创建并开始任务
+const createAndStartTask = async () => {
+  try {
+    // 检查任务名称
+    if (!taskName.value.trim()) {
+      return;
+    }
+
+    // 获取当前时间
+    const now = new Date();
+    // 转换为中国时区
+    const currentTime = toChineseTimezone(now);
+
+    // 保存开始时间
+    taskStartTime.value = currentTime;
+
+    // 获取当前用户信息
+    const userStore = useUserStore();
+
+    // 广播任务开始事件
+    const taskWithUser = {
+      name: taskName.value,
+      duration: taskTime.value,
+      start: currentTime,
+      user: {
+        id: userStore.userId,
+        username: userStore.username
+      },
+      status: 'ongoing',
+      completed: false
+    };
+
+    console.log('广播任务开始事件:', taskWithUser);
+    // 通过EventBus广播任务开始事件
+    eventBus.emit(EVENT_NAMES.TASK_STARTED, taskWithUser);
+  } catch (err) {
+    console.error('创建并开始任务失败:', err);
+  }
+};
+
 // 保存已完成的任务
 const saveCompletedTask = async () => {
-
   try {
-    // 不设置加载状态，提升界面流畅感
-    error.value = ''
-
     // 获取当前时间作为结束时间（中国时区）
     const now = new Date();
     // 转换为中国时区
@@ -229,8 +387,6 @@ const saveCompletedTask = async () => {
     } else {
       startTime = currentTime;
     }
-
-    // 任务开始和结束时间已设置为中国时区
 
     // 计算实际时长（从开始到结束的分钟数）
     let taskDuration = taskTime.value; // 默认使用设置的时长
@@ -247,8 +403,6 @@ const saveCompletedTask = async () => {
       // 确保默认时长至少为1分钟
       taskDuration = Math.max(taskDuration, 1);
     }
-
-    // 确保任务时长至少为1分钟
 
     // 将日期格式化为ISO格式字符串（不带时区信息）
     const formatDateForBackend = (date: Date) => {
@@ -267,7 +421,7 @@ const saveCompletedTask = async () => {
     };
 
     // 确保任务数据符合后端API要求
-    const newTask = {
+    const taskData = {
       name: taskName.value,
       duration: taskDuration, // 使用计算出的实际时长
       completed: true,
@@ -276,8 +430,40 @@ const saveCompletedTask = async () => {
       // 不指定用户ID，由后端根据token自动关联当前用户
     }
 
-    // 使用直接API存储服务保存任务
-    const savedTask = await taskService.addTask(newTask)
+    let savedTask;
+
+    // 如果有当前任务ID，则更新任务而不是创建新任务
+    if (currentTaskId.value) {
+      console.log('更新现有任务:', currentTaskId.value);
+      // 使用completeTask方法更新任务
+      savedTask = await taskService.completeTask(currentTaskId.value, taskData);
+    } else {
+      console.log('创建新的已完成任务');
+      // 如果没有当前任务ID，创建新任务
+      savedTask = await taskService.addTask(taskData);
+    }
+
+    // 获取当前用户信息
+    const userStore = useUserStore();
+
+    // 广播任务完成事件
+    if (savedTask && savedTask.id) {
+      console.log('广播任务完成事件:', savedTask);
+
+      // 添加用户信息到任务对象
+      const taskWithUser = {
+        ...savedTask,
+        user: {
+          id: userStore.userId,
+          username: userStore.username
+        },
+        status: 'completed',
+        completed: true
+      };
+
+      // 通过EventBus广播任务完成事件
+      eventBus.emit(EVENT_NAMES.TASK_COMPLETED, taskWithUser);
+    }
 
     // 刷新任务列表
     await fetchTasks()
@@ -311,19 +497,28 @@ const saveCompletedTask = async () => {
     // Reset for next task
     resetTimer()
     taskName.value = ''
+
+    // 重置当前任务ID
+    currentTaskId.value = null
   } catch (err: any) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('完成任务失败')
     }
     // 只在控制台输出错误，不显示错误消息
 
-    // 重置当前拖拽的计划ID
+    // 重置当前拖拽的计划ID和任务ID
     currentDraggedPlanId.value = null
+    currentTaskId.value = null
   }
 }
 
-// 由于已经添加了watch监听器，这个函数已不再需要
-// 删除冗余函数
+// 监听倒计时结束事件
+watch(() => timeLeft.value, (newValue) => {
+  if (newValue === 0 && isRunning.value) {
+    // 倒计时自然结束，保存任务
+    saveCompletedTask();
+  }
+});
 
 // 获取任务列表
 const fetchTasks = async () => {
@@ -416,7 +611,7 @@ const addPlan = async () => {
     }
 
     // 添加计划
-    const createdPlan = await planService.addPlan(newPlan)
+    await planService.addPlan(newPlan)
 
     // 清空输入框
     planInput.value = ''
@@ -540,917 +735,381 @@ onMounted(() => {
   fetchTasks()
   fetchPlans()
 })
+
+// 组件卸载前清理资源
+onBeforeUnmount(() => {
+  // 清理资源
+})
 </script>
 
 <template>
   <div class="main-content">
-    <!-- shadcn Dialog 确认对话框 -->
-    <Dialog>
-      <DialogContent v-if="showConfirmDialog" class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{{ confirmDialogTitle }}</DialogTitle>
-          <DialogDescription>
-            {{ confirmDialogMessage }}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter class="flex justify-end gap-2 mt-4">
-          <Button variant="outline" @click="showConfirmDialog = false">取消</Button>
-          <Button @click="confirmDialogCallback">确定</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <!-- 确认对话框 -->
+    <ConfirmDialog
+      :show="showConfirmDialog"
+      :title="confirmDialogTitle"
+      :message="confirmDialogMessage"
+      @confirm="confirmDialogCallback"
+      @cancel="showConfirmDialog = false"
+    />
     <!-- 主要内容区域 - 番茄钟为焦点 -->
     <main class="pomodoro-main">
       <!-- 番茄钟卡片 - 作为页面焦点 -->
-      <div class="pomodoro-card">
-        <h2 class="pomodoro-title">专注学习时钟 <span class="emoji">⏱️</span></h2>
-        <p class="pomodoro-subtitle">使用番茄工作法提高学习效率</p>
-
-        <div v-if="error" class="error-message">{{ error }}</div>
-
-        <!-- 任务输入区域 - 支持拖放计划 - 横排在上方 -->
-        <div class="time-setter"
-          @dragover="handleDragOver"
-          @dragleave="handleDragLeave"
-          @drop="handleDrop"
-        >
-          <div class="input-group task-group">
-            <label for="task-input">学习任务</label>
-            <input
-              id="task-input"
-              type="text"
-              v-model="taskName"
-              placeholder="输入你要专注的学习内容 📖"
-              class="task-input"
-            >
-          </div>
-          <div class="input-group time-group">
-            <label for="time-input">专注时长</label>
-            <input
-              id="time-input"
-              type="number"
-              v-model="taskTime"
-              max="120"
-              placeholder="分钟 ⏳"
-              :disabled="isRunning"
-              class="time-input"
-            >
-          </div>
-        </div>
-
-        <!-- 番茄钟主体 -->
-        <div class="timer-container">
-          <CircularTimer
-            :totalSeconds="totalSeconds"
-            :isRunning="isRunning"
-            @timeUp="completeTask"
-          />
-        </div>
-
-        <!-- 控制按钮 -->
-        <div class="controls">
-          <button class="control-btn primary-btn" @click="toggleTimer" :disabled="!taskName.trim()">{{ buttonText }}</button>
-          <button class="control-btn success-btn" @click="completeTask" :disabled="!taskName.trim()">✅ 结束</button>
-          <button class="control-btn reset-btn" @click="resetTimer">🔄 重置</button>
-        </div>
-      </div>
-
-      <!-- 任务记录列表 -->
-      <div class="task-list">
-        <div class="list-header">
-          <h2>今日学习记录 📝</h2>
-        </div>
-        <p v-if="taskRecords.length === 0" class="empty-message">今天还没有学习记录，开始你的第一个学习任务吧！</p>
-        <ul v-else class="task-records">
-          <li v-for="(task, index) in taskRecords" :key="index" class="task-record-item">
-            <div class="task-record-content">
-              <div class="task-record-header">
-                <span class="task-name">{{ task.name }}</span>
-                <button class="delete-task-btn" @click="deleteTask(task.id)" title="删除任务">❌</button>
-              </div>
-              <div class="task-record-details">
-                <span class="task-date">
-                  <span class="label">日期:</span> {{ formatChineseDate(task.start, false) }}
-                </span>
-                <span class="task-time">
-                  <span class="label">开始:</span> {{ formatTimeOnly(task.start) }}
-                </span>
-                <span class="task-time">
-                  <span class="label">结束:</span> {{ formatTimeOnly(task.end) }}
-                </span>
-                <span class="task-duration">
-                  <span class="label">时长:</span> {{ task.duration }} 分钟
-                </span>
+      <Card class="pomodoro-card">
+        <CardHeader>
+          <div class="pomodoro-header">
+            <CardTitle class="pomodoro-title">专注学习时钟 <span class="emoji">🚀</span></CardTitle>
+            <div v-if="userStore.isLoggedIn" class="privacy-mode-wrapper">
+              <div class="privacy-mode-control">
+                <span class="privacy-mode-label">隐私模式</span>
+                <div
+                  class="custom-switch"
+                  :class="{ 'switch-on': privacyMode }"
+                  @click="togglePrivacyMode(!privacyMode)"
+                >
+                  <div class="switch-thumb"></div>
+                </div>
               </div>
             </div>
-          </li>
-        </ul>
-      </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div v-if="error" class="error-message">{{ error }}</div>
+
+          <!-- 任务和时长输入区域 - 两列布局 -->
+          <div class="input-container">
+            <!-- 第一列：学习任务 -->
+            <div class="input-column">
+              <Label for="task-input" class="input-label">学习任务</Label>
+              <div class="task-input-section"
+                @dragover="handleDragOver"
+                @dragleave="handleDragLeave"
+                @drop="handleDrop"
+              >
+                <Input
+                  id="task-input"
+                  type="text"
+                  v-model="taskName"
+                  placeholder="输入你要专注的学习内容 📖"
+                  class="task-input"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+
+            <!-- 第二列：专注时长 -->
+            <div class="input-column">
+              <Label for="time-input" class="input-label">专注时长</Label>
+              <div class="time-input-section">
+                <Input
+                  id="time-input"
+                  type="number"
+                  v-model="taskTime"
+                  max="120"
+                  placeholder="分钟 ⏳"
+                  :disabled="isRunning"
+                  class="time-input"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- 番茄钟主体 -->
+          <div class="timer-container">
+            <CircularTimer
+              :totalSeconds="totalSeconds"
+              :isRunning="isRunning"
+              @timeUp="completeTask"
+            />
+          </div>
+
+          <!-- 控制按钮 -->
+          <div class="controls">
+            <Button class="control-btn primary-btn" @click="toggleTimer" :disabled="!taskName.trim()">
+              <span class="button-content">{{ buttonText }}</span>
+            </Button>
+            <Button class="control-btn success-btn" @click="completeTask" :disabled="!taskName.trim()">
+              <span class="button-content">✅ 结束</span>
+            </Button>
+            <Button class="control-btn reset-btn" @click="resetTimer">
+              <span class="button-content">🔄 重置</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- 任务记录列表 -->
+      <Card class="task-list">
+        <CardHeader>
+          <CardTitle>今日学习记录 📝</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p v-if="taskRecords.length === 0" class="empty-message">今天还没有学习记录，开始你的第一个学习任务吧！</p>
+          <ul v-else class="task-records">
+            <li v-for="(task, index) in taskRecords" :key="index" class="task-record-item">
+              <div class="task-record-content">
+                <div class="task-record-header">
+                  <span class="task-name">{{ task.name }}</span>
+                  <Button
+                    class="delete-task-btn"
+                    @click="deleteTask(task.id)"
+                    title="删除任务"
+                    variant="ghost"
+                    size="icon"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                  </Button>
+                </div>
+                <div class="task-record-details">
+                  <span class="task-date">
+                    <span class="label">日期:</span> {{ formatChineseDate(task.start, false) }}
+                  </span>
+                  <span class="task-time">
+                    <span class="label">开始:</span> {{ formatTimeOnly(task.start) }}
+                  </span>
+                  <span class="task-time">
+                    <span class="label">结束:</span> {{ formatTimeOnly(task.end) }}
+                  </span>
+                  <span class="task-duration">
+                    <span class="label">时长:</span> {{ task.duration }} 分钟
+                  </span>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
     </main>
 
     <!-- 侧边栏 - 今日计划 -->
-    <aside class="plan-sidebar">
-      <div class="sidebar-header">
-        <h2>今日学习计划 📋</h2>
-        <p class="sidebar-subtitle">可以拖动计划到番茄钟任务栏</p>
-      </div>
-      <div v-if="planError" class="error-message">{{ planError }}</div>
+    <div class="sidebar-container">
+      <Card class="plan-sidebar">
+        <CardHeader>
+          <CardTitle>今日学习计划 📋</CardTitle>
+          <p class="sidebar-subtitle">可以拖动计划到番茄钟任务栏</p>
+        </CardHeader>
+        <CardContent>
+          <div v-if="planError" class="error-message">{{ planError }}</div>
 
-      <div class="plan-control">
-        <input
-          type="text"
-          v-model="planInput"
-          placeholder="添加今日学习计划"
-          @keyup.enter="addPlan"
-        >
-        <button class="add-plan-btn" @click="addPlan" :disabled="!planInput.trim()">
-          <span class="plus-icon">+</span>
-        </button>
-      </div>
-
-      <p v-if="plans.length === 0" class="empty-message">暂无学习计划，添加一个吧！</p>
-      <ul v-else class="tech-plan-list">
-        <li
-          v-for="plan in plans"
-          :key="getPlanId(plan)"
-          class="tech-plan-item"
-          :class="{ completed: plan.completed }"
-          draggable="true"
-          @dragstart="(e) => handleDragStart(e, plan)"
-          @dragend="handleDragEnd"
-        >
-          <div class="tech-plan-content">
-            <div class="tech-plan-checkbox-container">
-              <input
-                type="checkbox"
-                :checked="plan.completed"
-                @change="togglePlan(plan)"
-                class="tech-plan-checkbox"
-                :id="`plan-checkbox-${getPlanId(plan)}`"
-              >
-              <label
-                :for="`plan-checkbox-${getPlanId(plan)}`"
-                class="tech-plan-checkbox-label"
-              ></label>
-            </div>
-            <div class="tech-plan-text-container">
-              <span class="tech-plan-text">{{ plan.text || plan.title || '无标题' }}</span>
-              <div v-if="plan.completed" class="tech-plan-status">已完成</div>
-              <div v-else class="tech-plan-status pending">待完成</div>
-            </div>
+          <div class="plan-control">
+            <Input
+              type="text"
+              v-model="planInput"
+              placeholder="添加今日学习计划"
+              @keyup.enter="addPlan"
+              class="plan-input"
+              autocomplete="off"
+            />
+            <Button class="add-plan-btn" @click="addPlan" :disabled="!planInput.trim()">
+              <span class="plus-icon">+</span>
+            </Button>
           </div>
-          <button
-            class="tech-plan-delete-btn"
-            @click="deletePlan(getPlanId(plan))"
-            :disabled="!getPlanId(plan)"
-            aria-label="删除计划"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              <line x1="10" y1="11" x2="10" y2="17"></line>
-              <line x1="14" y1="11" x2="14" y2="17"></line>
-            </svg>
-          </button>
-        </li>
-      </ul>
-    </aside>
+
+          <p v-if="plans.length === 0" class="empty-message">暂无学习计划，添加一个吧！</p>
+          <ul v-else class="tech-plan-list">
+            <li
+              v-for="plan in plans"
+              :key="getPlanId(plan)"
+              class="tech-plan-item"
+              :class="{ completed: plan.completed }"
+              draggable="true"
+              @dragstart="(e) => handleDragStart(e, plan)"
+              @dragend="handleDragEnd"
+            >
+              <div class="tech-plan-content">
+                <div class="tech-plan-checkbox-container">
+                  <input
+                    type="checkbox"
+                    :checked="plan.completed"
+                    @change="togglePlan(plan)"
+                    class="tech-plan-checkbox"
+                    :id="`plan-checkbox-${getPlanId(plan)}`"
+                  >
+                  <label
+                    :for="`plan-checkbox-${getPlanId(plan)}`"
+                    class="tech-plan-checkbox-label"
+                  ></label>
+                </div>
+                <div class="tech-plan-text-container">
+                  <span class="tech-plan-text">{{ plan.text || plan.title || '无标题' }}</span>
+                  <div v-if="plan.completed" class="tech-plan-status">已完成</div>
+                  <div v-else class="tech-plan-status pending">待完成</div>
+                </div>
+              </div>
+              <Button
+                class="tech-plan-delete-btn"
+                @click="deletePlan(getPlanId(plan))"
+                :disabled="!getPlanId(plan)"
+                aria-label="删除计划"
+                variant="ghost"
+                size="icon"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+              </Button>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <!-- 在线用户卡片 -->
+      <OnlineUsersCard />
+    </div>
   </div>
 </template>
 
 <style scoped>
-.main-content {
-  display: flex;
-  gap: 15px;
-  align-items: flex-start;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.pomodoro-main {
-  flex: 3;
-  width: 100%;
-}
-
-.plan-sidebar {
-  width: 350px; /* 增加宽度到350px */
-  background: linear-gradient(145deg, #ffffff, #f0f7ff);
-  border-radius: 16px;
-  padding: 18px;
-  box-shadow: 0 8px 30px rgba(0, 120, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
-  height: fit-content;
-  font-size: 0.85rem;
-  border: 1px solid rgba(0, 120, 255, 0.1);
-  position: relative;
-  overflow: hidden; /* 保持overflow: hidden，防止内容溢出 */
-}
-
-.plan-sidebar::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 100px;
-  height: 100px;
-  background: radial-gradient(circle at top right, rgba(52, 152, 219, 0.1), transparent 70%);
-  z-index: 0;
-}
-
-.plan-sidebar::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 80px;
-  height: 80px;
-  background: radial-gradient(circle at bottom left, rgba(155, 89, 182, 0.1), transparent 70%);
-  z-index: 0;
-}
-
-.plan-sidebar > * {
-  position: relative;
-  z-index: 1;
-}
-
-.pomodoro-card {
-  background: linear-gradient(135deg, #ffffff, #f8f9ff);
-  border-radius: 20px;
-  padding: 40px;
-  box-shadow: 0 15px 35px rgba(94, 114, 228, 0.1), 0 5px 15px rgba(0, 0, 0, 0.05);
-  margin-bottom: 30px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-height: 380px;
-  width: 100%;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(94, 114, 228, 0.1);
-}
-
-.pomodoro-card::before {
-  content: '';
-  position: absolute;
-  top: -50px;
-  right: -50px;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(94, 114, 228, 0.05), transparent 70%);
-  border-radius: 50%;
-  z-index: 0;
-}
-
-.pomodoro-card::after {
-  content: '';
-  position: absolute;
-  bottom: -30px;
-  left: -30px;
-  width: 150px;
-  height: 150px;
-  background: radial-gradient(circle, rgba(17, 205, 239, 0.05), transparent 70%);
-  border-radius: 50%;
-  z-index: 0;
-}
-
-.pomodoro-card > * {
-  position: relative;
-  z-index: 1;
-}
-
-.pomodoro-title {
-  font-size: 1.8rem;
-  color: #2c3e50;
-  margin-bottom: 5px;
-  text-align: center;
-  font-weight: 700;
-}
-
-.pomodoro-subtitle {
-  color: #7f8c8d;
-  text-align: center;
-  margin-bottom: 20px;
-  font-size: 1rem;
-}
-
+/* 组件特定样式 - 其他通用样式已移至全局CSS文件 */
+/* 表情符号样式 */
 .emoji {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   vertical-align: middle;
-  margin-left: 5px;
+  margin-left: 6px;
 }
 
-.timer-container {
+/* 番茄钟标题栏样式 */
+.pomodoro-header {
   display: flex;
-  justify-content: center;
-  margin: 20px 0 30px;
-  transform: scale(1.5);
-  flex: 1;
-  min-height: 200px;
-}
-
-.time-setter {
-  display: flex;
-  flex-direction: row;
-  gap: 20px;
-  margin: 20px 0;
+  justify-content: space-between;
+  align-items: center;
   width: 100%;
-  max-width: 800px;
-  position: relative;
-  transition: all 0.3s ease;
-  padding: 20px;
-  border-radius: 12px;
-  background-color: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
-.time-setter.drag-over {
-  border: 2px dashed rgba(94, 114, 228, 0.5);
-  background-color: rgba(94, 114, 228, 0.05);
-  transform: scale(1.01);
-}
-
-.time-setter.drag-over::after {
-  content: '拖放计划到这里开始学习';
+/* 隐私模式包装器 */
+.privacy-mode-wrapper {
   position: absolute;
-  top: -30px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(94, 114, 228, 0.9);
-  color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  animation: bounce 1s infinite;
+  top: 12px;
+  right: 12px;
   z-index: 10;
 }
 
-@keyframes bounce {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-5px); }
-}
-
-.input-group {
+/* 隐私模式控制区域 */
+.privacy-mode-control {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 8px;
-}
-
-.task-group {
-  flex: 2; /* 调整比例为2:1，更加平衡 */
-}
-
-.time-group {
-  flex: 1;
-  min-width: 150px; /* 增加最小宽度，使时间输入框更宽 */
-}
-
-.input-group label {
-  font-size: 0.9rem;
-  color: #5e72e4;
-  font-weight: 600;
-  margin-left: 5px;
-}
-
-.time-setter input {
-  width: 100%;
-  padding: 14px 15px; /* 增加高度 */
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
-}
-
-.time-setter input.task-input {
-  border-left: 3px solid #5e72e4;
-}
-
-.time-setter input.time-input {
-  border-left: 3px solid #2dce89;
-  font-size: 1.1rem; /* 增加字体大小 */
-  font-weight: 500; /* 加粗 */
-  text-align: center; /* 居中显示 */
-}
-
-.time-setter input:focus {
-  border-color: #5e72e4;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(94, 114, 228, 0.2);
-  background: white;
-}
-
-.controls {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin: 20px 0;
-  width: 100%;
-  max-width: 500px;
-}
-
-.control-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 12px;
-  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  letter-spacing: 0.5px;
-  font-size: 1rem;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.control-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: all 0.6s ease;
-}
-
-.control-btn:hover::before {
-  left: 100%;
-}
-
-.primary-btn {
-  background: linear-gradient(135deg, #5e72e4, #825ee4);
-  color: white;
-}
-
-.success-btn {
-  background: linear-gradient(135deg, #2dce89, #2eca72);
-  color: white;
-}
-
-.reset-btn {
-  background: linear-gradient(135deg, #f5365c, #f3545d);
-  color: white;
-}
-
-.control-btn:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
-}
-
-.control-btn:active:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px rgba(50, 50, 93, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
-  transition: all 0.1s;
-}
-
-.control-btn:disabled {
-  background: linear-gradient(135deg, #d1d8e6, #a0aec0);
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-/* 学习统计卡片 */
-.study-stats {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin: 20px 0;
-  width: 100%;
-  max-width: 500px;
-}
-
-.stat-card {
-  flex: 1;
-  background: white;
+  padding: 4px 8px;
   border-radius: 12px;
-  padding: 15px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-  display: flex;
-  align-items: center;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(0, 0, 0, 0.03);
-}
-
-.stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-}
-
-.stat-icon {
-  font-size: 2rem;
-  margin-right: 15px;
-  color: #5e72e4;
-}
-
-.stat-content h3 {
-  margin: 0 0 5px;
-  font-size: 0.9rem;
-  color: #7f8c8d;
-  font-weight: 500;
-}
-
-.stat-content p {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-/* 学习提示 */
-.study-tips {
-  margin-top: 20px;
-  background: rgba(94, 114, 228, 0.05);
-  border-radius: 12px;
-  padding: 15px 20px;
-  width: 100%;
-  max-width: 500px;
-  border-left: 4px solid #5e72e4;
-}
-
-.study-tips h4 {
-  margin: 0 0 10px;
-  color: #5e72e4;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.study-tips ul {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.study-tips li {
-  margin-bottom: 8px;
-  color: #2c3e50;
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.task-list {
-  background: white;
-  border-radius: 16px;
-  padding: 25px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
-  margin-bottom: 20px;
-}
-
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  padding-bottom: 15px;
-}
-
-.list-header h2 {
-  font-size: 1.4rem;
-  color: #2c3e50;
-  margin: 0;
-  font-weight: 600;
-}
-
-.task-records {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  max-height: 400px;
-  overflow-y: auto;
-  padding-right: 5px;
-}
-
-.task-record-item {
-  margin-bottom: 15px;
-  padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 10px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-  border-left: 3px solid #5e72e4;
-}
-
-.task-record-item:hover {
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-  transform: translateY(-3px);
-  background-color: #f5f7ff;
-}
-
-.task-record-content {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.task-record-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  padding-bottom: 10px;
-}
-
-.task-name {
-  font-weight: 600;
-  font-size: 1.1rem;
-  color: #2c3e50;
-}
-
-.task-record-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.task-time, .task-duration, .task-date {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(94, 114, 228, 0.05);
-  padding: 5px 10px;
-  border-radius: 20px;
-  margin-right: 5px;
-  margin-bottom: 5px;
-}
-
-.task-date {
-  background: rgba(45, 206, 137, 0.05);
-}
-
-.task-date .label {
-  color: #2dce89;
-}
-
-.label {
-  font-weight: 600;
-  color: #5e72e4;
-}
-
-.delete-task-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-  opacity: 0.6;
   transition: all 0.2s ease;
-  padding: 5px;
-  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.delete-task-btn:hover {
-  opacity: 1;
-  background: rgba(245, 54, 92, 0.1);
+.privacy-mode-control:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.empty-message {
-  text-align: center;
-  padding: 30px;
-  color: #95a5a6;
-  font-style: italic;
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 10px;
+/* 隐私模式标签样式 */
+.privacy-mode-label {
+  font-size: 0.85rem;
+  color: var(--color-text-yellow);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-/* 侧边栏样式 */
-.sidebar-header {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.sidebar-header h2 {
-  font-size: 1.4rem;
-  color: #2c3e50;
-  margin: 0 0 5px 0;
-  font-weight: 600;
-}
-
-.sidebar-subtitle {
-  color: #7f8c8d;
-  font-size: 0.9rem;
-  margin: 0;
-}
-
-.header-controls {
-  display: flex;
-  gap: 8px;
-}
-
-.sidebar-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.refresh-btn, .debug-btn {
-  padding: 5px 10px;
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s;
-}
-
-.refresh-btn:hover, .debug-btn:hover {
-  background-color: #e9ecef;
-}
-
-.debug-btn {
-  background-color: #f8e9ff;
-  border-color: #e5caff;
-}
-
-.debug-btn:hover {
-  background-color: #f0d9ff;
-}
-
-.refresh-btn:disabled, .debug-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.summary {
-  margin-top: 20px;
-  border-top: 1px solid #eee;
-  padding-top: 15px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.summary p {
-  margin: 5px 0;
-  color: #7f8c8d;
-}
-
-.summary span {
-  font-weight: 600;
-  color: #3498db;
-}
-
-.plan-control {
-  display: flex;
-  margin-bottom: 16px;
+/* 自定义开关样式 */
+.custom-switch {
   position: relative;
-  background: white;
+  width: 36px;
+  height: 18px;
+  background-color: rgba(255, 255, 255, 0.2);
   border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-.plan-control:focus-within {
-  box-shadow: 0 4px 15px rgba(94, 114, 228, 0.15);
-  transform: translateY(-2px);
-}
-
-.plan-control input {
-  flex: 1;
-  padding: 14px 16px;
-  border: none;
-  font-size: 0.95rem;
-  background: transparent;
-  transition: all 0.3s ease;
-}
-
-.plan-control input:focus {
-  outline: none;
-}
-
-.add-plan-btn {
-  background: linear-gradient(135deg, #5e72e4, #825ee4);
-  color: white;
-  border: none;
-  width: 50px;
   cursor: pointer;
   transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.plus-icon {
-  font-size: 22px;
-  font-weight: 300;
-  line-height: 1;
+.custom-switch.switch-on {
+  background-color: #FFCC00;
+  border-color: #FFCC00;
+  box-shadow: 0 0 6px rgba(255, 204, 0, 0.5);
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background-color: white;
+  border-radius: 50%;
   transition: all 0.3s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.add-plan-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #4a5bd4, #6f4dd4);
-  width: 60px;
+.switch-on .switch-thumb {
+  left: calc(100% - 14px);
 }
 
-.add-plan-btn:hover:not(:disabled) .plus-icon {
-  transform: scale(1.2);
-}
 
-.add-plan-btn:active:not(:disabled) .plus-icon {
-  transform: scale(1);
-}
 
-.add-plan-btn:disabled {
-  background: linear-gradient(135deg, #d1d8e6, #a0aec0);
-  cursor: not-allowed;
-}
-
-/* 科技感计划列表 */
+/* 计划列表样式 - 苹果风格 */
 .tech-plan-list {
   margin: 0;
-  padding: 0;
-  max-height: 500px; /* 设置最大高度 */
-  overflow-y: auto; /* 允许垂直滚动 */
-  overflow-x: hidden; /* 隐藏水平滚动条 */
-  padding-right: 5px; /* 添加右侧内边距，为滚动条留出空间 */
+  padding: 0 20px;
+  list-style: none;
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 .tech-plan-item {
-  display: flex;
-  flex-direction: column;
-  margin: 14px 0;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 14px;
-  border-radius: 12px;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(0, 120, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-  position: relative;
-  overflow: hidden;
+  padding: 16px;
+  margin-bottom: 12px;
+  background-color: rgba(74, 106, 138, 0.05); /* 使用 #4A6A8A 作为底纹 */
+  border-radius: 10px;
+  border: 1px solid var(--color-border-gray);
+  transition: all var(--transition-normal) ease;
   cursor: grab;
-  backdrop-filter: blur(5px);
-}
-
-.tech-plan-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  width: 4px;
-  background: linear-gradient(to bottom, #5e72e4, #825ee4);
-  opacity: 0.8;
-  transition: all 0.3s ease;
-}
-
-.tech-plan-item::after {
-  content: '';
-  position: absolute;
-  right: -20px;
-  bottom: -20px;
-  width: 60px;
-  height: 60px;
-  background: radial-gradient(circle, rgba(94, 114, 228, 0.1), transparent 70%);
-  z-index: 0;
-  transition: all 0.3s ease;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .tech-plan-item:hover {
-  background: rgba(255, 255, 255, 0.95);
-  transform: translateY(-3px); /* 移除scale效果，防止卡片变大导致溢出 */
-  box-shadow: 0 8px 20px rgba(94, 114, 228, 0.15);
-}
-
-.tech-plan-item:hover::before {
-  width: 6px;
-  opacity: 1;
-  background: linear-gradient(to bottom, #11cdef, #1171ef);
-}
-
-.tech-plan-item:hover::after {
-  transform: scale(1.2);
-}
-
-.tech-plan-item:active {
-  cursor: grabbing;
-  transform: translateY(-1px) scale(1.01);
-  transition: all 0.1s ease;
+  transform: translateY(-2px);
+  background-color: rgba(74, 106, 138, 0.08); /* 使用 #4A6A8A 作为悬停底纹 */
+  box-shadow: var(--card-shadow);
 }
 
 .tech-plan-item.dragging {
   opacity: 0.7;
-  transform: scale(1.05);
-  box-shadow: 0 10px 25px rgba(94, 114, 228, 0.2);
-  border: 2px dashed #5e72e4;
-  background: rgba(255, 255, 255, 0.95);
-  position: relative;
-  z-index: 100;
+  transform: scale(0.98);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.tech-plan-item.completed {
+  background-color: rgba(106, 141, 127, 0.05); /* 低饱和度青绿色背景 */
+  border: 1px solid rgba(106, 141, 127, 0.3); /* 低饱和度青绿色边框 */
+}
+
+.tech-plan-item:not(.completed) {
+  border: 1px solid rgba(90, 122, 154, 0.3); /* 低饱和度蓝灰色边框 */
 }
 
 .tech-plan-content {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   flex: 1;
 }
 
 .tech-plan-checkbox-container {
   position: relative;
-  margin-right: 12px;
-  margin-top: 2px;
+  margin-right: 14px;
 }
 
 .tech-plan-checkbox {
@@ -1463,45 +1122,35 @@ onMounted(() => {
 
 .tech-plan-checkbox-label {
   display: inline-block;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border: 2px solid #5e72e4;
+  width: 22px;
+  height: 22px;
+  background-color: transparent;
+  border: 2px solid var(--color-accent-blue);
   border-radius: 6px;
   position: relative;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 5px rgba(94, 114, 228, 0.2);
+  transition: all var(--transition-fast) ease;
 }
 
 .tech-plan-checkbox-label:hover {
-  transform: scale(1.1);
-  box-shadow: 0 3px 8px rgba(94, 114, 228, 0.3);
-  border-color: #11cdef;
+  background-color: rgba(10, 132, 255, 0.1);
 }
 
 .tech-plan-checkbox:checked + .tech-plan-checkbox-label {
-  background: linear-gradient(135deg, #5e72e4, #825ee4);
-  border-color: transparent;
+  background-color: var(--color-accent-green);
+  border-color: var(--color-accent-green);
 }
 
 .tech-plan-checkbox:checked + .tech-plan-checkbox-label::after {
   content: '';
   position: absolute;
-  left: 6px;
-  top: 2px;
+  left: 7px;
+  top: 3px;
   width: 6px;
   height: 11px;
   border: solid white;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
-  animation: checkmark 0.2s ease-in-out;
-}
-
-@keyframes checkmark {
-  0% { opacity: 0; transform: rotate(45deg) scale(0.8); }
-  50% { opacity: 1; transform: rotate(45deg) scale(1.2); }
-  100% { opacity: 1; transform: rotate(45deg) scale(1); }
 }
 
 .tech-plan-text-container {
@@ -1512,548 +1161,284 @@ onMounted(() => {
 
 .tech-plan-text {
   font-size: 0.95rem;
-  color: #2c3e50;
-  transition: all 0.3s ease;
-  margin-bottom: 6px;
-  line-height: 1.5;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-}
-
-.tech-plan-item:hover .tech-plan-text {
-  color: #1a365d;
-}
-
-.tech-plan-status {
-  font-size: 0.7rem;
-  color: #fff;
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
-  padding: 3px 8px;
-  border-radius: 20px;
-  display: inline-block;
-  margin-top: 6px;
-  font-weight: 600;
-  width: fit-content;
-  box-shadow: 0 2px 5px rgba(46, 204, 113, 0.2);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.tech-plan-status.pending {
-  color: #fff;
-  background: linear-gradient(135deg, #f39c12, #e67e22);
-  box-shadow: 0 2px 5px rgba(230, 126, 34, 0.2);
-}
-
-.tech-plan-debug-info {
-  font-size: 0.7rem;
-  color: #888;
-  margin-top: 8px;
-  font-family: 'Roboto Mono', monospace;
-  background: rgba(0, 0, 0, 0.03);
-  padding: 4px 8px;
-  border-radius: 4px;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-left: 2px solid #3498db;
-}
-
-.tech-plan-item.completed {
-  background: rgba(236, 240, 241, 0.7);
-  border-color: rgba(46, 204, 113, 0.2);
-}
-
-.tech-plan-item.completed::before {
-  background: linear-gradient(to bottom, #27ae60, #2ecc71);
-}
-
-.tech-plan-item.completed::after {
-  background: radial-gradient(circle, rgba(46, 204, 113, 0.1), transparent 70%);
+  color: var(--color-text-white);
+  transition: all var(--transition-fast) ease;
+  line-height: 1.4;
+  font-weight: 400;
 }
 
 .tech-plan-item.completed .tech-plan-text {
   text-decoration: line-through;
-  color: #95a5a6;
+  color: var(--color-text-gray);
 }
 
-.tech-plan-item.completed:hover {
-  box-shadow: 0 8px 20px rgba(46, 204, 113, 0.15);
+.tech-plan-status {
+  font-size: 0.7rem;
+  color: var(--color-text-white);
+  background-color: var(--color-accent-green);
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 500;
+  width: fit-content;
+  letter-spacing: 0.02em;
+}
+
+.tech-plan-status.pending {
+  background-color: var(--color-accent-blue);
+  color: var(--color-text-white);
 }
 
 .tech-plan-delete-btn {
   background: none;
   border: none;
-  color: #7f8c8d;
+  color: var(--color-text-gray);
   cursor: pointer;
   padding: 6px;
-  opacity: 0.6;
-  transition: all 0.3s ease;
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  border-radius: 50%;
+  transition: all var(--transition-fast) ease;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2;
+  height: 32px;
+  width: 32px;
+  min-height: 32px;
+  min-width: 32px;
 }
 
 .tech-plan-delete-btn:hover {
-  opacity: 1;
-  color: #fff;
-  background: linear-gradient(135deg, #f5365c, #e74c3c);
-  box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3);
-  transform: translateY(-2px);
+  color: var(--color-accent-red);
+  background-color: rgba(255, 69, 58, 0.1);
 }
 
-.tech-plan-delete-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 5px rgba(231, 76, 60, 0.2);
-}
-
-.tech-plan-delete-btn svg {
-  width: 16px;
-  height: 16px;
-  transition: all 0.3s ease;
-}
-
-.tech-plan-delete-btn:hover svg {
-  transform: scale(1.1);
-}
-
-button:disabled {
-  opacity: 0.6;
+.tech-plan-delete-btn:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
-.error-message {
-  background: rgba(231, 76, 60, 0.08);
-  color: #e74c3c;
-  padding: 10px 12px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  text-align: center;
-  font-size: 0.85rem;
-  border-left: 3px solid #e74c3c;
-  box-shadow: 0 2px 6px rgba(231, 76, 60, 0.1);
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.user-info {
-  background: rgba(52, 152, 219, 0.1);
-  color: #3498db;
-  padding: 8px;
-  border-radius: 5px;
-  margin-bottom: 10px;
-  text-align: left;
-  font-size: 0.9rem;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.api-status {
-  white-space: pre-line;
-  margin-top: 5px;
-  padding: 5px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 3px;
-  max-height: 100px;
-  overflow-y: auto;
-}
-
-.debug-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 5px;
-}
-
-.test-api-btn {
-  padding: 5px 10px;
-  background-color: #3498db;
-  color: white;
+/* 任务删除按钮样式 - 与计划删除按钮保持一致 */
+.delete-task-btn {
+  background: none;
   border: none;
-  border-radius: 4px;
+  color: var(--color-text-gray);
   cursor: pointer;
-  font-size: 0.8rem;
-}
-
-.test-api-btn:hover {
-  background-color: #2980b9;
-}
-
-.api-test-link {
-  padding: 5px 10px;
-  background-color: #2ecc71;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  text-decoration: none;
-  display: inline-block;
-}
-
-.api-test-link:hover {
-  background-color: #27ae60;
-}
-
-.plan-debug {
-  margin-bottom: 10px;
-  display: flex;
-  gap: 5px;
-}
-
-.clear-plans-btn, .check-api-btn {
-  flex: 1;
-  padding: 5px;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  transition: background 0.3s;
-}
-
-.clear-plans-btn {
-  background-color: #e74c3c;
-}
-
-.clear-plans-btn:hover {
-  background-color: #c0392b;
-}
-
-.check-api-btn {
-  background-color: #e67e22;
-}
-
-.check-api-btn:hover {
-  background-color: #d35400;
-}
-
-.loading-message, .empty-message {
-  text-align: center;
-  padding: 15px;
-  color: #7f8c8d;
-  font-style: italic;
-  background: rgba(236, 240, 241, 0.5);
-  border-radius: 8px;
-  margin: 10px 0;
-  font-size: 0.9rem;
-  border: 1px dashed rgba(127, 140, 141, 0.2);
-}
-
-.loading-message::before {
-  content: '⏳';
-  margin-right: 6px;
-  animation: pulse 1.5s infinite;
-  display: inline-block;
-}
-
-.empty-message::before {
-  content: '📝';
-  margin-right: 6px;
-  display: inline-block;
-}
-
-@keyframes pulse {
-  0% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.1); }
-  100% { opacity: 0.5; transform: scale(1); }
-}
-
-ul {
-  list-style: none;
-  padding: 0;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-h2 {
-  color: var(--primary-color);
-  margin: 0;
-  font-size: 1.3rem;
-  font-weight: 600;
-}
-
-.sidebar-header h2 {
-  font-size: 1.1rem;
+  padding: 6px;
+  transition: all var(--transition-fast) ease;
+  border-radius: 6px;
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, #5e72e4, #11cdef);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  color: transparent;
+  justify-content: center;
+  height: 32px;
+  width: 32px;
+  min-height: 32px;
+  min-width: 32px;
+}
+
+.delete-task-btn:hover {
+  color: var(--color-accent-red);
+  background-color: rgba(255, 69, 58, 0.1);
+}
+
+.delete-task-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* 计划控制区域 - 苹果风格 */
+.plan-control {
+  display: flex;
+  margin-bottom: 16px;
+  margin-top: 8px;
   position: relative;
+  background-color: var(--color-input-gray);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all var(--transition-fast) ease;
+  border: 1px solid var(--color-border-gray);
+  height: 40px;
+  margin-left: 20px;
+  margin-right: 20px;
+  padding: 0;
 }
 
-.sidebar-header h2::after {
-  content: '';
-  position: absolute;
-  bottom: -4px;
-  left: 0;
-  width: 30px;
-  height: 2px;
-  background: linear-gradient(to right, #3498db, transparent);
+.plan-control:focus-within {
+  border-color: var(--color-accent-blue-dim);
+  box-shadow: 0 0 0 1px rgba(74, 106, 138, 0.3);
 }
 
-/* 响应式布局 */
-/* 平板设备 */
-@media (max-width: 1200px) {
-  .main-content {
-    gap: 20px;
-  }
-
-  .pomodoro-card {
-    padding: 30px;
-  }
-
-  .study-tips {
-    max-width: 100%;
-  }
+.plan-input {
+  flex: 1;
+  border: none !important;
+  border-radius: 8px 0 0 8px !important;
+  font-size: 0.95rem !important;
+  background-color: transparent !important;
+  color: var(--color-text-white) !important;
+  transition: all var(--transition-fast) ease !important;
+  height: 100% !important;
+  box-shadow: none !important;
+  padding: 0 14px !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
 }
 
-@media (max-width: 1024px) {
-  .main-content {
-    flex-direction: column;
-  }
-
-  .plan-sidebar {
-    width: 100%;
-    margin-top: 30px;
-  }
-
-  .pomodoro-main {
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-  }
-
-  .timer-container {
-    transform: scale(1.3);
-  }
-
-  .study-stats {
-    flex-direction: row;
-    max-width: 100%;
-  }
+.plan-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
-/* 小平板和大手机 */
-@media (max-width: 768px) {
-  .pomodoro-card {
-    padding: 25px;
-  }
-
-  .timer-container {
-    margin: 20px 0;
-    transform: scale(1.2);
-  }
-
-  .controls {
-    flex-direction: column;
-    width: 100%;
-    gap: 10px;
-  }
-
-  .control-btn {
-    width: 100%;
-  }
-
-  .time-setter {
-    flex-direction: column;
-    padding: 10px;
-  }
-
-  .task-group, .time-group {
-    width: 100%;
-  }
-
-  .task-record-details {
-    flex-wrap: wrap;
-  }
+.add-plan-btn {
+  background-color: var(--color-accent-blue);
+  color: var(--color-text-white);
+  border: none;
+  width: 40px;
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 8px 8px 0;
+  height: 100%;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0;
+  margin-right: 0;
 }
 
-/* 手机设备 */
-@media (max-width: 480px) {
-  .main-content {
-    padding: 0 8px;
-  }
-
-  .pomodoro-card, .task-list, .plan-sidebar {
-    padding: 12px;
-    border-radius: 10px;
-    width: 100%;
-    box-sizing: border-box;
-    margin-bottom: 15px;
-  }
-
-  .pomodoro-title {
-    font-size: 1.3rem;
-    margin-top: 0;
-    margin-bottom: 5px;
-  }
-
-  .pomodoro-subtitle {
-    font-size: 0.8rem;
-    margin-bottom: 8px;
-  }
-
-  .timer-container {
-    transform: scale(0.9);
-    margin: 0;
-    height: 150px;
-  }
-
-  .time-setter {
-    flex-direction: row;
-    gap: 6px;
-    margin-bottom: 5px;
-  }
-
-  .input-group {
-    margin-bottom: 5px;
-  }
-
-  .input-group label {
-    font-size: 0.8rem;
-    margin-bottom: 3px;
-  }
-
-  .task-input, .time-input {
-    padding: 8px;
-    font-size: 0.9rem;
-  }
-
-  .control-btn {
-    padding: 8px;
-    font-size: 0.85rem;
-    height: 36px;
-  }
-
-  .control-buttons {
-    margin-top: 5px;
-    gap: 8px;
-  }
-
-  /* 学习记录部分 */
-  .list-header {
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-  }
-
-  .list-header h2 {
-    font-size: 1.1rem;
-  }
-
-  .task-records {
-    max-height: 300px;
-  }
-
-  .task-record-item {
-    padding: 8px;
-    margin-bottom: 8px;
-  }
-
-  .task-record-header {
-    padding-bottom: 5px;
-    margin-bottom: 5px;
-  }
-
-  .task-name {
-    font-size: 0.95rem;
-  }
-
-  .task-record-details {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 5px;
-  }
-
-  .task-time, .task-duration, .task-date {
-    padding: 3px 6px;
-    font-size: 0.75rem;
-    margin-right: 3px;
-    margin-bottom: 3px;
-  }
-
-  /* 计划部分 */
-  .sidebar-header h2 {
-    font-size: 1.1rem;
-    margin-bottom: 5px;
-  }
-
-  .sidebar-subtitle {
-    font-size: 0.8rem;
-    margin-bottom: 8px;
-  }
-
-  .plan-control {
-    margin-bottom: 10px;
-  }
-
-  .plan-control input {
-    padding: 8px;
-    font-size: 0.9rem;
-  }
-
-  .tech-plan-item {
-    padding: 8px;
-    margin-bottom: 8px;
-  }
-
-  .tech-plan-text {
-    font-size: 0.9rem;
-  }
-
-  .study-tips {
-    padding: 10px;
-    margin-top: 10px;
-  }
-
-  .study-tips h4 {
-    font-size: 0.9rem;
-    margin-bottom: 5px;
-  }
-
-  .study-tips li {
-    font-size: 0.8rem;
-    margin-bottom: 3px;
-  }
-
-  .empty-message {
-    padding: 15px;
-    font-size: 0.85rem;
-  }
+.add-plan-btn:hover {
+  background-color: var(--color-accent-blue-dim);
+  filter: brightness(1.1);
 }
 
-/* 小手机设备 */
-@media (max-width: 360px) {
-  .pomodoro-card {
-    padding: 12px;
-  }
+.add-plan-btn:active {
+  transform: scale(0.98);
+}
 
-  .timer-container {
-    transform: scale(0.9);
-  }
+.plus-icon {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+  transition: all var(--transition-normal) ease;
+}
 
-  .control-btn {
-    padding: 8px;
-    font-size: 0.85rem;
-  }
+/* 侧边栏容器 */
+.sidebar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
-  .list-header h2, .sidebar-header h2 {
-    font-size: 1.2rem;
-  }
+/* 空状态消息 */
+.empty-message {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* 控制按钮容器 */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+  position: relative;
+  z-index: 10; /* 确保按钮在最上层 */
+}
+
+/* 按钮内容样式 - 确保文字可点击 */
+.button-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* 确保事件穿透到按钮 */
+}
+
+/* 输入容器 - 两列布局 - 苹果风格 */
+.input-container {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 24px;
+  width: 100%;
+  align-items: stretch; /* 确保子元素高度一致 */
+}
+
+/* 输入列 */
+.input-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 计时器容器 - 确保不遮挡按钮 */
+.timer-container {
+  position: relative;
+  margin-bottom: 24px;
+  z-index: 1; /* 确保不会遮挡按钮 */
+  pointer-events: none; /* 防止遮挡按钮点击 */
+}
+
+.timer-container > * {
+  pointer-events: auto; /* 恢复计时器本身的点击事件 */
+}
+
+.task-input-section {
+  padding: 12px;
+  background-color: rgba(90, 122, 154, 0.05); /* 低饱和度蓝灰色背景 */
+  border-radius: 10px;
+  border: 1px solid rgba(90, 122, 154, 0.2); /* 低饱和度蓝灰色边框 */
+  box-shadow: var(--card-shadow);
+  transition: all var(--transition-fast) ease;
+  display: flex;
+  flex-direction: column;
+  height: 50px; /* 更窄的高度 */
+  margin-top: 0; /* 添加顶部边距 */
+  flex: 1;
+}
+
+.time-input-section {
+  padding: 12px;
+  background-color: rgba(106, 141, 127, 0.05); /* 低饱和度青绿色背景 */
+  border-radius: 10px;
+  border: 1px solid rgba(106, 141, 127, 0.2); /* 低饱和度青绿色边框 */
+  box-shadow: var(--card-shadow);
+  transition: all var(--transition-fast) ease;
+  display: flex;
+  flex-direction: column;
+  height: 50px; /* 更窄的高度 */
+  flex: 1;
+  margin-top: 0; /* 添加顶部边距 */
+}
+
+.task-input-section:focus-within, .time-input-section:focus-within {
+  border-color: rgba(90, 122, 154, 0.4); /* 低饱和度蓝灰色边框 - 聚焦状态 */
+  background-color: rgba(90, 122, 154, 0.08); /* 稍微深一点的背景 - 聚焦状态 */
+}
+
+.input-label {
+  color: var(--color-text-light-gray);
+  font-weight: 500;
+  margin-bottom: 8px;
+  display: block;
+  font-size: 0.9rem;
+}
+
+/* 输入框样式 */
+.task-input, .time-input {
+  border: none !important;
+  background-color: transparent !important;
+  height: 100% !important;
+  padding: 0 8px !important;
+  color: var(--color-text-white) !important;
+  font-size: 0.95rem !important;
+}
+
+.task-input:focus, .time-input:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }
 </style>

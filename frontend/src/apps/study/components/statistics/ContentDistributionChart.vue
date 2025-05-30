@@ -3,7 +3,7 @@
  * 内容分布图表组件
  * 显示学习内容的分布情况
  */
-import { defineProps, computed } from 'vue';
+import { defineProps, computed, onMounted, onUnmounted } from 'vue';
 import { Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 
@@ -161,11 +161,20 @@ const chartOptions = {
         boxWidth: 15,
         padding: 15,
         font: {
-          size: 12
-        }
+          size: 12,
+          weight: '500'
+        },
+        color: 'rgba(255, 255, 255, 0.9)' // 白色标签文字，提高可见度
       }
     },
     tooltip: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      titleColor: 'rgba(255, 255, 255, 0.9)',
+      bodyColor: 'rgba(255, 255, 255, 0.9)',
+      bodyFont: {
+        size: 13
+      },
+      padding: 12,
       callbacks: {
         label: function(context: any) {
           const label = context.label || '';
@@ -178,6 +187,35 @@ const chartOptions = {
     }
   }
 };
+
+// 响应式调整图表选项
+const updateChartOptions = () => {
+  if (window.innerWidth <= 600) {
+    // 在移动设备上将图例位置改为底部
+    chartOptions.plugins.legend.position = 'bottom';
+    chartOptions.plugins.legend.labels.boxWidth = 12;
+    chartOptions.plugins.legend.labels.font.size = 10;
+    chartOptions.plugins.legend.labels.padding = 8;
+    chartOptions.layout.padding = 5;
+  } else {
+    // 在桌面设备上将图例位置改为右侧
+    chartOptions.plugins.legend.position = 'right';
+    chartOptions.plugins.legend.labels.boxWidth = 15;
+    chartOptions.plugins.legend.labels.font.size = 12;
+    chartOptions.plugins.legend.labels.padding = 15;
+    chartOptions.layout.padding = 10;
+  }
+};
+
+// 监听窗口大小变化
+onMounted(() => {
+  updateChartOptions();
+  window.addEventListener('resize', updateChartOptions);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateChartOptions);
+});
 
 // 检查是否有数据
 const hasData = computed(() => {
@@ -204,14 +242,14 @@ const hasData = computed(() => {
 
 <style scoped>
 .chart-card {
-  background: white;
+  background-color: rgba(74, 106, 138, 0.05);
   border-radius: 16px;
   padding: 25px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
   height: 450px;
   max-height: 450px;
-  border: 1px solid rgba(33, 150, 243, 0.05);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border: 1px solid rgba(74, 106, 138, 0.3);
+  transition: all var(--transition-normal) ease;
   overflow: hidden;
   position: relative;
   display: flex;
@@ -219,15 +257,16 @@ const hasData = computed(() => {
 }
 
 .chart-card:hover {
-  box-shadow: 0 15px 35px rgba(33, 150, 243, 0.08), 0 5px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 15px 35px rgba(74, 106, 138, 0.08), 0 5px 15px rgba(0, 0, 0, 0.05);
   transform: translateY(-5px);
+  background-color: rgba(74, 106, 138, 0.08);
 }
 
 .chart-card .card-header {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
-  border-bottom: 1px solid rgba(33, 150, 243, 0.1);
+  border-bottom: 1px solid rgba(74, 106, 138, 0.2);
   padding-bottom: 15px;
   flex-shrink: 0;
 }
@@ -235,12 +274,13 @@ const hasData = computed(() => {
 .chart-card .card-icon {
   font-size: 1.8rem;
   margin-right: 15px;
-  color: #2196f3;
+  color: var(--color-text-white);
+  opacity: 0.8;
 }
 
 .chart-card .card-header h3 {
   margin: 0;
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1.2rem;
   font-weight: 600;
 }
@@ -263,14 +303,15 @@ const hasData = computed(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.02);
+  background-color: rgba(74, 106, 138, 0.03);
   border-radius: 10px;
   flex: 1;
   font-size: 1rem;
-  color: #9e9e9e;
+  color: var(--color-text-gray);
   position: relative;
   padding: 20px;
   text-align: center;
+  border: 1px solid rgba(74, 106, 138, 0.1);
 }
 
 .empty-icon {
@@ -278,17 +319,18 @@ const hasData = computed(() => {
   font-size: 3rem;
   margin-bottom: 15px;
   opacity: 0.5;
+  color: var(--color-text-light-gray);
 }
 
 .empty-text {
   display: block;
   font-size: 1.1rem;
   margin-bottom: 10px;
-  color: #757575;
+  color: var(--color-text-light-gray);
 }
 
 .empty-subtext {
   font-size: 0.9rem;
-  color: #9e9e9e;
+  color: var(--color-text-gray);
 }
 </style>

@@ -51,11 +51,12 @@
 
       <!-- User Menu (if logged in) -->
       <div v-if="isLoggedIn" class="user-menu" @click.stop="toggleUserDropdown">
-        <Avatar class="user-avatar-shadcn">
-          <AvatarFallback class="avatar-fallback">
-            {{ userInitials }}
-          </AvatarFallback>
-        </Avatar>
+        <div class="user-avatar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
         <span class="username">{{ username }}</span>
         <div class="dropdown-indicator">▾</div>
 
@@ -75,21 +76,14 @@
     </div>
   </div>
 
-  <!-- shadcn Dialog 确认对话框 -->
-  <Dialog>
-    <DialogContent v-if="showConfirmDialog" class="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle>退出登录</DialogTitle>
-        <DialogDescription>
-          确定要退出登录吗？
-        </DialogDescription>
-      </DialogHeader>
-      <DialogFooter class="flex justify-end gap-2 mt-4">
-        <Button variant="outline" @click="cancelLogout">取消</Button>
-        <Button @click="confirmLogout">确定</Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+  <!-- 确认对话框 -->
+  <ConfirmDialog
+    :show="showConfirmDialog"
+    :title="confirmDialogTitle"
+    :message="confirmDialogMessage"
+    @confirm="confirmLogout"
+    @cancel="cancelLogout"
+  />
 </template>
 
 <script setup lang="ts">
@@ -98,17 +92,7 @@ import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
 import apiService from '../../shared/services/apiService';
 import { API_CONFIG } from '../../config';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import ConfirmDialog from './ConfirmDialog.vue';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -118,6 +102,8 @@ let clockInterval: number | null = null;
 
 // 确认对话框状态
 const showConfirmDialog = ref(false);
+const confirmDialogTitle = ref('退出登录');
+const confirmDialogMessage = ref('确定要退出登录吗？');
 
 // 计算属性：是否已登录
 const isLoggedIn = computed(() => {
@@ -133,13 +119,6 @@ const username = computed(() => {
   const name = userStore.username;
   console.log('MacosTopBar - userStore.username:', name);
   return name || '';
-});
-
-// 计算属性：用户名首字母（用于头像）
-const userInitials = computed(() => {
-  const name = username.value;
-  if (!name) return '?';
-  return name.charAt(0).toUpperCase();
 });
 
 // 更新当前日期和时间
@@ -192,13 +171,17 @@ const goToProfile = () => {
 // 退出登录
 const handleLogout = () => {
   console.log('退出登录 - 开始');
+  console.log('showConfirmDialog 之前:', showConfirmDialog.value);
 
   // 关闭用户下拉菜单
   showUserDropdown.value = false;
 
   // 显示确认对话框
   showConfirmDialog.value = true;
-  console.log('showConfirmDialog 设置为:', showConfirmDialog.value);
+  confirmDialogTitle.value = '退出登录';
+  confirmDialogMessage.value = '确定要退出登录吗？';
+
+  console.log('showConfirmDialog 之后:', showConfirmDialog.value);
   console.log('退出登录 - 结束');
 };
 
@@ -490,21 +473,20 @@ onUnmounted(() => {
   border-color: rgba(52, 152, 219, 0.25);
 }
 
-.user-avatar-shadcn {
-  width: 24px;
-  height: 24px;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.avatar-fallback {
-  background: linear-gradient(135deg, #3498db, #2980b9);
+.user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
-  font-size: 12px;
-  font-weight: 600;
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
 }
 
-.user-menu:hover .user-avatar-shadcn {
+.user-menu:hover .user-avatar {
   transform: scale(1.1);
   box-shadow: 0 3px 8px rgba(52, 152, 219, 0.4);
 }
@@ -622,6 +604,14 @@ onUnmounted(() => {
 
   .menu-icon {
     font-size: 16px;
+  }
+
+  .menu-text {
+    display: none; /* 在手机竖屏下隐藏菜单文字，只显示emoji */
+  }
+
+  .logo-text {
+    display: none; /* 在手机竖屏下隐藏logo文字 */
   }
 
   .username {

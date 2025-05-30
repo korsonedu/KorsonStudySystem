@@ -41,9 +41,9 @@ const props = defineProps<{
 }
 
 .section-heading {
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 10px;
   position: relative;
   display: inline-block;
@@ -57,16 +57,15 @@ const props = defineProps<{
   left: 0;
   width: 50px;
   height: 3px;
-  background: linear-gradient(90deg, #2196f3, #03a9f4);
+  background: rgba(74, 106, 138, 0.8);
   border-radius: 1.5px;
 }
 
 .section-desc {
   margin: 10px 0 0;
-  color: #5c6bc0;
+  color: var(--color-text-light-gray);
   font-size: 0.95rem;
   font-weight: 500;
-  opacity: 0.8;
 }
 
 .heatmap-wrapper {
@@ -79,18 +78,19 @@ const props = defineProps<{
 .heatmap-container {
   position: relative;
   padding: 30px;
-  background: white;
+  background-color: rgba(74, 106, 138, 0.05);
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(33, 150, 243, 0.05);
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(74, 106, 138, 0.3);
   max-width: 900px;
   width: 100%;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all var(--transition-normal) ease;
 }
 
 .heatmap-container:hover {
-  box-shadow: 0 15px 35px rgba(33, 150, 243, 0.08), 0 5px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--card-shadow-hover);
   transform: translateY(-5px);
+  background-color: rgba(74, 106, 138, 0.08);
 }
 
 .journey-motivation {
@@ -99,17 +99,20 @@ const props = defineProps<{
   justify-content: center;
   margin-top: 20px;
   padding: 15px;
-  background: rgba(33, 150, 243, 0.05);
+  background-color: rgba(74, 106, 138, 0.1);
   border-radius: 10px;
+  border: 1px solid rgba(74, 106, 138, 0.2);
 }
 
 .motivation-icon {
   font-size: 1.8rem;
   margin-right: 15px;
+  color: var(--color-text-white);
+  opacity: 0.8;
 }
 
 .motivation-text {
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1rem;
   font-weight: 500;
 }

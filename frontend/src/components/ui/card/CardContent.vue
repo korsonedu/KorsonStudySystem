@@ -12,7 +12,7 @@ const props = withDefaults(
 )
 
 const contentClasses = computed(() => {
-  return cn('p-6 pt-0', props.class)
+  return cn('p-8 pt-2', props.class)
 })
 </script>
 

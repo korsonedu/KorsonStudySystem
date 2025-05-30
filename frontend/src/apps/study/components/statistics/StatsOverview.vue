@@ -61,24 +61,12 @@ const props = defineProps<{
 }
 
 .section-heading {
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 10px;
+  font-weight: 600;
+  margin-bottom: 16px;
   position: relative;
   display: inline-block;
-  padding-bottom: 10px;
-}
-
-.section-heading::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 50px;
-  height: 3px;
-  background: linear-gradient(90deg, #2196f3, #03a9f4);
-  border-radius: 1.5px;
 }
 
 .stats-grid {
@@ -89,51 +77,41 @@ const props = defineProps<{
 }
 
 .stat-card {
-  background: white;
-  border-radius: 16px;
+  background-color: rgba(74, 106, 138, 0.05); /* 使用 #4A6A8A 作为底纹 */
+  border-radius: 12px;
   padding: 25px 20px;
   text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: var(--card-shadow);
+  transition: all var(--transition-normal) ease;
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(33, 150, 243, 0.05);
-}
-
-.stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 4px;
-  background: linear-gradient(90deg, #2196f3, #03a9f4);
+  border: 1px solid rgba(74, 106, 138, 0.3); /* 使用 #4A6A8A 作为边框 */
 }
 
 .stat-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 15px 35px rgba(33, 150, 243, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07);
+  transform: translateY(-5px);
+  box-shadow: var(--card-shadow-hover);
+  background-color: rgba(74, 106, 138, 0.08); /* 使用 #4A6A8A 作为悬停底纹 */
 }
 
 .stat-card h3 {
   margin: 0 0 15px;
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .stat-card p {
   margin: 0;
-  color: #0d47a1;
+  color: var(--color-text-white);
   font-size: 2rem;
-  font-weight: 700;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-weight: 600;
 }
 
 .stat-icon {
   font-size: 2.5rem;
   margin-bottom: 15px;
-  color: #2196f3;
+  opacity: 0.8;
 }
 
 .stat-content {
@@ -145,9 +123,8 @@ const props = defineProps<{
 .stat-caption {
   display: block;
   margin-top: 10px;
-  color: #5c6bc0;
+  color: var(--color-text-gray);
   font-size: 0.9rem;
-  font-style: italic;
 }
 
 /* 响应式布局 */

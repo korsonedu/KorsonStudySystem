@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr
 
 class UserBase(BaseModel):
     username: str
@@ -16,6 +16,7 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
     email_verified: Optional[bool] = None
+    avatar: Optional[str] = None
 
 class UserResponse(UserBase):
     id: int
@@ -23,6 +24,7 @@ class UserResponse(UserBase):
     is_superuser: bool
     created_at: datetime
     email_verified: bool
+    avatar: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -45,9 +45,10 @@ export default defineConfig(({ command, mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: env.VITE_API_BASE_URL || 'http://127.0.0.1:8000',
+          target: env.VITE_API_BASE_URL || 'https://plt.korsonedu.com',
           changeOrigin: true,
-          secure: false
+          secure: false,
+          rewrite: (path) => path
         }
       },
       cors: true

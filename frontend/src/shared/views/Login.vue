@@ -59,7 +59,7 @@ const login = async () => {
     }
 
     // 使用Pinia用户存储进行登录
-    console.log('Login.vue - 调用 userStore.login')
+    console.log('Login.vue - 调用 userStore.login', { username: username.value })
     const loginResult = await userStore.login({
       username: username.value,
       password: password.value
@@ -69,10 +69,6 @@ const login = async () => {
 
     if (loginResult) {
       console.log('Login.vue - 登录成功，用户状态已更新')
-
-      // 检查用户状态
-      console.log('Login.vue - 用户名:', userStore.username)
-      console.log('Login.vue - 是否登录:', userStore.isLoggedIn)
 
       // 显示登录成功提示
       toast.success('登录成功', {
@@ -107,7 +103,7 @@ const login = async () => {
       }
     } else {
       toast.error('登录失败', {
-        description: '请检查网络连接',
+        description: '服务器连接失败，请稍后再试',
       })
     }
   } finally {
@@ -115,76 +111,82 @@ const login = async () => {
   }
 }
 
-const goToRegister = () => {
-  router.push('/register')
-}
-
-// 重新发送验证邮件
 const resendVerificationEmail = async () => {
   try {
     resendLoading.value = true
     errorMessage.value = ''
     successMessage.value = ''
 
-    // 确保有邮箱地址
     if (!email.value) {
       toast.error('错误', {
-        description: '请输入您的邮箱地址',
+        description: '请输入邮箱地址',
       })
+      resendLoading.value = false
       return
     }
 
     // 调用重新发送验证邮件API
-    const response = await apiService.post(
-      API_CONFIG.ENDPOINTS.AUTH.RESEND_VERIFICATION,
-      { email: email.value }
-    )
-
-    // 显示成功消息
-    toast.success('邮件已发送', {
-      description: response.data.message || '验证邮件已重新发送，请查收',
+    const response = await apiService.post(API_CONFIG.ENDPOINTS.AUTH.RESEND_VERIFICATION, {
+      email: email.value
     })
-    showResendVerification.value = false
+
+    if (response.status === 200) {
+      toast.success('发送成功', {
+        description: '验证邮件已发送，请查收',
+      })
+      // 返回登录表单
+      showResendVerification.value = false
+    }
   } catch (error: any) {
     console.error('重新发送验证邮件失败:', error)
-    toast.error('发送失败', {
-      description: error.response?.data?.detail || '重新发送验证邮件失败，请稍后再试',
-    })
+    if (error.response) {
+      toast.error('发送失败', {
+        description: error.response.data.detail || '请稍后再试',
+      })
+    } else {
+      toast.error('发送失败', {
+        description: '服务器连接失败，请稍后再试',
+      })
+    }
   } finally {
     resendLoading.value = false
   }
 }
+
+const goToRegister = () => {
+  router.push('/register')
+}
 </script>
 
 <template>
-  <div class="login-container">
-    <Card class="login-card">
-      <CardHeader class="card-header">
-        <CardTitle class="card-title">欢迎回来</CardTitle>
-        <p class="subtitle">登录您的账号继续学习之旅</p>
+  <div class="auth-container">
+    <Card class="auth-card">
+      <CardHeader class="auth-header">
+        <CardTitle class="auth-title">欢迎回来</CardTitle>
+        <p class="auth-subtitle">登录您的账号继续学习之旅</p>
       </CardHeader>
 
-      <CardContent class="card-content">
+      <CardContent class="auth-content">
 
         <!-- 重新发送验证邮件表单 -->
-        <Card v-if="showResendVerification" class="resend-verification">
+        <Card v-if="showResendVerification" class="auth-verification">
           <CardContent>
-            <p class="resend-text">没有收到验证邮件？请输入您的邮箱地址，我们将重新发送验证链接。</p>
-            <div class="form-group">
-              <div class="input-group">
-                <Label for="email" class="input-label">邮箱</Label>
+            <p class="auth-verification-text">没有收到验证邮件？请输入您的邮箱地址，我们将重新发送验证链接。</p>
+            <div class="auth-form">
+              <div class="auth-input-group">
+                <Label for="email" class="auth-label">邮箱</Label>
                 <Input
                   id="email"
                   v-model="email"
                   placeholder="请输入您的邮箱"
                   :disabled="resendLoading"
-                  class="input-field"
+                  class="auth-input"
                 />
               </div>
               <Button
                 @click="resendVerificationEmail"
                 :disabled="resendLoading"
-                class="submit-button"
+                class="auth-submit-btn"
               >
                 {{ resendLoading ? '发送中...' : '重新发送验证邮件' }}
               </Button>
@@ -192,21 +194,22 @@ const resendVerificationEmail = async () => {
           </CardContent>
         </Card>
 
-        <div v-if="!showResendVerification" class="form-group">
-          <div class="input-group">
-            <Label for="username" class="input-label">用户名</Label>
+        <div v-if="!showResendVerification" class="auth-form">
+          <div class="auth-input-group">
+            <Label for="username" class="auth-label">用户名</Label>
             <Input
               id="username"
               v-model="username"
               placeholder="请输入用户名"
               :disabled="loading"
               @keyup.enter="login"
-              class="input-field"
+              class="auth-input"
+              autocomplete="username"
             />
           </div>
 
-          <div class="input-group">
-            <Label for="password" class="input-label">密码</Label>
+          <div class="auth-input-group">
+            <Label for="password" class="auth-label">密码</Label>
             <Input
               id="password"
               type="password"
@@ -214,17 +217,18 @@ const resendVerificationEmail = async () => {
               placeholder="请输入密码"
               :disabled="loading"
               @keyup.enter="login"
-              class="input-field"
+              class="auth-input"
+              autocomplete="current-password"
             />
           </div>
         </div>
       </CardContent>
 
-      <CardFooter v-if="!showResendVerification" class="card-footer">
+      <CardFooter v-if="!showResendVerification" class="auth-footer">
         <Button
           @click="login"
           :disabled="loading"
-          class="submit-button"
+          class="auth-submit-btn"
         >
           {{ loading ? '登录中...' : '登录' }}
         </Button>
@@ -233,13 +237,13 @@ const resendVerificationEmail = async () => {
           @click="goToRegister"
           :disabled="loading"
           variant="outline"
-          class="secondary-button"
+          class="auth-secondary-btn"
         >
           注册新账号
         </Button>
 
-        <div class="register-link">
-          还没有账号？<a href="#" @click.prevent="goToRegister">立即注册</a>
+        <div class="auth-link-text">
+          还没有账号？<a href="#" @click.prevent="goToRegister" class="auth-link">立即注册</a>
         </div>
       </CardFooter>
     </Card>
@@ -247,186 +251,5 @@ const resendVerificationEmail = async () => {
 </template>
 
 <style scoped>
-.login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 80vh;
-  background: #f5f7fa;
-  padding: 20px;
-}
-
-.login-card {
-  width: 100%;
-  max-width: 480px; /* 增加宽度 */
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.login-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-}
-
-/* 卡片头部样式 */
-.card-header {
-  padding: 24px 24px 0;
-  border-bottom: none;
-}
-
-.card-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #333;
-  text-align: center;
-  margin-bottom: 8px;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-.subtitle {
-  color: rgba(0, 0, 0, 0.45);
-  font-size: 16px;
-  margin-bottom: 8px;
-  text-align: center;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-/* 卡片内容样式 */
-.card-content {
-  padding: 24px 32px; /* 增加水平内边距 */
-}
-
-/* 表单样式 */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.input-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-.input-field {
-  height: 42px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  font-size: 14px;
-  padding: 0 16px; /* 增加内边距 */
-  width: 100%; /* 确保宽度填满父容器 */
-}
-
-.input-field:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-/* 卡片底部样式 */
-.card-footer {
-  padding: 0 24px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  border-top: none;
-}
-
-/* 按钮样式 */
-.submit-button, .secondary-button {
-  height: 44px;
-  font-weight: 500;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  width: 100%;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  font-size: 15px;
-}
-
-.submit-button {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.secondary-button {
-  background-color: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  color: #666;
-}
-
-.submit-button:hover, .secondary-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* 提示信息样式 */
-.alert-message {
-  margin-bottom: 20px;
-  border-radius: 8px;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-/* 重发验证邮件样式 */
-.resend-verification {
-  background-color: rgba(0, 0, 0, 0.02);
-  border: none;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.resend-text {
-  margin-bottom: 16px;
-  font-size: 14px;
-  color: #666;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-/* 链接样式 */
-.register-link {
-  text-align: center;
-  font-size: 14px;
-  color: #666;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-.register-link a {
-  color: var(--primary-color);
-  font-weight: 500;
-  transition: all 0.2s ease;
-  text-decoration: none;
-}
-
-.register-link a:hover {
-  text-decoration: underline;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .login-card {
-    max-width: 100%;
-    margin: 0 10px;
-  }
-
-  :deep(.button) {
-    height: 42px;
-  }
-}
-
-@media (max-width: 480px) {
-  .login-container {
-    padding: 15px;
-  }
-}
+/* 所有样式已移至全局CSS文件 */
 </style>

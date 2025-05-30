@@ -37,7 +37,7 @@ ALGORITHM = os.getenv("ALGORITHM", "HS256")
 # CORS配置
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://plt.korsonedu.com")
 # 确保允许前端开发服务器的请求
-CORS_ORIGINS = [FRONTEND_URL, "https://plt.korsonedu.com"]
+CORS_ORIGINS = [FRONTEND_URL, "https://plt.korsonedu.com", "*"]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["*"]
 CORS_ALLOW_HEADERS = ["*"]

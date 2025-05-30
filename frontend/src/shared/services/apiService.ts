@@ -36,21 +36,66 @@ apiClient.interceptors.request.use(
 
     // 添加认证token
     let token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
+    const tokenExpiry = localStorage.getItem(STORAGE_CONFIG.TOKEN_EXPIRY_KEY);
+
+    // 检查token是否存在
     if (token) {
-      // 确保令牌格式正确 - 检查是否已经包含 Bearer 前缀
-      if (!token.startsWith('Bearer ')) {
-        token = `Bearer ${token}`;
-        // 更新本地存储中的令牌格式
-        localStorage.setItem(STORAGE_CONFIG.TOKEN_KEY, token);
+      let isExpired = false;
+
+      // 首先尝试从token本身解析过期时间
+      try {
+        // 解析JWT token
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+
+        const payload = JSON.parse(jsonPayload);
+        // JWT的exp是秒级时间戳，需要转换为毫秒
+        const jwtExpiry = payload.exp * 1000;
+
+        // 检查是否过期
+        isExpired = jwtExpiry <= Date.now();
+
+        // 更新localStorage中的过期时间
+        if (!isExpired && (!tokenExpiry || parseInt(tokenExpiry) !== jwtExpiry)) {
+          localStorage.setItem(STORAGE_CONFIG.TOKEN_EXPIRY_KEY, jwtExpiry.toString());
+          console.log('API请求拦截器: 更新token过期时间:', new Date(jwtExpiry).toISOString());
+        }
+      } catch (e) {
+        console.error('API请求拦截器: 解析JWT失败，使用localStorage中的过期时间:', e);
+
+        // 如果解析失败，使用localStorage中的过期时间
+        if (tokenExpiry) {
+          const expiryTime = parseInt(tokenExpiry);
+          isExpired = expiryTime <= Date.now();
+        }
       }
 
-      // 添加认证头
-      config.headers.Authorization = token;
+      // 如果token已过期，清除认证信息
+      if (isExpired) {
+        console.log('API请求拦截器: token已过期，清除认证信息');
+        localStorage.removeItem(STORAGE_CONFIG.TOKEN_KEY);
+        localStorage.removeItem(STORAGE_CONFIG.USERNAME_KEY);
+        localStorage.removeItem(STORAGE_CONFIG.USER_DATA_KEY);
+        localStorage.removeItem(STORAGE_CONFIG.TOKEN_EXPIRY_KEY);
+        token = null;
+      } else {
+        // 确保令牌格式正确 - 不修改本地存储中的令牌格式
+        let authToken = token;
+        if (!authToken.startsWith('Bearer ')) {
+          authToken = `Bearer ${authToken}`;
+        }
 
-      // 确保URL没有尾部斜杠
-      if (config.url && config.url.endsWith('/') && !config.url.endsWith('//')) {
-        config.url = config.url.slice(0, -1);
+        // 添加认证头
+        config.headers.Authorization = authToken;
       }
+    }
+
+    // 确保URL没有尾部斜杠
+    if (config.url && config.url.endsWith('/') && !config.url.endsWith('//')) {
+      config.url = config.url.slice(0, -1);
     }
 
     // 添加请求ID，便于跟踪和调试
@@ -110,32 +155,40 @@ apiClient.interceptors.response.use(
         const isAuthRequest = url.includes('/api/auth/login') ||
                              url.includes('/api/auth/register');
 
-        // 检查是否是/me请求
-        const isMeRequest = url.includes('/api/auth/me');
-
-        if (isMeRequest) {
-          console.log(`[${requestId}] 收到401未授权响应，但不会自动重定向`);
-
-          // 检查是否有token
-          const token = localStorage.getItem(STORAGE_CONFIG.TOKEN_KEY);
-          if (token) {
-            console.log(`[${requestId}] 令牌存在但可能已过期，尝试刷新令牌`);
-            // 这里可以添加刷新令牌的逻辑
-          }
-
-          console.error(`[${requestId}] API认证失败 (401)，URL: ${url}`);
-        } else if (!isAuthRequest) {
-          // 如果不是登录相关请求，清除认证信息并重定向
-          console.log(`[${requestId}] 401未授权，清除认证信息并重定向到登录页`);
+        // 如果不是登录相关请求，清除认证信息
+        if (!isAuthRequest) {
+          console.log(`[${requestId}] 401未授权，清除认证信息`);
 
           // 清除本地存储的认证信息
           localStorage.removeItem(STORAGE_CONFIG.TOKEN_KEY);
           localStorage.removeItem(STORAGE_CONFIG.USERNAME_KEY);
+          localStorage.removeItem(STORAGE_CONFIG.USER_DATA_KEY);
+          localStorage.removeItem(STORAGE_CONFIG.TOKEN_EXPIRY_KEY);
 
-          // 如果不是登录页面，重定向到登录页
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
+          // 不要自动重定向，让路由守卫处理重定向
+          console.log(`[${requestId}] 认证信息已清除，将由路由守卫处理重定向`);
+
+          // 如果有Pinia store，可以通过事件总线通知应用更新状态
+          try {
+            // 尝试导入事件总线（如果存在）
+            const event = new CustomEvent('auth:unauthorized', { detail: { url } });
+            window.dispatchEvent(event);
+          } catch (e) {
+            console.error(`[${requestId}] 无法触发认证事件:`, e);
           }
+        }
+      }
+
+      // 处理502错误（Bad Gateway）
+      if (status === 502) {
+        console.error(`[${requestId}] 502 Bad Gateway错误，服务器可能不可用`);
+
+        // 只有在登录请求时才显示特殊错误，不清除认证信息
+        if (url.includes('/api/auth/login')) {
+          console.log(`[${requestId}] 登录服务不可用`);
+
+          // 不清除认证信息，只记录错误
+          console.error(`[${requestId}] 登录服务暂时不可用，请稍后再试`);
         }
       }
 

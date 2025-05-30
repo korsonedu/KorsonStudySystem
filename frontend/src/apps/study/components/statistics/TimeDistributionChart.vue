@@ -3,7 +3,7 @@
  * 时间分布图表组件
  * 显示学习时长在不同时间段的分布
  */
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 // defineProps 是编译器宏，不需要导入
 import { Bar, Line } from 'vue-chartjs';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend } from 'chart.js';
@@ -126,10 +126,11 @@ const chartData = computed(() => {
     datasets: [
       {
         label: '学习时长 (分钟)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        borderColor: 'rgba(75, 192, 192, 1)',
+        backgroundColor: 'rgba(227, 207, 87, 0.3)', // 使用淡黄色，更好的对比度
+        borderColor: 'rgba(227, 207, 87, 0.8)', // 使用黄色边框，更好的可见度
         borderWidth: 2,
-        data: numericData
+        data: numericData,
+        tension: 0.3 // 添加曲线平滑度
       }
     ]
   };
@@ -141,7 +142,27 @@ const chartOptions = {
   maintainAspectRatio: false,
   scales: {
     y: {
-      beginAtZero: true
+      beginAtZero: true,
+      ticks: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        font: {
+          size: 11
+        }
+      },
+      grid: {
+        color: 'rgba(255, 255, 255, 0.1)'
+      }
+    },
+    x: {
+      ticks: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        font: {
+          size: 11
+        }
+      },
+      grid: {
+        color: 'rgba(255, 255, 255, 0.1)'
+      }
     }
   },
   layout: {
@@ -150,10 +171,43 @@ const chartOptions = {
   plugins: {
     legend: {
       display: true,
-      position: 'top'
+      position: 'top',
+      labels: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        font: {
+          size: 12,
+          weight: '500'
+        },
+        padding: 10
+      }
     }
   }
 };
+
+// 响应式调整图表选项
+const updateChartOptions = () => {
+  if (window.innerWidth <= 600) {
+    chartOptions.scales.x.ticks.font.size = 9;
+    chartOptions.scales.y.ticks.font.size = 9;
+    chartOptions.plugins.legend.labels.font.size = 10;
+    chartOptions.layout.padding = 5;
+  } else {
+    chartOptions.scales.x.ticks.font.size = 11;
+    chartOptions.scales.y.ticks.font.size = 11;
+    chartOptions.plugins.legend.labels.font.size = 12;
+    chartOptions.layout.padding = 10;
+  }
+};
+
+// 监听窗口大小变化
+onMounted(() => {
+  updateChartOptions();
+  window.addEventListener('resize', updateChartOptions);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateChartOptions);
+});
 
 // 检查是否有数据
 const hasData = computed(() => {
@@ -181,13 +235,13 @@ const hasData = computed(() => {
 
 <style scoped>
 .chart-card {
-  background: white;
+  background-color: rgba(74, 106, 138, 0.05);
   border-radius: 16px;
   padding: 25px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
   height: 450px;
   max-height: 450px;
-  border: 1px solid rgba(33, 150, 243, 0.05);
+  border: 1px solid rgba(74, 106, 138, 0.3);
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   overflow: hidden;
   position: relative;
@@ -196,15 +250,16 @@ const hasData = computed(() => {
 }
 
 .chart-card:hover {
-  box-shadow: 0 15px 35px rgba(33, 150, 243, 0.08), 0 5px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 15px 35px rgba(74, 106, 138, 0.08), 0 5px 15px rgba(0, 0, 0, 0.05);
   transform: translateY(-5px);
+  background-color: rgba(74, 106, 138, 0.08);
 }
 
 .chart-card .card-header {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
-  border-bottom: 1px solid rgba(33, 150, 243, 0.1);
+  border-bottom: 1px solid rgba(74, 106, 138, 0.2);
   padding-bottom: 15px;
   flex-shrink: 0;
 }
@@ -212,12 +267,13 @@ const hasData = computed(() => {
 .chart-card .card-icon {
   font-size: 1.8rem;
   margin-right: 15px;
-  color: #2196f3;
+  color: var(--color-text-white);
+  opacity: 0.8;
 }
 
 .chart-card .card-header h3 {
   margin: 0;
-  color: #1976d2;
+  color: var(--color-text-white);
   font-size: 1.2rem;
   font-weight: 600;
 }
@@ -240,14 +296,15 @@ const hasData = computed(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.02);
+  background-color: rgba(74, 106, 138, 0.03);
   border-radius: 10px;
   flex: 1;
   font-size: 1rem;
-  color: #9e9e9e;
+  color: var(--color-text-gray);
   position: relative;
   padding: 20px;
   text-align: center;
+  border: 1px solid rgba(74, 106, 138, 0.1);
 }
 
 .empty-icon {
@@ -255,17 +312,18 @@ const hasData = computed(() => {
   font-size: 3rem;
   margin-bottom: 15px;
   opacity: 0.5;
+  color: var(--color-text-light-gray);
 }
 
 .empty-text {
   display: block;
   font-size: 1.1rem;
   margin-bottom: 10px;
-  color: #757575;
+  color: var(--color-text-light-gray);
 }
 
 .empty-subtext {
   font-size: 0.9rem;
-  color: #9e9e9e;
+  color: var(--color-text-gray);
 }
 </style>

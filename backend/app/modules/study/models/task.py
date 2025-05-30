@@ -12,7 +12,7 @@ class Task(Base):
     duration = Column(Integer)
     start = Column(DateTime)
     end = Column(DateTime)
-    completed = Column(Boolean, default=False)  # 确保包含 completed 字段
+    completed = Column(Boolean, default=False)
     user_id = Column(Integer, ForeignKey(f"{TABLE_PREFIX['COMMON']}users.id"))
 
     user = relationship("User", back_populates="tasks")
